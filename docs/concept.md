@@ -1,22 +1,24 @@
-# lunaria — the Claude-controlled viewport
+# brasenia — the Claude-controlled viewport
 
 *Concept v0.1 — drafted 2026-07-20 during the Roku HLS validation session;
-this repo is its canonical home.*
+this repo is its canonical home. Conceived as `lunaria` (honesty plant,
+translucent seed-pod windows) and renamed the same night: Lunaria annua is a
+European garden escape, and the Lentago roster is New England natives only.*
 
-Lunaria (the honesty plant) grows translucent seed pods — little windows you
-look through. **lunaria** is the household's shared window into what its
-Claudes are doing: one always-on screen whose content is chosen by a rubric,
-not a remote. The morning brief is the resting state; higher-value panes
-(a PR awaiting review, a failing backup, a deploy in flight) take the screen
-when they exist and yield it when they expire.
+Brasenia (watershield) carpets New England ponds with small floating leaves —
+little panes resting on the water's surface. **brasenia** is the household's
+shared window into what its Claudes are doing: one always-on screen whose
+content is chosen by a rubric, not a remote. The morning brief is the resting
+surface; higher-value panes (a PR awaiting review, a failing backup, a deploy
+in flight) surface above it when they exist and sink back when they expire.
 
 ## Why now
 
-The 2026-07-20 Roku HLS validation accidentally built lunaria's proof of
+The 2026-07-20 Roku HLS validation accidentally built brasenia's proof of
 concept: a `frame.png` slot rendered to a live HLS stream that a $0 sideloaded
 Roku channel plays 24/7, already carrying the morning brief and, before that,
 a Grafana dashboard. Pane switching happened by a human swapping loops.
-Lunaria is that last step made autonomous — and it is the retired pve2
+Brasenia is that last step made autonomous — and it is the retired pve2
 `surface`/wall-display concept reborn with better bones: the TV replaces a
 dedicated display host, the NAS replaces host-local state, and the transport
 already survives restarts (client retry logic proven).
@@ -46,7 +48,7 @@ Three nouns:
       │           ├── pane.html      (1..4 bands of 1280×720)
       │           └── manifest.json  (class, priority, ttl, created, author)
       ▼
- lunaria LXC (pve4) — compositor loop:
+ viewport LXC 118 (pve4; hostname still `lunaria` pre-rename) — compositor loop:
       1. scan manifests → drop expired → rank via rubric
       2. shoot winner's pane.html (headless chromium, throwaway profile)
       3. slice into 720-bands → rotate through frame.png
@@ -58,7 +60,7 @@ Three nouns:
 
 The bus is plain files on the share every host already mounts — no broker, no
 daemon on the NAS, browsable at `http://pub.lan/viewport/` for free debugging.
-Pub stays the *publisher* (Drive → web, credentials live only there); lunaria
+Pub stays the *publisher* (Drive → web, credentials live only there); brasenia
 is the *renderer* and needs no credentials at all.
 
 ## The pane contract
@@ -114,9 +116,9 @@ usable by every session.
 - **Phase 0 (done 2026-07-20):** laptop streams brief/Grafana to the TV;
   manual pane switching; publisher on pub.
 - **Phase 1 (done 2026-07-20, same night):** streaming stack moved to the
-  dedicated `lunaria` LXC (118, pve4) via kalmia (TF + ansible role); Roku
+  dedicated viewport LXC (118, pve4, hostname `lunaria`) via kalmia (TF + ansible role); Roku
   app repointed; laptop retired from the loop.
-- **Phase 2:** pane bus + manifest + compositor rubric on lunaria; briefing
+- **Phase 2:** pane bus + manifest + compositor rubric on the viewport LXC; briefing
   and Grafana become the first two pane classes.
 - **Phase 3:** governance snippet rolls out to all local Claudes + fleet;
   panes start arriving from real activity (PR queue via the existing
@@ -144,5 +146,5 @@ usable by every session.
    `alert` panes)? The stream already has an AAC track of silence.
 4. Grafana pane: keep the `/render` API approach (no browser needed) as a
    special pane type, or standardize everything through pane.html?
-5. ~~Does lunaria eventually own the Roku app?~~ **Answered: yes** — this
+5. ~~Does brasenia eventually own the Roku app?~~ **Answered: yes** — this
    repo ships the BrightScript (`roku-app/`); CI-zipping it is a future nicety.

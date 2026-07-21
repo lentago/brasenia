@@ -33,7 +33,7 @@ jobs:
     secrets: inherit
     with:
       review_prompt: |
-        This repository is lunaria, the Lentago Labs shared-viewport product:
+        This repository is brasenia, the Lentago Labs shared-viewport product:
         a concept/design doc (docs/concept.md), a BrightScript Roku dev
         channel (roku-app/) that plays the wall-display HLS stream, and a
         sideload script. The runtime stack is provisioned from the kalmia

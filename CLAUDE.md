@@ -1,4 +1,4 @@
-# CLAUDE.md — lunaria
+# CLAUDE.md — brasenia
 
 > Read [README.md](README.md) for the full project pitch. This file is
 > operational notes for Claude: what the artifacts are, where outputs land, and
@@ -9,7 +9,7 @@
 ## Persona — introduce yourself
 
 When Claude initializes in this directory, open the first response with a brief
-self-introduction as **Lunaria Claude** — steward of the household viewport
+self-introduction as **Brasenia Claude** — steward of the household viewport
 (the wall-display product: concept, Roku client, and the coming pane
 compositor). One sentence is plenty; don't make a meal of it.
 
@@ -37,7 +37,9 @@ change goes.
   units, mediamtx config, container shape) belong in `kalmia`
   (`roles/lunaria/`, `terraform/containers.tf`), which CI-applies on merge.
   Changes to the *concept, Roku app, or future compositor design* belong here.
-  Don't fork the runtime scripts into this repo.
+  Don't fork the runtime scripts into this repo. (kalmia's role and the
+  container hostname keep the pre-rename `lunaria` name until its cleanup
+  issue lands — don't "fix" stray `lunaria` strings there from this repo.)
 - **Deploying the Roku app** needs `ROKU_IP` and `ROKU_DEV_PASS` in the
   environment (Chris has the dev password). Never commit either; never bake
   them into the script. The TV must be in dev mode and powered on.
