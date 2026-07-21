@@ -38,8 +38,9 @@ change goes.
   (`roles/lunaria/`, `terraform/containers.tf`), which CI-applies on merge.
   Changes to the *concept, Roku app, or future compositor design* belong here.
   Don't fork the runtime scripts into this repo. (kalmia's role and the
-  container hostname keep the pre-rename `lunaria` name until its cleanup
-  issue lands — don't "fix" stray `lunaria` strings there from this repo.)
+  container hostname keep the pre-rename `lunaria` name until kalmia#63
+  lands — don't "fix" stray `lunaria` strings there from this repo; that
+  issue owns the runtime rename per the fleet rename discipline.)
 - **Deploying the Roku app** needs `ROKU_IP` and `ROKU_DEV_PASS` in the
   environment (Chris has the dev password). Never commit either; never bake
   them into the script. The TV must be in dev mode and powered on.
