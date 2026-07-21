@@ -5,10 +5,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../roku-app"
 mkdir -p ../out
-rm -f ../out/lunaria-roku.zip
-zip -r ../out/lunaria-roku.zip . -x '.*'
+rm -f ../out/brasenia-roku.zip
+zip -r ../out/brasenia-roku.zip . -x '.*'
 
 curl -sS -u "rokudev:${ROKU_DEV_PASS}" --digest \
   -F "mysubmit=Install" \
-  -F "archive=@../out/lunaria-roku.zip" \
+  -F "archive=@../out/brasenia-roku.zip" \
   "http://${ROKU_IP}/plugin_install" | grep -oE 'Install (Success|Failure[^<]*)' || true

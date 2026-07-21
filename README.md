@@ -1,14 +1,19 @@
-# lunaria
+# brasenia
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/lentago/lunaria)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/lentago/brasenia)
 
-Lunaria (the honesty plant) grows translucent seed pods — little windows you
-look through. **lunaria** is the Lentago Labs shared viewport: one always-on
-wall display whose content is chosen by a **rubric, not a remote**. The daily
-morning brief is the resting state; higher-value panes (a PR awaiting review, a
-failing backup, a deploy in flight) take the screen when they exist and yield
-it when they expire. Today it drives a 32" Roku TV via a live HLS stream; the
-pane bus and compositor are the roadmap.
+Brasenia (watershield) carpets New England ponds with small floating leaves —
+little panes resting on the water's surface. **brasenia** is the Lentago Labs
+shared viewport: one always-on wall display whose content is chosen by a
+**rubric, not a remote**. Panes surface when there's something worth showing —
+a PR awaiting review, a failing backup, a deploy in flight — and sink back
+when they resolve; the daily morning brief is the resting surface underneath.
+Today it drives a 32" Roku TV via a live HLS stream; the pane bus and
+compositor are the roadmap.
+
+*(Renamed from `lunaria` on 2026-07-20, hours after creation — Lunaria annua
+is a European garden escape, and the Lentago codename roster is New England
+natives only.)*
 
 **Authorship:** The code and documentation in this repo are co-written with
 [Claude](https://claude.ai) (Anthropic). I direct the work and review the
@@ -29,13 +34,17 @@ ability.
 
 ## What's deliberately elsewhere
 
-Lunaria follows the fleet's separation of product from provisioning:
+Brasenia follows the fleet's separation of product from provisioning:
 
 | Piece | Where it lives |
 |---|---|
-| LXC 118 `lunaria` guest definition | [`kalmia`](https://github.com/lentago/kalmia) `terraform/containers.tf` (CI-applied) |
+| LXC 118 guest definition | [`kalmia`](https://github.com/lentago/kalmia) `terraform/containers.tf` (CI-applied) |
 | Runtime stack (mediamtx, shooter/rotator/encoder scripts, systemd units) | [`kalmia`](https://github.com/lentago/kalmia) `roles/lunaria/` + `docs/lunaria.md` |
 | Brief publishing (Google Drive → `pub.lan`, the only credentialed leg) | [`kalmia`](https://github.com/lentago/kalmia) `roles/pub/` |
+
+(kalmia's role, docs, and the container hostname still carry the `lunaria`
+name from before the rename — tracked for cleanup in kalmia; the fleet
+convention tolerates legacy on-host names after a rebrand.)
 
 The running container is **credential-free by design**: its only input is
 `http://pub.lan/`. This repo owns the concept, the TV client, and (Phase 2)
@@ -46,7 +55,7 @@ the compositor.
 ```
  claude.ai routine (8:08 ET) → Google Drive → pub (LXC 114) → http://pub.lan/brief/
       ▼
- lunaria LXC (118, pve4): headless Chromium shoots the TV edition →
+ viewport LXC (118, pve4): headless Chromium shoots the TV edition →
       720p bands rotate through frame.png → ffmpeg (image2pipe, H.264+AAC)
       → mediamtx → HLS :8888
       ▼
@@ -61,8 +70,8 @@ headless-Chromium cache staleness) are summarized in `docs/concept.md`.
 ## Roadmap
 
 - **Phase 2** — NAS pane bus (`web/viewport/panes/<pane>/` + `manifest.json`)
-  and the rubric compositor on the lunaria LXC; briefing and Grafana become the
-  first two pane classes.
+  and the rubric compositor on the viewport LXC; briefing and Grafana become
+  the first two pane classes.
 - **Phase 3** — governance snippet rolls out to all local Claudes and the
   claytonia fleet; panes start arriving from real activity (PR queue, job
   status, HA alerts).
