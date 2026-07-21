@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="VideoScene" extends="Scene">
+  <script type="text/brightscript">
+    <![CDATA[
+    sub init()
+        m.video = m.top.findNode("player")
+        m.video.observeField("state", "onVideoState")
+        m.retryTimer = m.top.findNode("retryTimer")
+        m.retryTimer.observeField("fire", "onRetry")
+        startPlayback()
+    end sub
+
+    sub startPlayback()
+        content = CreateObject("roSGNode", "ContentNode")
+        content.url = "http://192.168.139.19:8888/board/index.m3u8?cookieCheck=1"
+        content.streamformat = "hls"
+        content.live = true
+        m.video.content = content
+        m.video.control = "play"
+        m.video.setFocus(true)
+    end sub
+
+    ' Publisher restarts kill the HLS session server-side; the Video node
+    ' lands in "error" (or "finished") and never retries on its own.
+    sub onVideoState()
+        s = m.video.state
+        if s = "error" or s = "finished"
+            m.video.control = "stop"
+            m.retryTimer.control = "start"
+        end if
+    end sub
+
+    sub onRetry()
+        startPlayback()
+    end sub
+    ]]>
+  </script>
+  <children>
+    <Video id="player" width="1280" height="720" translation="[0,0]" />
+    <Timer id="retryTimer" duration="3" repeat="false" />
+  </children>
+</component>

@@ -33,8 +33,33 @@ jobs:
     secrets: inherit
     with:
       review_prompt: |
-        REPLACE THIS PLACEHOLDER. Describe what THIS repository is (one or two
-        sentences), then list the 4–6 dimensions the reviewer should focus on,
-        each as a bolded category with a short explanation. Tailor to the
-        repo's actual content (e.g. Terraform/AWS, HA YAML, bash scripts,
-        markdown prose, Python). See the fleet for working examples.
+        This repository is lunaria, the Lentago Labs shared-viewport product:
+        a concept/design doc (docs/concept.md), a BrightScript Roku dev
+        channel (roku-app/) that plays the wall-display HLS stream, and a
+        sideload script. The runtime stack is provisioned from the kalmia
+        repo, NOT here. Focus the review on:
+
+        **BrightScript correctness** — the auto-retry handler in
+        VideoScene.xml is load-bearing (a bare Video node never recovers from
+        a publisher restart); flag any change that weakens or removes the
+        state-observer + Timer retry loop, and any stream URL change that
+        drops the `?cookieCheck=1` suffix mediamtx requires.
+
+        **Ownership boundary** — changes that fork or duplicate kalmia's
+        runtime scripts (shooter/rotator/encoder, systemd units, mediamtx
+        config) into this repo violate the product/provisioning split; they
+        belong in kalmia's roles/lunaria.
+
+        **Pane-contract consistency** — docs and any future compositor code
+        must agree with the contract in docs/concept.md (1280px wide, exact
+        720px bands ≤2880, nothing straddling a band, clock-overlay corner
+        kept clear). Flag drift between the doc and code.
+
+        **Shell safety** — scripts/ should be set -euo pipefail, take
+        credentials only from the environment, and never embed the Roku dev
+        password, LAN credentials, or tokens.
+
+        **Doc quality** — markdown is part of this repo's product; concept
+        changes should keep the rubric table, contract, and phases coherent
+        rather than contradicting each other.
+    # Markdown IS product here — do not add "*.md" to paths-ignore.

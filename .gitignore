@@ -1,4 +1,6 @@
-# Add repo-specific ignores here.
+# Sideload zips built by scripts/deploy-roku.sh
+out/
+
 # Common noise:
 .DS_Store
 *.log

@@ -1,31 +1,72 @@
-# [repo name]
+# lunaria
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/lentago/[repo-name])
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/lentago/lunaria)
 
-[One-paragraph description of what this repo is and who it's for.]
+Lunaria (the honesty plant) grows translucent seed pods — little windows you
+look through. **lunaria** is the Lentago Labs shared viewport: one always-on
+wall display whose content is chosen by a **rubric, not a remote**. The daily
+morning brief is the resting state; higher-value panes (a PR awaiting review, a
+failing backup, a deploy in flight) take the screen when they exist and yield
+it when they expire. Today it drives a 32" Roku TV via a live HLS stream; the
+pane bus and compositor are the roadmap.
 
-**Authorship:** [Adjust to fit, but keep a co-authorship disclosure at the
-top.] The [code / prompts / documentation] in this repo are co-written with
+**Authorship:** The code and documentation in this repo are co-written with
 [Claude](https://claude.ai) (Anthropic). I direct the work and review the
-output; Claude writes the [code / prose]. I'm an infrastructure operator, not a
+output; Claude writes the code and prose. I'm an infrastructure operator, not a
 software engineer — please don't read this repo as a portfolio of coding
 ability.
 
 ## What's here
 
-- [Key file / directory] — [purpose]
-- [Key file / directory] — [purpose]
+- `docs/concept.md` — the product concept: pane / rubric / compositor model,
+  the pane contract, rubric v0, migration phases.
+- `roku-app/` — the BrightScript dev channel the TV runs: a full-screen HLS
+  `Video` node with the **mandatory auto-retry handler** (a bare Video node
+  never recovers from a publisher restart; this one rejoins ~1 s after the
+  stream returns).
+- `scripts/deploy-roku.sh` — zip + sideload via the Roku dev installer
+  (digest auth; credentials via environment, never committed).
 
-## [How it works / Usage]
+## What's deliberately elsewhere
 
-[Fill in.]
+Lunaria follows the fleet's separation of product from provisioning:
+
+| Piece | Where it lives |
+|---|---|
+| LXC 118 `lunaria` guest definition | [`kalmia`](https://github.com/lentago/kalmia) `terraform/containers.tf` (CI-applied) |
+| Runtime stack (mediamtx, shooter/rotator/encoder scripts, systemd units) | [`kalmia`](https://github.com/lentago/kalmia) `roles/lunaria/` + `docs/lunaria.md` |
+| Brief publishing (Google Drive → `pub.lan`, the only credentialed leg) | [`kalmia`](https://github.com/lentago/kalmia) `roles/pub/` |
+
+The running container is **credential-free by design**: its only input is
+`http://pub.lan/`. This repo owns the concept, the TV client, and (Phase 2)
+the compositor.
+
+## How it works today (Phase 1)
+
+```
+ claude.ai routine (8:08 ET) → Google Drive → pub (LXC 114) → http://pub.lan/brief/
+      ▼
+ lunaria LXC (118, pve4): headless Chromium shoots the TV edition →
+      720p bands rotate through frame.png → ffmpeg (image2pipe, H.264+AAC)
+      → mediamtx → HLS :8888
+      ▼
+ Roku dev channel (this repo's roku-app/) → 32" play-room TV
+```
+
+Glass-to-glass latency runs 7–17 s depending on playlist join depth; the whole
+chain survives publisher restarts unattended. Validation evidence and the
+operational gotchas (mediamtx `?cookieCheck=1` redirect, Roku retry behavior,
+headless-Chromium cache staleness) are summarized in `docs/concept.md`.
+
+## Roadmap
+
+- **Phase 2** — NAS pane bus (`web/viewport/panes/<pane>/` + `manifest.json`)
+  and the rubric compositor on the lunaria LXC; briefing and Grafana become the
+  first two pane classes.
+- **Phase 3** — governance snippet rolls out to all local Claudes and the
+  claytonia fleet; panes start arriving from real activity (PR queue, job
+  status, HA alerts).
 
 ---
 
 *Part of the [Lentago Labs](https://github.com/lentago) portfolio.*
-
-<!--
-  Created from lentago/repo-template. Templates copy FILES, not SETTINGS —
-  after creating this repo, apply fleet settings (merge-button, topics, branch
-  ruleset). See SETUP.md, then delete it.
--->
