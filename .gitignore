@@ -1,0 +1,8 @@
+# Add repo-specific ignores here.
+# Common noise:
+.DS_Store
+*.log
+node_modules/
+__pycache__/
+.venv/
+dist/

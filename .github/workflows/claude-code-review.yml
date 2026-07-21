@@ -1,0 +1,40 @@
+# ============================================================================
+# Claude Code — Automated PR Review
+# ============================================================================
+# Thin wrapper around lentago/shared-workflows/claude-review.yml.
+# Pinned to Haiku.
+#
+# >>> CUSTOMIZE THE review_prompt BELOW FOR THIS REPO. <<<
+# Do NOT ship the placeholder. A copy-pasted prompt that describes the wrong
+# repo is worse than none — it points the reviewer at the wrong rubric. The
+# good fleet examples (betula, drosera,
+# reference-checker) each describe their OWN content.
+# Also review `paths-ignore`: if markdown is this repo's product, do NOT
+# ignore "*.md".
+# ============================================================================
+
+name: Claude Code Review
+
+# >>> DISABLED 2026-06-25: automated Claude PR review turned off fleet-wide.
+# Trigger changed from `pull_request` to manual `workflow_dispatch` only, so it
+# never auto-runs on PRs. The repo-specific review_prompt below is preserved.
+# To re-enable, restore the `on: pull_request` trigger (see git history).
+on:
+  workflow_dispatch:
+
+jobs:
+  claude-review:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    uses: lentago/shared-workflows/.github/workflows/claude-review.yml@main
+    secrets: inherit
+    with:
+      review_prompt: |
+        REPLACE THIS PLACEHOLDER. Describe what THIS repository is (one or two
+        sentences), then list the 4–6 dimensions the reviewer should focus on,
+        each as a bolded category with a short explanation. Tailor to the
+        repo's actual content (e.g. Terraform/AWS, HA YAML, bash scripts,
+        markdown prose, Python). See the fleet for working examples.
