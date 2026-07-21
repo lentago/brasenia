@@ -43,8 +43,9 @@ Brasenia follows the fleet's separation of product from provisioning:
 | Brief publishing (Google Drive → `pub.lan`, the only credentialed leg) | [`kalmia`](https://github.com/lentago/kalmia) `roles/pub/` |
 
 (kalmia's role, docs, and the container hostname still carry the `lunaria`
-name from before the rename — tracked for cleanup in kalmia; the fleet
-convention tolerates legacy on-host names after a rebrand.)
+name from before the rename — completing it through runtime is owned by
+[kalmia#63](https://github.com/lentago/kalmia/issues/63) under the fleet
+rename discipline: legacy names are tracked debt, never permanent.)
 
 The running container is **credential-free by design**: its only input is
 `http://pub.lan/`. This repo owns the concept, the TV client, and (Phase 2)
