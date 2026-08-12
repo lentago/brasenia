@@ -109,6 +109,15 @@ chain survives publisher restarts unattended. Validation evidence and the
 operational gotchas (mediamtx `?cookieCheck=1` redirect, Roku retry behavior,
 headless-Chromium cache staleness) are summarized in `docs/concept.md`.
 
+## Roadmap
+
+- **Phase 2** — NAS pane bus (`web/viewport/panes/<pane>/` + `manifest.json`)
+  and the rubric compositor on the viewport LXC; briefing and Grafana become
+  the first two pane classes.
+- **Phase 3** — governance snippet rolls out to all local Claudes and the
+  claytonia fleet; panes start arriving from real activity (PR queue, job
+  status, HA alerts).
+
 ## 🛠️ Make a change yourself
 
 This is a lab — the systems are real, the stakes are not. Pick a vector:
