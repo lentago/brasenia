@@ -11,6 +11,9 @@ actually weighed at the time from options marked *"retrospective — not
 considered at the time"* — those are this reconstruction's own honest
 assessment, not something argued over in the room that night.
 
+Records from ADR-0006 onward are contemporaneous — written when the
+decision was made, not reconstructed.
+
 | ADR | Decision | Date |
 |---|---|---|
 | [0001](0001-roku-native-hls-over-decoder-hardware.md) | Consumer Roku TV + LAN HLS over dedicated decoder hardware | 2026-07-20 |
@@ -18,3 +21,4 @@ assessment, not something argued over in the room that night.
 | [0003](0003-rubric-driven-selection-compositor-sole-writer.md) | Rubric-driven pane selection; the compositor is the sole screen writer | 2026-07-20 |
 | [0004](0004-nas-file-pane-bus-write-then-rename.md) | Pane bus is NAS files with write-then-rename, manifest, and a TTL backstop | 2026-07-20 |
 | [0005](0005-product-runtime-split-with-kalmia.md) | Product/runtime split with kalmia, enforced in both directions | 2026-07-20 |
+| [0006](0006-cast-web-receiver-second-client.md) | Chromecast web receiver as a second client; the compositor's output becomes a decision | 2026-08-14 |

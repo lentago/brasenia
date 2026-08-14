@@ -5,6 +5,11 @@ this repo is its canonical home. Conceived as `lunaria` (honesty plant,
 translucent seed-pod windows) and renamed the same night: Lunaria annua is a
 European garden escape, and the Lentago roster is New England natives only.*
 
+*Amended 2026-08-14: the architecture gains a second client branch — a
+Chromecast custom web receiver rendering panes natively — and the
+compositor's output is reframed as a decision, not pixels
+([ADR-0006](adr/0006-cast-web-receiver-second-client.md)).*
+
 Brasenia (watershield) carpets New England ponds with small floating leaves —
 little panes resting on the water's surface. **brasenia** is the household's
 shared window into what its Claudes are doing: one always-on screen whose
@@ -48,20 +53,42 @@ Three nouns:
       │           ├── pane.html      (1..4 bands of 1280×720)
       │           └── manifest.json  (class, priority, ttl, created, author)
       ▼
- viewport LXC 118 (pve4; hostname still `lunaria` pre-rename) — compositor loop:
+ viewport LXC 118 (pve4; hostname still `lunaria` pre-rename) — compositor:
       1. scan manifests → drop expired → rank via rubric
-      2. shoot winner's pane.html (headless chromium, throwaway profile)
-      3. slice into 720-bands → rotate through frame.png
-      4. ffmpeg (image2pipe → H.264+AAC) → RTSP → mediamtx → HLS :8888
+      2. publish the decision — a stable current-pane pointer (winner's URL)
       ▼
- Roku dev channel (roku-app/ in this repo — auto-retry Video node)
-      → 32" play-room TV (720p native)
+ client adapters — one per screen; adding one must not touch the others
+      │
+      ├─ Roku/HLS adapter (first client — production)
+      │    3. shoot winner's pane.html (headless chromium, throwaway profile)
+      │    4. slice into 720-bands → rotate through frame.png
+      │    5. ffmpeg (image2pipe → H.264+AAC) → RTSP → mediamtx → HLS :8888
+      │    ▼
+      │  Roku dev channel (roku-app/ in this repo — auto-retry Video node)
+      │       → 32" play-room TV (720p native)
+      │
+      └─ Cast adapter (second client — ADR-0006, prototype)
+           3. custom Web Receiver navigates to the current pane and renders
+              it natively (pixel-perfect text, ~instant pane switching)
+           4. watchdog sender on the LXC re-launches the receiver after
+              reboots / OS updates / ambient reclaims
+           ▼
+         Chromecast → its TV
 ```
 
 The bus is plain files on the share every host already mounts — no broker, no
 daemon on the NAS, browsable at `http://pub.lan/viewport/` for free debugging.
 Pub stays the *publisher* (Drive → web, credentials live only there); brasenia
 is the *renderer* and needs no credentials at all.
+
+The compositor's real output is the **decision**, not pixels — the
+shoot→slice→encode→HLS chain is the *Roku client's adapter*, not the product,
+and the Cast web receiver is the second client
+([ADR-0006](adr/0006-cast-web-receiver-second-client.md)). The trade is
+recorded there: the Cast leg wins on text crispness and switching latency but
+depends on Google's cloud at launch and starts with zero unattended soak
+hours, so Roku/HLS stays the production transport until the Cast watchdog
+earns comparable validation evidence.
 
 ## The pane contract
 
@@ -119,7 +146,10 @@ usable by every session.
   dedicated viewport LXC (118, pve4, hostname `lunaria`) via kalmia (TF + ansible role); Roku
   app repointed; laptop retired from the loop.
 - **Phase 2:** pane bus + manifest + compositor rubric on the viewport LXC; briefing
-  and Grafana become the first two pane classes.
+  and Grafana become the first two pane classes. The Cast client
+  ([ADR-0006](adr/0006-cast-web-receiver-second-client.md)) is the
+  compositor's cheapest proving ground — the rubric/decision loop validates
+  against native HTML rendering before touching the video adapter.
 - **Phase 3:** governance snippet rolls out to all local Claudes + fleet;
   panes start arriving from real activity (PR queue via the existing
   Infinity/GitHub source, claytonia job status, HA alerts).
