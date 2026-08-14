@@ -1,0 +1,5 @@
+{
+  "app_id": "PLACEHOLDER-REGISTER-IN-CAST-DEVELOPER-CONSOLE",
+  "receiver_url": "PLACEHOLDER-HTTPS-URL-WHERE-index.html-IS-HOSTED",
+  "note": "Neither value is a credential. Fill in after Cast Developer Console registration (see README.md) and once receiver hosting is stood up (runtime side, kalmia). Safe to commit once known."
+}
