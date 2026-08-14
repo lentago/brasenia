@@ -9,7 +9,8 @@ Claudes: laptop, fleet workers, Career Claude, and others) to hand panes to
 the compositor without a central service. `docs/concept.md` specifies the bus
 as plain files under a NAS share every host already mounts
 (`web/viewport/panes/<pane>/`, each holding `pane.html` + `manifest.json`),
-explicitly reusing "the claude-jobs idiom" — write-then-rename
+explicitly reusing the claude-jobs discipline ("same discipline as
+claude-jobs") — write-then-rename
 (`pane.html.partial` → `pane.html`), manifest written last.
 
 The design explicitly rejects a broker or daemon on the NAS ("no broker, no
