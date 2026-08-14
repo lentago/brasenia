@@ -66,6 +66,8 @@ is governed, not in a pipeline. Each row links to the evidence in this checkout.
 
 - `docs/concept.md` — the product concept: pane / rubric / compositor model,
   the pane contract, rubric v0, migration phases.
+- [`docs/adr/`](docs/adr/) — architecture decisions, reconstructed 2026-08-13
+  from repo history and fleet records.
 - `roku-app/` — the BrightScript dev channel the TV runs: a full-screen HLS
   `Video` node with the **mandatory auto-retry handler** (a bare Video node
   never recovers from a publisher restart; this one rejoins ~1 s after the
