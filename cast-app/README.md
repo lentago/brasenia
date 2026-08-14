@@ -54,13 +54,16 @@ the App ID and receiver URL, matching the `deploy-roku.sh` discipline
 
 ## Known risks / open questions (carry into Phase A hosting + watchdog work)
 
-- **Mixed content.** Cast requires the receiver URL to be HTTPS.
-  `http://pub.lan/brief/` is plain LAN HTTP. Chrome (which the Chromecast
-  runs) blocks or auto-upgrades HTTP iframes embedded in an HTTPS page —
-  this will need resolving before Phase A actually renders on-device, either
-  via TLS on pub.lan or a same-origin proxy in front of the iframe target.
-  Not called out in ADR-0006's trade-off list; flagging here for whoever
-  picks up receiver hosting.
+- **Mixed content — RESOLVED for the unpublished app (2026-08-14).** The
+  Cast Developer Console accepted the plain-HTTP LAN receiver URL
+  (`http://pub.lan/cast/`) for an unpublished Custom Receiver, so the
+  receiver page and the `http://pub.lan/brief/` iframe are same-scheme and
+  no mixed-content blocking applies. App ID `83A58DDE` (in
+  `app-config.json`); the app stays unpublished by design — it only ever
+  launches on the dev-registered household device, same posture as the
+  sideloaded Roku dev channel. The original concern returns only if the app
+  is ever *published* (publishing requires an HTTPS receiver URL), which
+  would mean TLS on pub or a same-origin proxy — deliberately out of scope.
 - **The iframe `error` event is unreliable for HTTP-level failures**
   (404/500) — most browsers only fire it for network-level failures (DNS,
   connection refused), not bad status codes. The 8s load timeout is the
