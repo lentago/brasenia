@@ -120,6 +120,7 @@ earns comparable validation evidence.
 |---|---|---|---|
 | 100 | `alert`        | backup failed, UPS on battery, node down | 60 min |
 | 80  | `attention`    | PR awaiting Chris's review, question blocking an agent | 240 min |
+| 70  | `live`         | live RTMP ingest publisher active (drone flight over the house) | while publisher active |
 | 60  | `activity`     | deploy/migration in flight, fleet working a job | 60 min |
 | 40  | `ambient`      | Grafana dashboard, music now-playing      | while fresh |
 | 0   | `briefing`     | the morning brief (default resting state) | until next brief |
@@ -127,6 +128,41 @@ earns comparable validation evidence.
 Ties break by recency. Multiple live panes of the same class rotate. The
 briefing never expires — it is the floor, refreshed daily by the existing
 routine → Drive → pub chain.
+
+## Live-ingest source type
+
+*Added 2026-08-16 (kalmia#102 + [ADR-0007](adr/0007-live-rtmp-ingest-generic-path.md)).*
+
+A generic `live` RTMP path on mediamtx is the first event-driven source type:
+publisher presence on `live` is a binary, machine-readable signal that
+something worth watching is happening — the rubric decides by observing
+publish state, no remote involved. Any LAN RTMP producer (DJI Fly, OBS,
+Larix, a GoPro) publishes to `rtmp://pub.lan:1935/live` and appears on the
+TV; when the publisher drops, mediamtx's fallback wiring returns the display
+to `board` automatically. Adding a second producer touches nothing
+DJI-specific in the product or the runtime.
+
+In v0 (before the Phase 2 compositor), the `live`→`board` fallback chain in
+mediamtx acts as the rubric surrogate for this one decision. The ADR-0002
+retry handler doubles as the source switcher — when the publisher drops and
+mediamtx returns an error on the `live` playlist, the Roku's retry loop
+rejoins and mediamtx transparently serves `board`. When Phase 2 lands,
+publisher presence (via the mediamtx HTTP API) becomes a rubric *input* — a
+virtual pane of class `live` — and the compositor gates the live path rather
+than being silently overruled by the transport-layer fallback chain.
+
+**Latency disclaimer — spectator use only.** DJI Fly's encode adds ~2–3 s;
+the measured Roku HLS join latency (7–17 s, ADR-0001) applies equally on the
+`live` path. Glass-to-glass is approximately **10–20 s**. This is appropriate
+for a household display showing what the drone is seeing. It is **never a
+piloting aid** — do not use it as a substitute for the controller's real-time
+video feed.
+
+**Phone-side networking.** RC-N-series DJI controllers use the phone's own
+Wi-Fi connection (the controller handles the RF link to the drone
+independently). Streaming works as long as the pilot stands within home Wi-Fi
+range. The `live` path is LAN-only by construction — mediamtx is not
+reachable from the internet.
 
 ## Governance
 
@@ -145,6 +181,11 @@ usable by every session.
 - **Phase 1 (done 2026-07-20, same night):** streaming stack moved to the
   dedicated viewport LXC (118, pve4, hostname `lunaria`) via kalmia (TF + ansible role); Roku
   app repointed; laptop retired from the loop.
+- **Phase 1.5 (2026-08-16):** RTMP `live` ingest path added (kalmia#102);
+  `live`→`board` fallback wiring as v0 rubric surrogate; first event-driven
+  source type (`live` class at priority 70). Roku repoint from `board` to
+  `live` pending bench validation against a live DJI Fly publisher
+  ([live-ingest-spec.md](live-ingest-spec.md)).
 - **Phase 2:** pane bus + manifest + compositor rubric on the viewport LXC; briefing
   and Grafana become the first two pane classes. The Cast client
   ([ADR-0006](adr/0006-cast-web-receiver-second-client.md)) is the

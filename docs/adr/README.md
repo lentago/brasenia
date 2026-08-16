@@ -22,3 +22,4 @@ decision was made, not reconstructed.
 | [0004](0004-nas-file-pane-bus-write-then-rename.md) | Pane bus is NAS files with write-then-rename, manifest, and a TTL backstop | 2026-07-20 |
 | [0005](0005-product-runtime-split-with-kalmia.md) | Product/runtime split with kalmia, enforced in both directions | 2026-07-20 |
 | [0006](0006-cast-web-receiver-second-client.md) | Chromecast web receiver as a second client; the compositor's output becomes a decision | 2026-08-14 |
+| [0007](0007-live-rtmp-ingest-generic-path.md) | Generic RTMP ingest path; fallback-chain switching; `live` as rubric source type | 2026-08-16 |
