@@ -109,6 +109,9 @@ headless-Chromium cache staleness) are summarized in `docs/concept.md`.
 
 ## Roadmap
 
+- **Phase 2 state** — compositor, focus pane, pane command live;
+  change-pipeline pane in progress. Placement:
+  [ADR-0008](docs/adr/0008-compositor-and-producers-on-pub.md).
 - **Phase 2 (in progress)** — NAS pane bus (`web/viewport/panes/<pane>/` +
   `manifest.json`, created 2026-10-07) and the rubric compositor, running on
   pub (LXC 114) and publishing `http://pub.lan/viewport/current.json`.
