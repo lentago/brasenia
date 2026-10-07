@@ -62,6 +62,12 @@ is governed, not in a pipeline. Each row links to the evidence in this checkout.
 - [`producers/`](producers/) — pane producers for the viewport bus; today
   [`producers/focus/`](producers/focus/), which turns fresh session beacons
   into one open-pull-requests pane per repo.
+- [`bin/pane`](bin/pane) — claim, renew, release and list panes on the
+  viewport bus (stdlib Python 3.9+); tests with
+  `python3 -m unittest discover -s bin/tests`.
+- [`docs/claiming-the-display.md`](docs/claiming-the-display.md) — the
+  governance page: what deserves the wall, the classes, the two rules, and
+  how to use `pane`.
 - `scripts/deploy-roku.sh` — zip + sideload via the Roku dev installer
   (digest auth; credentials via environment, never committed).
 

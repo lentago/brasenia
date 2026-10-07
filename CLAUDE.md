@@ -30,6 +30,7 @@ change goes.
 | `roku-app/components/VideoScene.xml` | The player scene — holds the auto-retry logic and the stream URL |
 | `roku-app/source/main.brs` | Boilerplate SceneGraph entry point |
 | `compositor/` | Phase 2 compositor (stdlib Python 3.9+): `rubric.decide()` is the pure ranking function, `bus.py` the filesystem half; runs on pub, unit runtime in kalmia |
+| `bin/pane` | Claim/renew/release/ls a pane on the viewport bus (stdlib Python 3.9+); governance text in `docs/claiming-the-display.md` |
 | `scripts/deploy-roku.sh` | Zip (manifest at zip root — required) + sideload via dev installer |
 
 ## Conventions to respect
