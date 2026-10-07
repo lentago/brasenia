@@ -28,6 +28,7 @@ HEADERS = {
 }
 MIN_CACHE_S = 60.0
 BUDGET_PER_HOUR = 50  # of the 60 unauthenticated requests; the rest is headroom
+IGNORED_MAIN_CONCLUSIONS = ("skipped", "neutral", "cancelled")
 FIRST_COST = 2        # a repo's first refresh: pulls + main runs, before PRs are known
 
 
@@ -127,8 +128,11 @@ class GitHub:
                 "checks": check_state(runs.get("check_runs", [])),
                 "review": review_decision(reviews, pr.get("requested_reviewers") or []),
             })
-        runs = get("/repos/%s/actions/runs?branch=main&status=completed&per_page=1" % repo)
-        latest = (runs.get("workflow_runs") or [None])[0]
+        # Push runs only: comment-triggered workflows are often skipped and
+        # would otherwise hide the real state of main. One request either way.
+        runs = get("/repos/%s/actions/runs?branch=main&event=push&status=completed&per_page=5" % repo)
+        latest = next((r for r in runs.get("workflow_runs") or []
+                       if r.get("conclusion") not in IGNORED_MAIN_CONCLUSIONS), None)
         main = None
         if latest:
             main = {

@@ -130,10 +130,28 @@ class GitHubTests(unittest.TestCase):
         data, _ = self.gh.repo("lentago/new")
         self.assertIsNone(data["main"])
 
+    def test_main_skips_skipped_neutral_cancelled(self):
+        serve_repo(self.t, "lentago/x", [], main_runs=[
+            ("comment", "skipped"), ("ping", "neutral"), ("ci", "cancelled"),
+            ("docs-check", "failure"), ("old", "success")])
+        data, _ = self.gh.repo("lentago/x")
+        self.assertEqual(data["main"]["conclusion"], "failure")
+        self.assertEqual(data["main"]["name"], "docs-check")
+
+    def test_main_none_when_only_ignored_runs(self):
+        serve_repo(self.t, "lentago/x", [], main_runs=[("a", "skipped"), ("b", "cancelled")])
+        data, _ = self.gh.repo("lentago/x")
+        self.assertIsNone(data["main"])
+
+    def test_main_is_one_request(self):
+        serve_repo(self.t, "lentago/x", [], main_runs=[("a", "skipped"), ("b", "success")])
+        self.gh.repo("lentago/x")
+        self.assertEqual(sum("actions/runs" in u for u, _h in self.t.calls), 1)
+
     def test_urls(self):
         self.gh.repo(REPO)
         urls = [u for u, _h in self.t.calls]
-        self.assertIn(API + "/repos/lentago/brasenia/actions/runs?branch=main&status=completed&per_page=1", urls)
+        self.assertIn(API + "/repos/lentago/brasenia/actions/runs?branch=main&event=push&status=completed&per_page=5", urls)
         self.assertIn(API + "/repos/lentago/brasenia/pulls?state=open&per_page=100", urls)
 
 

@@ -48,7 +48,7 @@ class FakeTransport:
         return [c for c in self.calls if c[0].startswith(API)]
 
 
-def serve_repo(transport, repo, pulls=(), main_conclusion="success"):
+def serve_repo(transport, repo, pulls=(), main_conclusion="success", main_runs=None):
     """Route the endpoints GitHub.repo() reads for ``repo``.
 
     ``pulls`` are dicts with number/title/author/sha and optional draft,
@@ -73,8 +73,11 @@ def serve_repo(transport, repo, pulls=(), main_conclusion="success"):
                       [{"user": {"login": u}, "state": s} for u, s in pr.get("reviews", [])])
     transport.set("%s/repos/%s/pulls?state=open&per_page=100" % (API, repo), listing)
     runs = []
-    if main_conclusion:
+    if main_runs is not None:
+        runs = [{"conclusion": c, "name": n, "updated_at": "2026-10-07T11:30:00Z"}
+                for n, c in main_runs]
+    elif main_conclusion:
         runs = [{"conclusion": main_conclusion, "name": "docs-check",
                  "updated_at": "2026-10-07T11:30:00Z"}]
-    transport.set("%s/repos/%s/actions/runs?branch=main&status=completed&per_page=1"
+    transport.set("%s/repos/%s/actions/runs?branch=main&event=push&status=completed&per_page=5"
                   % (API, repo), {"workflow_runs": runs})
