@@ -2,7 +2,7 @@
      Regenerate there; do not hand-edit the banner or badge URLs. -->
 <a href="https://lentago.dev"><img src="./assets/banner.svg" alt="brasenia — Shared viewport · a rubric, not a remote" width="100%"></a>
 
-[![main](https://img.shields.io/github/check-runs/lentago/brasenia/main?style=flat-square&labelColor=0e2b1a&color=1b4b2e&label=main)](https://github.com/lentago/brasenia/actions) [![License](https://img.shields.io/github/license/lentago/brasenia?style=flat-square&labelColor=0e2b1a&color=1b4b2e)](https://github.com/lentago/brasenia/blob/main/LICENSE) [![Ask DeepWiki](https://img.shields.io/badge/Ask-DeepWiki-1b4b2e?style=flat-square&labelColor=0e2b1a&logo=readthedocs&logoColor=E0A81C)](https://deepwiki.com/lentago/brasenia)
+[![main](https://img.shields.io/github/check-runs/lentago/brasenia/main?style=flat-square&labelColor=0e2b1a&color=1b4b2e&label=main)](https://github.com/lentago/brasenia/actions) [![License](https://img.shields.io/github/license/lentago/brasenia?style=flat-square&labelColor=0e2b1a&color=1b4b2e)](https://github.com/lentago/brasenia/blob/main/LICENSE)
 
 ![BrightScript](https://img.shields.io/badge/BrightScript-1b4b2e?style=flat-square&labelColor=0e2b1a) ![ffmpeg](https://img.shields.io/badge/ffmpeg-1b4b2e?style=flat-square&labelColor=0e2b1a&logo=ffmpeg&logoColor=E0A81C) ![HLS](https://img.shields.io/badge/HLS-1b4b2e?style=flat-square&labelColor=0e2b1a) ![Roku](https://img.shields.io/badge/Roku-1b4b2e?style=flat-square&labelColor=0e2b1a&logo=roku&logoColor=E0A81C)
 
@@ -26,25 +26,6 @@ natives only.)*
 output; Claude writes the code and prose. I'm an infrastructure operator, not a
 software engineer — please don't read this repo as a portfolio of coding
 ability.
-
-## 📚 Ask this codebase (DeepWiki)
-
-<a href="https://deepwiki.com/lentago/brasenia"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" height="32"></a>
-
-> [DeepWiki](https://deepwiki.com/lentago/brasenia) maintains an AI-generated wiki over this
-> repository — architecture pages, diagrams, and a Q&A box grounded in the actual code. Every
-> public Lentago Labs repo is indexed ([deepwiki.com/lentago](https://deepwiki.com/lentago));
-> it is the fastest way to orient before reading source. It is AI-generated: trust it to orient
-> you, verify against the code before you act on it.
-
-**Good first questions:**
-
-- What is the pane contract, and what constraints must a self-contained HTML pane satisfy to be
-  shown on the wall display?
-- Why does `VideoScene.xml` need the `?cookieCheck=1` suffix and a retry handler — what happens
-  without them?
-- Which parts of the shared-viewport system live in brasenia versus kalmia, and why is the split
-  drawn there?
 
 ## 🧭 What this repo demonstrates
 
@@ -157,5 +138,4 @@ to the homelab runner.
 > 🌱 **Lentago Labs** is a pro-bono operations practice for organizations that
 > run on volunteers, donations, and one overworked tech person. Everything here
 > is free to take, and we practice what we publish: our own estate runs this
-> way, in the open. Start at the [org profile](https://github.com/lentago), and
-> read this repo on [DeepWiki](https://deepwiki.com/lentago/brasenia).
+> way, in the open. Start at the [org profile](https://github.com/lentago).
