@@ -22,12 +22,15 @@
   var unreadableSince = null;  // when the pointer first became unreadable
   var pointerDown = false;     // unreadable for >= POINTER_STALE_MS
   var paneFailed = false;      // pane URL did not load within LOAD_TIMEOUT_MS
+  var paneLoaded = false;      // something has rendered in the iframe at least once
 
   // The screen must show something, never go blank: the status card covers
   // either failure, and the last pane stays up until a failure is confirmed.
   function render() {
     var message = null;
-    if (pointerDown) {
+    // The 30 s grace only makes sense while a pane is already on screen; with
+    // nothing loaded yet an unreadable pointer shows the card immediately.
+    if (pointerDown || (unreadableSince !== null && !paneLoaded)) {
       message = 'viewport pointer unreachable — retrying…';
     } else if (paneFailed) {
       message = (currentIsBrief ? 'brief' : 'pane') + ' unreachable — retrying…';
@@ -62,6 +65,7 @@
   frame.addEventListener('load', function () {
     clearTimeout(loadTimer);
     paneFailed = false;
+    paneLoaded = true;
     render();
   });
 

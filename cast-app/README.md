@@ -26,8 +26,10 @@ guidance is to always use the gstatic-hosted SDK, never a self-hosted copy).
 - **Pointer unreadable** (network error, non-2xx other than 404, unparsable
   JSON, or `schema` other than 1): the current pane stays up, and after 30 s
   of continuous failure the built-in status card
-  ("viewport pointer unreachable — retrying…") replaces it. Polling continues,
-  and the pane returns as soon as the pointer is readable again.
+  ("viewport pointer unreachable — retrying…") replaces it. If nothing has
+  loaded yet (first boot), the card shows at once rather than leaving the
+  screen dark. Polling continues, and the pane returns as soon as the pointer
+  is readable again.
 - **Pane fails to load** (pointer readable, pane URL not loaded within 8 s,
   or a network-level iframe error): the status card ("pane unreachable —
   retrying…") is shown and the next 5 s poll re-navigates to the same URL.
