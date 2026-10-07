@@ -260,6 +260,16 @@ class Malformed(unittest.TestCase):
                                  {pane_id: "invalid pane id"})
                 self.assertEqual(pointer["fallback"], "briefing")
 
+    def test_out_of_range_ttl_or_created_is_skipped_not_fatal(self):
+        panes = [pane("huge", ttl=1e300), pane("inf", ttl=float("inf")),
+                 pane("edge", created=datetime(9999, 12, 31, 23, 0,
+                                               tzinfo=timezone.utc), ttl=120)]
+        pointer, state = run(panes)
+        self.assertEqual(pointer["fallback"], "briefing")
+        self.assertEqual(set(state["skipped"]), {"huge", "inf", "edge"})
+        for reason in state["skipped"].values():
+            self.assertIn("out of range", reason)
+
     def test_offsets_and_optional_fields_are_accepted(self):
         p = pane("ok", created=T0, repo="lentago/brasenia",
                  done_when="pr-merged")

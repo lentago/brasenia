@@ -67,6 +67,15 @@ class Bus(unittest.TestCase):
         self.assertEqual(len(self.lines), 1)
         self.assertTrue(self.lines[0].startswith("decision: fallback=status"))
 
+    def test_recreates_a_deleted_status_card(self):
+        state = self.tick({})
+        self.assertTrue(os.path.isfile(self.p["status"]))
+        before = self.current()
+        os.remove(self.p["status"])
+        state = self.tick(state, seconds=5)
+        self.assertTrue(os.path.isfile(self.p["status"]))
+        self.assertEqual(self.current(), before)
+
     def test_rewrites_only_on_change_and_atomically(self):
         self.write_pane("focus-a", self.manifest())
         state = self.tick({})

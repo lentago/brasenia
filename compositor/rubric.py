@@ -74,10 +74,15 @@ def parse_manifest(pane_id, data):
         raise Malformed("author is not a string")
     try:
         created = parse_time(data["created"])
-    except ValueError:
+    except (ValueError, OverflowError):
         raise Malformed("created is not an RFC 3339 timestamp")
     if not _positive_number(data["ttl_minutes"]):
         raise Malformed("ttl_minutes is not a positive number")
+    try:
+        expires = created + timedelta(minutes=data["ttl_minutes"])
+    except (OverflowError, ValueError):
+        # A huge or infinite ttl must skip this pane, not kill the compositor.
+        raise Malformed("ttl_minutes is out of range")
     origin = data.get("origin", DEFAULT_ORIGIN)
     if origin not in ORIGINS:
         raise Malformed("unknown origin %r" % (origin,))
@@ -90,7 +95,7 @@ def parse_manifest(pane_id, data):
         "priority": PRIORITY[cls],
         "title": data["title"],
         "created": created,
-        "expires": created + timedelta(minutes=data["ttl_minutes"]),
+        "expires": expires,
         "origin": origin,
         "dwell_s": dwell,
     }

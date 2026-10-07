@@ -161,9 +161,12 @@ def tick(webroot, url_base, state, now, log=print):
             log("skipped: pane=%s (%s)" % (pane_id, reason))
 
     changed = pointer is not state.get("pointer")
+    # The status page is recreated whenever the status pointer is active and
+    # the file is missing, not only on a decision change: a deleted
+    # status.html must never leave current.json naming an absent page.
+    if pointer["fallback"] == "status" and (changed or not os.path.isfile(p["status"])):
+        atomic_write(p["status"], render_status(pointer))
     if changed or not os.path.exists(p["current"]):
-        if pointer["fallback"] == "status":
-            atomic_write(p["status"], render_status(pointer))
         atomic_write(p["current"], json.dumps(pointer, indent=2) + "\n")
         if changed:
             log(describe(pointer))
