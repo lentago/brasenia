@@ -1,0 +1,43 @@
+# ============================================================================
+# Compositor Tests — stdlib unittest suite for compositor/
+# ============================================================================
+# Runs `python3 -m unittest discover -s tests` from compositor/ on 3.9 (the
+# floor: pub runs Debian 12) and 3.12.
+#
+# Path-filtered to compositor/** to stay cheap, which per the hard rule in
+# fleet-ops/required-checks.json means this must NOT be marked a required
+# status check: a required check whose workflow never triggers on a given PR
+# is held "Expected" forever, deadlocking that PR. (Contrast docs-check.yml,
+# which is deliberately unfiltered so it CAN safely be required.) Leave this
+# one informational.
+# ============================================================================
+
+name: Compositor Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+    paths:
+      - 'compositor/**'
+      - '.github/workflows/compositor-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.9', '3.12']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false  # the test step runs PR-controlled code
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run unit tests (Python ${{ matrix.python }})
+        working-directory: compositor
+        run: python3 -m unittest discover -s tests -v
