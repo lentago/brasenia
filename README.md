@@ -46,13 +46,19 @@ is governed, not in a pipeline. Each row links to the evidence in this checkout.
 ## What's here
 
 - `docs/concept.md` — the product concept: pane / rubric / compositor model,
-  the pane contract, rubric v0, migration phases.
+  the pane contract, rubric v1, the bus contracts (Contracts v1), migration
+  phases.
 - [`docs/adr/`](docs/adr/) — architecture decisions, reconstructed 2026-08-13
   from repo history and fleet records.
 - `roku-app/` — the BrightScript dev channel the TV runs: a full-screen HLS
   `Video` node with the **mandatory auto-retry handler** (a bare Video node
   never recovers from a publisher restart; this one rejoins ~1 s after the
   stream returns).
+- `compositor/` — the Phase 2 compositor (stdlib Python 3.9+): ranks the
+  pane bus by rubric v1 and publishes `viewport/current.json`, the pointer
+  every client follows; falls back to the briefing, then a status card. Run
+  as `python3 -m compositor --webroot /srv/www`; tests with
+  `python3 -m unittest discover -s tests` from `compositor/`.
 - `scripts/deploy-roku.sh` — zip + sideload via the Roku dev installer
   (digest auth; credentials via environment, never committed).
 
@@ -94,9 +100,13 @@ headless-Chromium cache staleness) are summarized in `docs/concept.md`.
 
 ## Roadmap
 
-- **Phase 2** — NAS pane bus (`web/viewport/panes/<pane>/` + `manifest.json`)
-  and the rubric compositor on the viewport LXC; briefing and Grafana become
-  the first two pane classes.
+- **Phase 2 (in progress)** — NAS pane bus (`web/viewport/panes/<pane>/` +
+  `manifest.json`, created 2026-10-07) and the rubric compositor, running on
+  pub (LXC 114) and publishing `http://pub.lan/viewport/current.json`.
+  Compositor v1 ([`compositor/`](compositor/)) implements rubric v1; its
+  runtime unit is [kalmia#140](https://github.com/lentago/kalmia/issues/140).
+  Briefing and Grafana become the first two pane classes, with per-repo
+  `focus` panes from the session heartbeat.
 - **Phase 3** — governance snippet rolls out to all local Claudes and the
   claytonia fleet; panes start arriving from real activity (PR queue, job
   status, HA alerts).
