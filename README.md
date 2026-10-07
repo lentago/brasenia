@@ -59,6 +59,9 @@ is governed, not in a pipeline. Each row links to the evidence in this checkout.
   every client follows; falls back to the briefing, then a status card. Run
   as `python3 -m compositor --webroot /srv/www`; tests with
   `python3 -m unittest discover -s tests` from `compositor/`.
+- [`producers/`](producers/) — pane producers for the viewport bus; today
+  [`producers/focus/`](producers/focus/), which turns fresh session beacons
+  into one open-pull-requests pane per repo.
 - `scripts/deploy-roku.sh` — zip + sideload via the Roku dev installer
   (digest auth; credentials via environment, never committed).
 
