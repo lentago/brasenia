@@ -269,7 +269,8 @@ Chris would want to glance up and see it), the pane contract above, and the
 rule that Claudes only ever write/remove their **own** pane dirs — the
 compositor alone decides what shows. Same shape as the existing pub.lan
 drop-folder and bullpen-dispatch instructions: capability documented once,
-usable by every session.
+usable by every session. The canonical text is
+[`claiming-the-display.md`](claiming-the-display.md).
 
 ## Migration path
 

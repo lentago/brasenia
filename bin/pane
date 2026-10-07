@@ -1,0 +1,362 @@
+#!/usr/bin/env python3
+"""pane: claim, renew and release a pane on the viewport bus.
+
+One stdlib file (Python 3.9+), runnable from a clone or copied onto a PATH.
+The bus contracts (paths, manifest.json, the liveness rule) and the rubric
+live in docs/concept.md ("Contracts v1", "Rubric v1"); the page for humans and
+Claudes is docs/claiming-the-display.md. Exit codes: 0 ok, 1 refused (reason
+on stderr), 2 usage.
+"""
+
+import argparse
+import getpass
+import json
+import math
+import os
+import re
+import shutil
+import socket
+import sys
+from datetime import datetime, timedelta, timezone
+
+DEFAULT_BUS = "/mnt/lentago/web/viewport"
+URL_BASE = "http://pub.lan/viewport"
+
+# Rubric v1 default TTLs in minutes; None where the rubric has no fixed number.
+CLASS_TTL = {
+    "alert": 60,
+    "attention": 240,
+    "live": None,
+    "activity": 60,
+    "focus": 10,
+    "ambient": None,
+    "briefing": None,
+}
+ORIGINS = ("operator", "fleet")
+
+PANE_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}\Z")
+REPO = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
+EXTERNAL = (
+    re.compile(r"<script\b[^>]*?\bsrc\s*=[^>]*", re.I),
+    re.compile(r"<link\b[^>]*?\bhref\s*=[^>]*", re.I),
+    re.compile(r"\bsrc\s*=\s*[\"']?https?:[^\s>]*", re.I),
+)
+
+
+class Refused(Exception):
+    """A request the bus rules forbid; the message is the reason."""
+
+
+def utc_now():
+    return datetime.now(timezone.utc)
+
+
+def iso(dt):
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def parse_time(text):
+    if not isinstance(text, str):
+        raise ValueError("not a string")
+    if text.endswith(("Z", "z")):
+        text = text[:-1] + "+00:00"
+    dt = datetime.fromisoformat(text)  # 3.9 has no "Z" support, hence above
+    if dt.tzinfo is None:
+        raise ValueError("no timezone")
+    return dt.astimezone(timezone.utc)
+
+
+def default_author():
+    return "%s@%s" % (getpass.getuser(), socket.gethostname())
+
+
+def check_id(pane_id):
+    if not PANE_ID.match(pane_id):
+        raise Refused("invalid pane id %r (want [a-z0-9][a-z0-9-]{0,62})"
+                      % pane_id)
+
+
+def check_ttl(ttl, now):
+    if not (isinstance(ttl, (int, float)) and math.isfinite(ttl) and ttl > 0):
+        raise Refused("--ttl must be a positive number of minutes")
+    try:
+        now + timedelta(minutes=ttl)
+    except OverflowError:
+        raise Refused("--ttl is too large to represent as an expiry time")
+
+
+def check_page(html):
+    if not html.strip():
+        raise Refused("pane page is empty")
+    for pattern in EXTERNAL:
+        m = pattern.search(html)
+        if m:
+            raise Refused("external reference %r: panes are self-contained "
+                          "(inline the CSS and JS)" % m.group(0).strip())
+
+
+def atomic_write(path, text):
+    """Write ``path`` via ``path.partial`` and a rename, so readers never see
+    a half-written file."""
+    partial = path + ".partial"
+    with open(partial, "w", encoding="utf-8") as f:
+        f.write(text)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(partial, path)
+
+
+def panes_dir(bus):
+    if not os.path.isdir(bus):
+        raise Refused("bus root %s does not exist (is the share mounted? "
+                      "see --bus / VIEWPORT_DIR)" % bus)
+    return os.path.join(bus, "panes")
+
+
+def read_manifest(pane_dir):
+    """Return the manifest dict, or raise Refused naming the problem."""
+    path = os.path.join(pane_dir, "manifest.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        raise Refused("no manifest.json in %s" % pane_dir)
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        raise Refused("manifest does not parse: %s" % exc)
+    if not isinstance(data, dict):
+        raise Refused("manifest is not a JSON object")
+    return data
+
+
+def owned_manifest(bus, pane_id, author):
+    """Return ``(pane_dir, manifest)`` for a pane the caller owns, else refuse."""
+    check_id(pane_id)
+    pane_dir = os.path.join(panes_dir(bus), pane_id)
+    if not os.path.isdir(pane_dir):
+        raise Refused("no such pane %r" % pane_id)
+    manifest = read_manifest(pane_dir)
+    if manifest.get("author") != author:
+        raise Refused("pane %r belongs to %s, not %s; only its author may "
+                      "change it" % (pane_id, manifest.get("author"), author))
+    return pane_dir, manifest
+
+
+def claim(bus, pane_id, cls, title, page, now, ttl=None, origin="operator",
+          repo=None, dwell=None, author=None):
+    author = author or default_author()
+    check_id(pane_id)
+    if cls not in CLASS_TTL:
+        raise Refused("unknown class %r (one of %s)"
+                      % (cls, ", ".join(CLASS_TTL)))
+    if not title.strip():
+        raise Refused("--title is empty")
+    if ttl is None:
+        ttl = CLASS_TTL[cls]
+        if ttl is None:
+            raise Refused("class %r has no fixed default TTL; pass --ttl MIN"
+                          % cls)
+    check_ttl(ttl, now)
+    if repo is not None and not REPO.match(repo):
+        raise Refused("--repo %r is not owner/name" % repo)
+    if dwell is not None and not (math.isfinite(dwell) and dwell > 0):
+        raise Refused("--dwell must be a positive number of seconds")
+    check_page(page)
+
+    base = panes_dir(bus)
+    pane_dir = os.path.join(base, pane_id)
+    if os.path.isdir(pane_dir):
+        # Re-claiming your own pane is fine; replacing another writer's is
+        # the one thing the bus forbids.
+        owned_manifest(bus, pane_id, author)
+    os.makedirs(pane_dir, exist_ok=True)
+
+    manifest = {
+        "schema": 1,
+        "class": cls,
+        "title": title,
+        "created": iso(now),
+        "ttl_minutes": ttl,
+        "author": author,
+        "origin": origin,
+    }
+    if repo is not None:
+        manifest["repo"] = repo
+    if dwell is not None:
+        manifest["dwell_s"] = dwell
+    atomic_write(os.path.join(pane_dir, "pane.html"), page)
+    atomic_write(os.path.join(pane_dir, "manifest.json"),
+                 json.dumps(manifest, indent=2) + "\n")  # manifest last
+    return "%s/panes/%s/pane.html" % (URL_BASE, pane_id)
+
+
+def renew(bus, pane_id, now, ttl=None, author=None):
+    author = author or default_author()
+    if ttl is not None:
+        check_ttl(ttl, now)
+    pane_dir, manifest = owned_manifest(bus, pane_id, author)
+    manifest["created"] = iso(now)
+    if ttl is not None:
+        manifest["ttl_minutes"] = ttl
+    atomic_write(os.path.join(pane_dir, "manifest.json"),
+                 json.dumps(manifest, indent=2) + "\n")
+
+
+def release(bus, pane_id, author=None):
+    author = author or default_author()
+    pane_dir, _ = owned_manifest(bus, pane_id, author)
+    shutil.rmtree(pane_dir)
+
+
+def describe_pane(pane_dir, now):
+    """Return ``(class, origin, author, expires)`` columns for one pane
+    directory; ``expires`` is a timestamp, "expired", "partial" or
+    "malformed"."""
+    try:
+        files = set(os.listdir(pane_dir))
+    except OSError:
+        return "-", "-", "-", "partial"
+    blank = ("-", "-", "-")
+    if ("pane.html" not in files or "manifest.json" not in files
+            or any(name.endswith(".partial") for name in files)):
+        return blank + ("partial",)
+    try:
+        data = read_manifest(pane_dir)
+        cls, author = data["class"], data["author"]
+        ttl = data["ttl_minutes"]
+        created = parse_time(data["created"])
+        if (cls not in CLASS_TTL or not isinstance(data["title"], str)
+                or not isinstance(author, str) or isinstance(ttl, bool)
+                or not isinstance(ttl, (int, float)) or not ttl > 0):
+            raise ValueError("bad field")
+        origin = data.get("origin", "fleet")
+        if origin not in ORIGINS:
+            raise ValueError("bad origin")
+        expires = created + timedelta(minutes=ttl)
+    except (Refused, KeyError, ValueError, OverflowError):
+        return blank + ("malformed",)
+    return cls, origin, author, "expired" if expires <= now else iso(expires)
+
+
+def list_panes(bus, now):
+    base = panes_dir(bus)
+    rows = []
+    try:
+        names = sorted(os.listdir(base))
+    except FileNotFoundError:
+        names = []
+    for name in names:
+        pane_dir = os.path.join(base, name)
+        if os.path.isdir(pane_dir):
+            rows.append((name,) + describe_pane(pane_dir, now))
+    lines = []
+    if rows:
+        widths = [max(len(r[i]) for r in rows) for i in range(4)]
+        for r in rows:
+            lines.append("  ".join(r[i].ljust(widths[i]) for i in range(4))
+                         + "  " + r[4])
+    else:
+        lines.append("(no panes)")
+    lines.append(current_line(bus))
+    return lines
+
+
+def current_line(bus):
+    try:
+        with open(os.path.join(bus, "current.json"), encoding="utf-8") as f:
+            ptr = json.load(f)
+        if ptr.get("pane"):
+            return "current: %s (%s) %s" % (ptr["pane"], ptr.get("class"),
+                                            ptr.get("url"))
+        return "current: fallback %s %s" % (ptr.get("fallback"),
+                                            ptr.get("url"))
+    except (OSError, ValueError, AttributeError):
+        return "current: unavailable (no readable current.json)"
+
+
+def build_parser():
+    p = argparse.ArgumentParser(
+        prog="pane", description="Claim, renew and release a pane on the "
+        "viewport bus. See docs/claiming-the-display.md.")
+    p.add_argument("--bus", default=os.environ.get("VIEWPORT_DIR", DEFAULT_BUS),
+                   help="bus root (default: $VIEWPORT_DIR or %s)" % DEFAULT_BUS)
+    sub = p.add_subparsers(dest="command", required=True, metavar="command")
+
+    c = sub.add_parser("claim", help="put a pane on the bus")
+    c.add_argument("id")
+    c.add_argument("--class", dest="cls", required=True,
+                   choices=list(CLASS_TTL))
+    c.add_argument("--title", required=True)
+    c.add_argument("--ttl", type=finite, metavar="MIN")
+    c.add_argument("--origin", choices=ORIGINS, default="operator")
+    c.add_argument("--repo", metavar="owner/name")
+    c.add_argument("--dwell", type=finite, metavar="SEC")
+    c.add_argument("--author", help="default: <user>@<hostname>")
+    c.add_argument("page", metavar="pane.html", help="page file, or - for stdin")
+
+    r = sub.add_parser("renew", help="slide a pane's TTL from now")
+    r.add_argument("id")
+    r.add_argument("--ttl", type=finite, metavar="MIN")
+    r.add_argument("--author", help="default: <user>@<hostname>")
+
+    d = sub.add_parser("release", help="remove your pane")
+    d.add_argument("id")
+    d.add_argument("--author", help="default: <user>@<hostname>")
+
+    sub.add_parser("ls", help="list panes and the current decision")
+    return p
+
+
+def read_page(path):
+    try:
+        if path == "-":
+            return sys.stdin.read()
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        raise Refused("cannot read page %s: %s" % (path, exc))
+
+
+def finite(text):
+    """argparse type: a finite number; ``nan`` and ``inf`` are usage errors."""
+    try:
+        value = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError("%r is not a number" % text)
+    if not math.isfinite(value):
+        raise argparse.ArgumentTypeError("%r is not a finite number" % text)
+    return value
+
+
+def whole(n):
+    return int(n) if n is not None and n == int(n) else n
+
+
+def main(argv=None, now=None):
+    args = build_parser().parse_args(argv)
+    now = now or utc_now()
+    try:
+        if args.command == "claim":
+            url = claim(args.bus, args.id, args.cls, args.title,
+                        read_page(args.page), now, ttl=whole(args.ttl),
+                        origin=args.origin, repo=args.repo,
+                        dwell=whole(args.dwell), author=args.author)
+            print(url)
+        elif args.command == "renew":
+            renew(args.bus, args.id, now, ttl=whole(args.ttl),
+                  author=args.author)
+        elif args.command == "release":
+            release(args.bus, args.id, author=args.author)
+        else:
+            for line in list_panes(args.bus, now):
+                print(line)
+    except Refused as exc:
+        print("pane: refused: %s" % exc, file=sys.stderr)
+        return 1
+    except OSError as exc:
+        print("pane: refused: %s" % exc, file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
