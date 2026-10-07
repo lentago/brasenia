@@ -1,8 +1,10 @@
 # Claiming the display
 
 **What you're about to do:** decide whether something deserves the household
-wall display, and if it does, put it on the viewport bus with `bin/pane` so
-the compositor can show it.
+wall display, and if it does, put it on the viewport bus (the shared folder on
+the NAS, `/mnt/lentago/web/viewport`, where panes are dropped) with `bin/pane`
+so the compositor (the service on pub that ranks what is on the bus and
+decides what the wall shows) can show it.
 
 **Why bother:** the wall is a shared, glanceable surface, and a session that
 learns something the household would want to see (a failing deploy, a
@@ -11,14 +13,16 @@ so. Claiming is cheap and safe: you write a page into your own directory, and
 the compositor, not you, decides whether it shows.
 
 **Time:** a minute to claim; nothing to do afterwards except release when the
-thing resolves (or let the TTL do it).
+thing resolves (or let the TTL, the time to live after which an unrefreshed
+claim expires, do it).
 
 ## Is it screen-worthy?
 
 Yes, if the household would want to glance up and see it. A pull request that
 needs a decision, an alert, a live feed: yes. Your own progress, a log tail,
 something only you care about: no. When in doubt, don't claim; the focus
-producer already puts open pull requests up for any repo you are working in.
+producer ([`producers/focus/`](../producers/focus/)) already puts open pull
+requests up for any repo you are working in.
 
 ## The seven classes
 

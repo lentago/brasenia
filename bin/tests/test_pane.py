@@ -113,6 +113,25 @@ class ClaimTests(PaneCase):
         self.assertIn("--ttl", err)
         self.assertFalse(os.path.exists(self.pane_dir("d")))
 
+    def test_nonfinite_ttl_and_dwell_are_usage_errors(self):
+        for flag, value in (("--ttl", "nan"), ("--ttl", "inf"),
+                            ("--dwell", "nan"), ("--dwell", "-inf")):
+            with self.assertRaises(SystemExit) as ctx:
+                self.claim("d", "ann@a", flag, value)
+            self.assertEqual(ctx.exception.code, 2)
+            self.assertFalse(os.path.exists(self.pane_dir("d")))
+
+    def test_overflowing_ttl_is_refused_not_written(self):
+        code, _, err = self.claim("d", "ann@a", "--ttl", "1e300")
+        self.assertEqual(code, 1)
+        self.assertIn("--ttl", err)
+        self.assertFalse(os.path.exists(self.pane_dir("d")))
+        self.claim("ok", "ann@a")
+        code, _, err = self.run_cli("renew", "ok", "--author", "ann@a",
+                                    "--ttl", "1e300")
+        self.assertEqual(code, 1)
+        self.assertEqual(self.manifest("ok")["ttl_minutes"], 240)
+
     def test_bad_id(self):
         for bad in ("Demo", "_demo", "a/b", "..", "a" * 64, "a b"):
             code, _, err = self.claim(bad)
@@ -282,6 +301,14 @@ class LsTests(PaneCase):
                   "w") as f:
             json.dump({"class": "nope", "title": "t", "created": "x",
                        "ttl_minutes": 1, "author": "a"}, f)
+        os.makedirs(self.pane_dir("badorigin"))
+        with open(os.path.join(self.pane_dir("badorigin"), "pane.html"),
+                  "w") as f:
+            f.write(PAGE)
+        with open(os.path.join(self.pane_dir("badorigin"), "manifest.json"),
+                  "w") as f:
+            json.dump({"class": "focus", "title": "t", "created": pane.iso(T0),
+                       "ttl_minutes": 1, "author": "a", "origin": None}, f)
         with open(os.path.join(self.bus, "current.json"), "w") as f:
             json.dump({"pane": "live-one", "class": "attention",
                        "url": "http://pub.lan/viewport/panes/live-one/"
@@ -299,6 +326,7 @@ class LsTests(PaneCase):
         self.assertTrue(rows["mid-write"].endswith("partial"))
         self.assertTrue(rows["junk"].endswith("malformed"))
         self.assertTrue(rows["badfield"].endswith("malformed"))
+        self.assertTrue(rows["badorigin"].endswith("malformed"))
         self.assertIn("current: live-one (attention)", out)
 
     def test_fallback_pointer(self):

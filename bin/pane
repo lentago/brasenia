@@ -11,6 +11,7 @@ on stderr), 2 usage.
 import argparse
 import getpass
 import json
+import math
 import os
 import re
 import shutil
@@ -75,9 +76,13 @@ def check_id(pane_id):
                       % pane_id)
 
 
-def check_ttl(ttl):
-    if not ttl > 0:
+def check_ttl(ttl, now):
+    if not (isinstance(ttl, (int, float)) and math.isfinite(ttl) and ttl > 0):
         raise Refused("--ttl must be a positive number of minutes")
+    try:
+        now + timedelta(minutes=ttl)
+    except OverflowError:
+        raise Refused("--ttl is too large to represent as an expiry time")
 
 
 def check_page(html):
@@ -150,10 +155,10 @@ def claim(bus, pane_id, cls, title, page, now, ttl=None, origin="operator",
         if ttl is None:
             raise Refused("class %r has no fixed default TTL; pass --ttl MIN"
                           % cls)
-    check_ttl(ttl)
+    check_ttl(ttl, now)
     if repo is not None and not REPO.match(repo):
         raise Refused("--repo %r is not owner/name" % repo)
-    if dwell is not None and not dwell > 0:
+    if dwell is not None and not (math.isfinite(dwell) and dwell > 0):
         raise Refused("--dwell must be a positive number of seconds")
     check_page(page)
 
@@ -187,7 +192,7 @@ def claim(bus, pane_id, cls, title, page, now, ttl=None, origin="operator",
 def renew(bus, pane_id, now, ttl=None, author=None):
     author = author or default_author()
     if ttl is not None:
-        check_ttl(ttl)
+        check_ttl(ttl, now)
     pane_dir, manifest = owned_manifest(bus, pane_id, author)
     manifest["created"] = iso(now)
     if ttl is not None:
@@ -224,6 +229,8 @@ def describe_pane(pane_dir, now):
                 or not isinstance(ttl, (int, float)) or not ttl > 0):
             raise ValueError("bad field")
         origin = data.get("origin", "fleet")
+        if origin not in ORIGINS:
+            raise ValueError("bad origin")
         expires = created + timedelta(minutes=ttl)
     except (Refused, KeyError, ValueError, OverflowError):
         return blank + ("malformed",)
@@ -279,16 +286,16 @@ def build_parser():
     c.add_argument("--class", dest="cls", required=True,
                    choices=list(CLASS_TTL))
     c.add_argument("--title", required=True)
-    c.add_argument("--ttl", type=float, metavar="MIN")
+    c.add_argument("--ttl", type=finite, metavar="MIN")
     c.add_argument("--origin", choices=ORIGINS, default="operator")
     c.add_argument("--repo", metavar="owner/name")
-    c.add_argument("--dwell", type=float, metavar="SEC")
+    c.add_argument("--dwell", type=finite, metavar="SEC")
     c.add_argument("--author", help="default: <user>@<hostname>")
     c.add_argument("page", metavar="pane.html", help="page file, or - for stdin")
 
     r = sub.add_parser("renew", help="slide a pane's TTL from now")
     r.add_argument("id")
-    r.add_argument("--ttl", type=float, metavar="MIN")
+    r.add_argument("--ttl", type=finite, metavar="MIN")
     r.add_argument("--author", help="default: <user>@<hostname>")
 
     d = sub.add_parser("release", help="remove your pane")
@@ -307,6 +314,17 @@ def read_page(path):
             return f.read()
     except (OSError, UnicodeDecodeError) as exc:
         raise Refused("cannot read page %s: %s" % (path, exc))
+
+
+def finite(text):
+    """argparse type: a finite number; ``nan`` and ``inf`` are usage errors."""
+    try:
+        value = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError("%r is not a number" % text)
+    if not math.isfinite(value):
+        raise argparse.ArgumentTypeError("%r is not a finite number" % text)
+    return value
 
 
 def whole(n):
