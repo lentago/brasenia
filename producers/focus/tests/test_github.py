@@ -66,6 +66,20 @@ class GitHubTests(unittest.TestCase):
         self.gh.repo(REPO)
         self.assertGreater(len(self.t.calls), n)
 
+    def test_listing_that_reveals_an_unaffordable_fan_out_stops_before_spending(self):
+        many = [{"number": n, "title": "PR %d" % n} for n in range(1, 6)]  # 5 PRs: 2 + 10 requests
+        serve_repo(self.t, REPO, many)
+        self.t.remaining = 7  # the listing leaves 6; the fan-out needs 11 more
+        with self.assertRaises(GitHubError) as ctx:
+            self.gh.repo(REPO)
+        self.assertEqual(len(self.t.github_calls()), 1)  # only the listing was spent
+        self.assertIn("5 open PRs", str(ctx.exception))
+        self.assertEqual(self.gh._cost[REPO], 12)  # the next preflight knows the real cost
+        self.clock.t = self.t.reset + 1
+        self.t.remaining = 60
+        data, _ = self.gh.repo(REPO)
+        self.assertEqual(len(data["pulls"]), 5)
+
     def test_etag_reuse_after_cache_expiry(self):
         first, _ = self.gh.repo(REPO)
         n = len(self.t.calls)

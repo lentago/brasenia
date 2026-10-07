@@ -102,8 +102,19 @@ class GitHub:
         used = {}
         get = lambda path: self._get(old, used, path)  # noqa: E731
 
+        listing = get("/repos/%s/pulls?state=open&per_page=100" % repo)
+        # Second preflight, now that the fan-out is known: main's runs plus
+        # check-runs and reviews per PR. Without it a listing that reveals
+        # many PRs could spend the rest of the window and fail halfway,
+        # leaving every pane stale until the reset.
+        rest = 1 + 2 * len(listing)
+        if self._remaining is not None and self._remaining < rest and now < self._reset:
+            self._cost[repo] = 1 + rest  # the real cost, for the next preflight
+            raise GitHubError("%d requests left, need %d more for %d open PRs; window resets %s"
+                              % (self._remaining, rest, len(listing), _hhmm_utc(self._reset)))
+
         pulls = []
-        for pr in get("/repos/%s/pulls?state=open&per_page=100" % repo):
+        for pr in listing:
             sha = pr["head"]["sha"]
             runs = get("/repos/%s/commits/%s/check-runs?per_page=100" % (repo, sha))
             reviews = get("/repos/%s/pulls/%d/reviews?per_page=100" % (repo, pr["number"]))
