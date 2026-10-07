@@ -53,6 +53,9 @@ is governed, not in a pipeline. Each row links to the evidence in this checkout.
   `Video` node with the **mandatory auto-retry handler** (a bare Video node
   never recovers from a publisher restart; this one rejoins ~1 s after the
   stream returns).
+- [`producers/`](producers/) — pane producers for the viewport bus; today
+  [`producers/focus/`](producers/focus/), which turns fresh session beacons
+  into one open-pull-requests pane per repo.
 - `scripts/deploy-roku.sh` — zip + sideload via the Roku dev installer
   (digest auth; credentials via environment, never committed).
 
