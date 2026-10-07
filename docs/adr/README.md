@@ -23,3 +23,4 @@ decision was made, not reconstructed.
 | [0005](0005-product-runtime-split-with-kalmia.md) | Product/runtime split with kalmia, enforced in both directions | 2026-07-20 |
 | [0006](0006-cast-web-receiver-second-client.md) | Chromecast web receiver as a second client; the compositor's output becomes a decision | 2026-08-14 |
 | [0007](0007-live-rtmp-ingest-generic-path.md) | Generic RTMP ingest path; fallback-chain switching; `live` as rubric source type | 2026-08-16 |
+| [0008](0008-compositor-and-producers-on-pub.md) | The compositor and the producers run on pub; the display guest stays a client | 2026-10-07 |
