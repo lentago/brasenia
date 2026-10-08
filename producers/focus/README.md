@@ -55,7 +55,9 @@ Each cycle:
    than 10 min old, or that don't parse, are deleted. The rest are grouped
    by `repo`; a null `repo` is ignored.
 2. For each repo, fetches its open PRs, each PR's check runs and reviews,
-   and `main`'s latest meaningful push run (one request) from the GitHub REST API,
+   and `main`'s latest meaningful push run, that is, the newest of the last
+   five completed runs that a push to `main` triggered and that did not end
+   as `skipped`, `neutral` or `cancelled` (one request), from the GitHub REST API,
    unauthenticated. Reads `<url-base>/viewport/pipeline.json` once per cycle;
    a missing or unreadable file means no pipeline row.
 3. Writes `pane.html`, then `manifest.json`, each as `x.partial` renamed to
@@ -71,9 +73,10 @@ outside `[a-z0-9]` turned into `-`: `lentago/.github` →
 `focus-lentago--github`.
 
 **Main's run** is the newest of the last five completed push-event runs on
-`main` whose conclusion is not `skipped`, `neutral` or `cancelled`, so a
-skipped comment-triggered workflow doesn't mask the real state. When none
-qualifies the pane says `main: no push run`.
+`main` (workflow runs that a push to `main` triggered, as opposed to runs that
+an issue or pull-request comment triggered) whose conclusion is not `skipped`,
+`neutral` or `cancelled`, so a skipped comment-triggered workflow doesn't mask
+the real state. When none qualifies the pane says `main: no push run`.
 
 **Check state** folds the head commit's check runs: any failed, cancelled or
 timed-out run is `failing`, otherwise any unfinished run is `pending`,
