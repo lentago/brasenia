@@ -147,7 +147,7 @@ def pane_title(repo):
 
 def _main_line(main, now):
     if not main:
-        return "<b>no completed runs</b>"
+        return "<b>main: no push run</b>"
     conclusion = main["conclusion"]
     cls = ' class="bad"' if conclusion not in ("success", "skipped", "neutral") else ""
     when = ""
