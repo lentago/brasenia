@@ -186,7 +186,14 @@ def _strip(repo, now):
 
 
 def _state(value):
-    return value if value in STATE_COLOURS and not isinstance(value, bool) else 0
+    """The stage's state code, 0 for anything that is not one of 0..3.
+
+    A list or object in the document is a producer bug upstream, not a reason
+    to crash this cycle, so it renders grey like a missing stage.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return value if value in STATE_COLOURS else 0
 
 
 def _minutes_since(value, now):

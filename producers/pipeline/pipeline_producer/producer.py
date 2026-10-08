@@ -31,6 +31,11 @@ def write_atomic(path, text):
     os.replace(partial, path)
 
 
+# Returned by _manifest when the pane directory holds a manifest this producer
+# cannot read or parse; the cycle then changes nothing.
+UNKNOWN = object()
+
+
 class Producer:
     def __init__(self, webroot, url_base, fetch=urllib_fetch, clock=None):
         self.pane_dir = os.path.join(webroot, "viewport", "panes", PANE_ID)
@@ -43,6 +48,8 @@ class Producer:
     def cycle(self):
         now = self.clock()
         manifest = self._manifest()
+        if manifest is UNKNOWN:
+            return
         if manifest is not None and manifest.get("author") != AUTHOR:
             log.warning("panes/%s belongs to %r; leaving it alone", PANE_ID, manifest.get("author"))
             return
@@ -99,15 +106,24 @@ class Producer:
             write_atomic(self.page_path, page)
 
     def _manifest(self):
-        """Our pane's manifest; None when absent. One that does not parse counts as ours, half-written."""
+        """Our pane's manifest; None when absent; UNKNOWN when it cannot be read or parsed.
+
+        Writes are atomic (write-then-rename), so an unreadable manifest is
+        never "half-written by us": it is someone else's, a permission
+        problem, or corruption, and the cycle leaves the pane alone.
+        """
         try:
             with open(self.manifest_path, encoding="utf-8") as fh:
                 manifest = json.load(fh)
         except FileNotFoundError:
             return None
-        except (OSError, ValueError):
-            return {"author": AUTHOR}  # half-written by us; treat as ours
-        return manifest if isinstance(manifest, dict) else {"author": AUTHOR}
+        except (OSError, ValueError) as err:
+            log.warning("panes/%s/manifest.json cannot be read (%s); leaving the pane alone", PANE_ID, err)
+            return UNKNOWN
+        if not isinstance(manifest, dict):
+            log.warning("panes/%s/manifest.json is not an object; leaving the pane alone", PANE_ID)
+            return UNKNOWN
+        return manifest
 
     def _remove(self, why):
         if os.path.isdir(self.pane_dir):

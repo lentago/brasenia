@@ -139,6 +139,28 @@ class ProducerTests(unittest.TestCase):
             self.producer.cycle()
             self.assertEqual(self.manifest(), foreign)
 
+    def test_unreadable_manifest_is_left_alone(self):
+        os.makedirs(self.pane_dir)
+        with open(os.path.join(self.pane_dir, "manifest.json"), "w") as fh:
+            fh.write("{not json")
+        with open(os.path.join(self.pane_dir, "pane.html"), "w") as fh:
+            fh.write("<html>someone's page</html>")
+        for doc in (fixture("in-flight"), fixture("example")):
+            self.serve(doc)
+            self.producer.cycle()
+            self.assertEqual(self.read("manifest.json"), "{not json")
+            self.assertEqual(self.read("pane.html"), "<html>someone's page</html>")
+
+    def test_odd_stage_state_renders_grey_instead_of_crashing(self):
+        doc = fixture("in-flight")
+        flying = [r for r in doc["repos"] if r.get("in_flight")][0]
+        flying["stages"][2]["state"] = ["3"]
+        flying["stages"][3]["state"] = {"state": 3}
+        flying["stages"][4]["state"] = True
+        self.serve(doc)
+        self.producer.cycle()
+        self.assertTrue(os.path.exists(os.path.join(self.pane_dir, "pane.html")))
+
     def test_cli_once_renders_fixture(self):
         fixtures = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "in-flight")
         rc = cli.main(["--once", "--webroot", self.webroot, "--url-base", "file://" + fixtures,
