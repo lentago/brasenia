@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "generated_at": "2026-10-07T22:10:00Z",
+  "producer": "drosera pipeline producer on grafana-stack (LXC 105)",
+  "window": "24h",
+  "repos": [
+    {
+      "repo": "lentago/drosera",
+      "head": {"sha": "36398c0", "full_sha": "36398c06b97c81563b8af933c66ce30993559770", "merged_at": "2026-10-07T21:14:31Z", "url": "https://github.com/lentago/drosera/commit/36398c06b97c81563b8af933c66ce30993559770"},
+      "in_flight": false,
+      "in_flight_since": null,
+      "stuck": false,
+      "budget_minutes": 5,
+      "stages": [
+        {"stage": "pushed",       "state": 3, "sha": "cdecf7e", "detail": "agent/change-pipeline-graphviz-strip", "when": "2026-10-07T21:11:31Z", "url": "https://github.com/lentago/drosera/commit/cdecf7e146b7bddc490936b8b3d6edc2f3f0ee2e"},
+        {"stage": "pr_open",      "state": 0, "sha": "cdecf7e", "detail": "no PR newer than main", "when": "2026-10-07T21:11:31Z", "url": "https://github.com/lentago/drosera/pulls?q=is:pr+head:agent/change-pipeline-graphviz-strip"},
+        {"stage": "checks_green", "state": 3, "sha": "cdecf7e", "detail": "ShellCheck · success", "when": "2026-10-07T21:10:39Z", "url": "https://github.com/lentago/drosera/actions/runs/37687502978"},
+        {"stage": "merged",       "state": 3, "sha": "36398c0", "detail": "main", "when": "2026-10-07T21:14:31Z", "url": "https://github.com/lentago/drosera/commit/36398c06b97c81563b8af933c66ce30993559770"},
+        {"stage": "applied",      "state": 3, "sha": "36398c0", "detail": "apply · success", "when": "2026-10-07T21:16:02Z", "url": "https://github.com/lentago/drosera/actions/runs/37687982567"},
+        {"stage": "live",         "state": 3, "sha": "36398c0", "detail": "alloy-lxc105 · applied", "when": "2026-10-07T21:17:33Z", "url": "https://github.com/lentago/drosera/commit/36398c06b97c81563b8af933c66ce30993559770"}
+      ],
+      "surfaces": [
+        {"surface": "alloy-lxc105", "sha": "36398c0", "state": 3, "result": "applied", "when": "2026-10-07T21:17:33Z"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "generated_at": "2026-10-07T22:10:00Z",
+  "producer": "drosera pipeline producer on grafana-stack (LXC 105)",
+  "window": "24h",
+  "repos": [
+    {
+      "repo": "lentago/brasenia",
+      "head": {"sha": "c37ad60", "full_sha": "c37ad60f1e2d3c4b5a69788796a5b4c3d2e1f0a9", "merged_at": "2026-10-07T20:41:12Z", "url": "https://github.com/lentago/brasenia/commit/c37ad60f1e2d3c4b5a69788796a5b4c3d2e1f0a9"},
+      "in_flight": false,
+      "in_flight_since": null,
+      "stuck": false,
+      "budget_minutes": 20,
+      "stages": [
+        {"stage": "pushed",       "state": 3, "sha": "a1b2c3d", "detail": "agent/pane-command", "when": "2026-10-07T20:30:02Z", "url": "https://github.com/lentago/brasenia/commit/a1b2c3d"},
+        {"stage": "pr_open",      "state": 0, "sha": "a1b2c3d", "detail": "no PR newer than main", "when": "2026-10-07T20:30:02Z", "url": "https://github.com/lentago/brasenia/pulls"},
+        {"stage": "checks_green", "state": 3, "sha": "a1b2c3d", "detail": "docs-check · success", "when": "2026-10-07T20:31:40Z", "url": "https://github.com/lentago/brasenia/actions"},
+        {"stage": "merged",       "state": 3, "sha": "c37ad60", "detail": "main", "when": "2026-10-07T20:41:12Z", "url": "https://github.com/lentago/brasenia/commit/c37ad60"},
+        {"stage": "applied",      "state": 3, "sha": "c37ad60", "detail": "docs-check · success", "when": "2026-10-07T20:42:30Z", "url": "https://github.com/lentago/brasenia/actions"},
+        {"stage": "live",         "state": 3, "sha": "c37ad60", "detail": "pub · applied", "when": "2026-10-07T20:44:00Z", "url": "https://github.com/lentago/brasenia/commit/c37ad60"}
+      ],
+      "surfaces": [
+        {"surface": "pub", "sha": "c37ad60", "state": 3, "result": "applied", "when": "2026-10-07T20:44:00Z"}
+      ]
+    },
+    {
+      "repo": "lentago/drosera",
+      "head": {"sha": "9f1c2ab", "full_sha": "9f1c2ab7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1", "merged_at": "2026-10-07T22:01:10Z", "url": "https://github.com/lentago/drosera/commit/9f1c2ab7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1"},
+      "in_flight": true,
+      "in_flight_since": "2026-10-07T22:01:10Z",
+      "stuck": true,
+      "budget_minutes": 5,
+      "stages": [
+        {"stage": "pushed",       "state": 3, "sha": "e4d5c6b", "detail": "agent/pipeline-producer", "when": "2026-10-07T21:52:40Z", "url": "https://github.com/lentago/drosera/commit/e4d5c6b"},
+        {"stage": "pr_open",      "state": 0, "sha": "e4d5c6b", "detail": "no PR newer than main", "when": "2026-10-07T21:52:40Z", "url": "https://github.com/lentago/drosera/pulls?q=is:pr+head:agent/pipeline-producer"},
+        {"stage": "checks_green", "state": 3, "sha": "e4d5c6b", "detail": "ShellCheck · success", "when": "2026-10-07T21:55:02Z", "url": "https://github.com/lentago/drosera/actions/runs/37690000001"},
+        {"stage": "merged",       "state": 3, "sha": "9f1c2ab", "detail": "main", "when": "2026-10-07T22:01:10Z", "url": "https://github.com/lentago/drosera/commit/9f1c2ab7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1"},
+        {"stage": "applied",      "state": 3, "sha": "9f1c2ab", "detail": "apply · success", "when": "2026-10-07T22:03:20Z", "url": "https://github.com/lentago/drosera/actions/runs/37690000002"},
+        {"stage": "live",         "state": 1, "sha": "36398c0", "detail": "alloy-lxc105 · lagging", "when": "2026-10-07T21:17:33Z", "url": "https://github.com/lentago/drosera/commit/36398c06b97c81563b8af933c66ce30993559770"}
+      ],
+      "surfaces": [
+        {"surface": "alloy-lxc105", "sha": "36398c0", "state": 1, "result": "applied", "when": "2026-10-07T21:17:33Z"}
+      ]
+    },
+    {
+      "repo": "lentago/kalmia",
+      "head": {"sha": "5be7a10", "full_sha": "5be7a10c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a", "merged_at": "2026-10-07T22:07:45Z", "url": "https://github.com/lentago/kalmia/commit/5be7a10c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a"},
+      "in_flight": true,
+      "in_flight_since": "2026-10-07T22:07:45Z",
+      "stuck": false,
+      "budget_minutes": 5,
+      "stages": [
+        {"stage": "pushed",       "state": 3, "sha": "0ad3f19", "detail": "agent/pipeline-proxy", "when": "2026-10-07T21:58:11Z", "url": "https://github.com/lentago/kalmia/commit/0ad3f19"},
+        {"stage": "pr_open",      "state": 0, "sha": "0ad3f19", "detail": "no PR newer than main", "when": "2026-10-07T21:58:11Z", "url": "https://github.com/lentago/kalmia/pulls?q=is:pr+head:agent/pipeline-proxy"},
+        {"stage": "checks_green", "state": 3, "sha": "0ad3f19", "detail": "terraform plan · success", "when": "2026-10-07T22:01:30Z", "url": "https://github.com/lentago/kalmia/actions/runs/37690000003"},
+        {"stage": "merged",       "state": 3, "sha": "5be7a10", "detail": "main", "when": "2026-10-07T22:07:45Z", "url": "https://github.com/lentago/kalmia/commit/5be7a10c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a"},
+        {"stage": "applied",      "state": 1, "sha": "5be7a10", "detail": "terraform apply · in progress", "when": "2026-10-07T22:08:02Z", "url": "https://github.com/lentago/kalmia/actions/runs/37690000004"},
+        {"stage": "live",         "state": 1, "sha": "4c2e9d0", "detail": "pub · lagging", "when": "2026-10-07T19:30:00Z", "url": "https://github.com/lentago/kalmia/commit/4c2e9d0"}
+      ],
+      "surfaces": [
+        {"surface": "pub", "sha": "4c2e9d0", "state": 1, "result": "applied", "when": "2026-10-07T19:30:00Z"}
+      ]
+    }
+  ]
+}
