@@ -64,6 +64,9 @@ The full contract is in [concept.md](concept.md#the-pane-contract).
 4. Dark background, body text at least 20 px, 24 px safe margins.
 5. Keep the bottom-right 220×50 px of each band clear (the clock overlay).
 
+Your display can be dark or stale during an internet outage; see
+[Degraded mode: internet outage](concept.md#degraded-mode-internet-outage).
+
 ## Using `pane`
 
 The bus root is `--bus` or `$VIEWPORT_DIR`, default
