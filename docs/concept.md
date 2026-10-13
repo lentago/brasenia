@@ -98,15 +98,17 @@ earns comparable validation evidence.
 
 ### Degraded mode: internet outage
 
-The Cast path launches the receiver through Google's cloud, so during an
-internet outage the wall display cannot launch or re-launch the receiver. It
-goes dark, or stays on whatever the receiver was last showing, until
-connectivity returns. The LAN-self-contained property belonged to the retired
-Roku/HLS path and is not carried forward. This was accepted on 2026-10-13
-([#12](https://github.com/lentago/brasenia/issues/12)) as the one capability
-regression of the transport swap, to be revisited only if a LAN-only launch
-path appears. The watchdog's re-launch resumes on its own once the internet is
-back; nothing needs to be done by hand.
+The Cast path launches the receiver through Google's cloud, so while your
+internet is down the display cannot launch or re-launch the receiver. A receiver
+that is already running keeps polling your LAN for its panes and may carry on
+through the outage; if it stops, or the Chromecast restarts, your display stays
+dark until the internet is back. The LAN-self-contained property belonged to the
+retired Roku/HLS path and is not carried forward. This regression was accepted
+on 2026-10-13 ([#12](https://github.com/lentago/brasenia/issues/12)) as the one
+capability loss of the transport swap, to be revisited only if a LAN-only launch
+path appears. Whether the watchdog's re-launch brings your display back on its
+own once connectivity returns is one of #12's soak checks; until that passes,
+expect to re-cast by hand after an outage.
 
 **Compositor placement (2026-10-07).** The compositor runs on pub (LXC
 114), from the `/srv/brasenia` checkout kalmia already keeps there, because
