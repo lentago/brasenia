@@ -64,8 +64,8 @@ for a hand test.) Then, with the receiver running on the Chromecast:
 
 ## Registration prerequisites (Cast Developer Console)
 
-One-time setup, done outside this repo by whoever holds the
-Google account used for Cast development (Chris):
+One-time setup, done outside this repo. If you hold the Google account used
+for Cast development (today that is Chris), do this once:
 
 1. **Register as a Cast developer** — https://cast.google.com/publish,
    one-time ~$5 fee.

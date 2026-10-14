@@ -16,8 +16,9 @@ rotation by dwell) replaces rubric v0, the bus contracts are written down as
 ([#27](https://github.com/lentago/brasenia/issues/27)).*
 
 Brasenia (watershield) carpets New England ponds with small floating leaves —
-little panes resting on the water's surface. **brasenia** is the estate's
-shared window into what its Claudes are doing: one always-on screen whose
+little panes resting on the water's surface. **brasenia** is the shared window
+into what the Claudes working our estate (everything we run, on-prem and in the
+cloud) are doing: one always-on screen whose
 content is chosen by a rubric, not a remote. The morning brief is the resting
 surface; higher-value panes (a PR awaiting review, a failing backup, a deploy
 in flight) surface above it when they exist and sink back when they expire.

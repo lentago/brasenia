@@ -154,7 +154,7 @@ runtime effect. To change the displayed content you edit kalmia's `lunaria_tv_ur
 applies on merge to `main` via the LAN self-hosted runner, and then a manual on-host `play` run
 repoints the running stream. Merging in brasenia updates the repo and docs — never the live TV.
 This vector needs write access to the [`kalmia`](https://github.com/lentago/kalmia) repo and access
-to the on-prem self-hosted runner.
+to the on-prem self-hosted runner (on-prem: the machines in our own building).
 
 ---
 
