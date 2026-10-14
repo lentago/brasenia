@@ -64,8 +64,8 @@ for a hand test.) Then, with the receiver running on the Chromecast:
 
 ## Registration prerequisites (Cast Developer Console)
 
-One-time setup, done outside this repo by whoever holds the household's
-Google account for Cast development (Chris):
+One-time setup, done outside this repo by whoever holds the
+Google account used for Cast development (Chris):
 
 1. **Register as a Cast developer** — https://cast.google.com/publish,
    one-time ~$5 fee.
@@ -93,7 +93,7 @@ the App ID and receiver URL, matching the `deploy-roku.sh` discipline
   receiver page and the `http://pub.lan/brief/` iframe are same-scheme and
   no mixed-content blocking applies. App ID `83A58DDE` (in
   `app-config.json`); the app stays unpublished by design — it only ever
-  launches on the dev-registered household device, same posture as the
+  launches on the dev-registered wall-display Chromecast, same posture as the
   sideloaded Roku dev channel. The original concern returns only if the app
   is ever *published* (publishing requires an HTTPS receiver URL), which
   would mean TLS on pub or a same-origin proxy — deliberately out of scope.

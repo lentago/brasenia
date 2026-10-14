@@ -16,7 +16,7 @@ rotation by dwell) replaces rubric v0, the bus contracts are written down as
 ([#27](https://github.com/lentago/brasenia/issues/27)).*
 
 Brasenia (watershield) carpets New England ponds with small floating leaves —
-little panes resting on the water's surface. **brasenia** is the household's
+little panes resting on the water's surface. **brasenia** is the estate's
 shared window into what its Claudes are doing: one always-on screen whose
 content is chosen by a rubric, not a remote. The morning brief is the resting
 surface; higher-value panes (a PR awaiting review, a failing backup, a deploy
@@ -265,7 +265,7 @@ than being silently overruled by the transport-layer fallback chain.
 **Latency disclaimer — spectator use only.** DJI Fly's encode adds ~2–3 s;
 the measured Roku HLS join latency (7–17 s, ADR-0001) applies equally on the
 `live` path. Glass-to-glass is approximately **10–20 s**. This is appropriate
-for a household display showing what the drone is seeing. It is **never a
+for a wall display showing what the drone is seeing. It is **never a
 piloting aid** — do not use it as a substitute for the controller's real-time
 video feed.
 

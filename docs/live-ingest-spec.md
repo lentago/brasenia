@@ -13,7 +13,7 @@ network as the viewport LXC (`lunaria`, LXC 118 on pve4) and the Roku TV.
 
 - Roku displays a live DJI Fly stream on the `live` path
 - Glass-to-glass latency measured and recorded (expected 10–20 s; acceptable
-  for household display: anything under 30 s)
+  for a wall display: anything under 30 s)
 - Stream soaks ≥10 minutes without stall or artifact
 - Publisher drop → display switches to `board` automatically (retry handler
   fires), within 10 s of error state

@@ -9,7 +9,7 @@ change has got to. It reads `<url-base>/viewport/pipeline.json` and writes
 **Why bother:** this is the "Change-pipeline pane" item of
 [#26](https://github.com/lentago/brasenia/issues/26). A merge travels
 `pushed → PR open → checks → merged → applied → live` over a few minutes,
-and the household wants to glance up and see it moving, or see that it got
+and whoever's in the room wants to glance up and see it moving, or see that it got
 stuck. The pane is `class: activity`, so it outranks a focus pane while a
 change is travelling, and it goes away once the change is live. The
 compositor ([#27](https://github.com/lentago/brasenia/issues/27)) decides
