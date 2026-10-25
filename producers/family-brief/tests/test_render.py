@@ -79,6 +79,13 @@ class RenderTests(unittest.TestCase):
         self.assertNotIn("<img", page)
         self.assertIn("&lt;img src=x", page)
 
+    def test_malformed_people_counts_as_none(self):
+        doc = fixture()
+        doc["today"]["items"][0]["people"] = 42
+        doc["this_week"][0]["items"][0]["people"] = "notalist"
+        page = render(doc, SUN, NOW, TZ)
+        self.assertEqual(len(columns(page)), 2)
+
     def test_empty_day(self):
         doc = fixture()
         doc["today"] = {}

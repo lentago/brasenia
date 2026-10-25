@@ -55,7 +55,8 @@ def load(fetch, url):
         doc = json.loads(fetch(url))
     except (OSError, ValueError) as err:
         raise DocumentError("unreadable: %s" % err) from err
-    if not isinstance(doc, dict) or doc.get("schema") != SCHEMA:
+    # type() is int, not isinstance: True == 1, so a bool would pass as schema 1.
+    if not isinstance(doc, dict) or type(doc.get("schema")) is not int or doc["schema"] != SCHEMA:
         raise DocumentError("not a schema-%d document" % SCHEMA)
     try:
         parse_day(doc.get("date"))

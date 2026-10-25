@@ -1,11 +1,15 @@
 # family brief producer (the Family Brief → a today-and-tomorrow pane)
 
-**What you're about to do:** run a small stdlib-only Python process (3.9+)
-that reads the morning Family Brief document and keeps one pane on the
-viewport bus showing just today and tomorrow: who needs to be where, the
-coverage note for today, and any decision that lands on those two days. It
-reads `--source` (default `http://pub.lan/family-brief/latest.json`) and
-writes `<webroot>/viewport/panes/family-today/{pane.html,manifest.json}`.
+**What you're about to do:** run a small Python process (3.9+, standard
+library only, so there is nothing to install) that reads the morning Family
+Brief document and keeps one pane on the viewport bus. A pane is one
+self-contained web page offered to the wall display; the viewport bus is the
+shared folder on pub (`viewport/panes/`) where producers drop panes and the
+[compositor](../../compositor/) picks which one the wall shows. This pane shows
+just today and tomorrow: who needs to be where, the coverage note for today,
+and any decision that lands on those two days. It reads `--source` (default
+`http://pub.lan/family-brief/latest.json`) and writes
+`<webroot>/viewport/panes/family-today/{pane.html,manifest.json}`.
 
 **Why bother:** the full Family Brief is an email and a private dashboard
 page, both too long to glance at from across a room. This pane is the
@@ -14,10 +18,11 @@ glanceable cut for the wall: one 1280×720 band, no scrolling, and at
 the screen.
 
 **Time:** a minute to try it against the fixture (below). Running it for
-real on pub is a kalmia unit (`brasenia-family-brief.service` beside the
-focus and pipeline units, running
-`python3 -m family_brief_producer --webroot /srv/www`), not something this
-repo deploys.
+real on pub is not set up yet. The proposed deployment is a systemd unit in
+kalmia's pub role running `python3 -m family_brief_producer --webroot /srv/www`
+from a brasenia checkout, plus kalmia serving the brief at
+`/family-brief/latest.json`; neither exists yet, and this repo deploys
+neither.
 
 ## Try it
 

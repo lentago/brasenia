@@ -33,12 +33,14 @@ def main(argv=None):
     clock = (lambda: args.now) if args.now else None
     producer = Producer(args.webroot, args.source, args.tz, clock=clock)
     while True:
+        failed = False
         try:
             producer.cycle()
         except Exception:  # keep the loop alive; the journal gets the trace
             logging.exception("cycle failed")
+            failed = True
         if args.once:
-            return 0
+            return 1 if failed else 0
         time.sleep(args.interval)
 
 

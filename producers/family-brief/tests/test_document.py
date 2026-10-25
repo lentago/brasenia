@@ -17,7 +17,8 @@ class LoadTests(unittest.TestCase):
         self.assertEqual(load(fetch_of(fixture()), "x")["date"], "2026-10-25")
 
     def test_rejects_other_schemas_and_bad_dates(self):
-        for body in ({"schema": 2, "date": "2026-10-25"}, {"schema": 1, "date": "10/25"},
+        for body in ({"schema": 2, "date": "2026-10-25"}, {"schema": True, "date": "2026-10-25"},
+                     {"schema": 1, "date": "10/25"},
                      {"schema": 1}, [1, 2], b"not json"):
             with self.subTest(body=body), self.assertRaises(DocumentError):
                 load(fetch_of(body), "x")

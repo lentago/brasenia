@@ -152,7 +152,7 @@ def _column(name, day, items, coverage, colours):
 
 def _row(item, colours):
     e = html.escape
-    people = [p for p in item.get("people") or [] if isinstance(p, str)]
+    people = _people(item)
     colour = colours.get(people[0], NEUTRAL) if len(people) == 1 else NEUTRAL
     bits = []
     if item.get("unconfirmed") is True:
@@ -199,10 +199,16 @@ def _colours(doc, items):
                 out[key] = colour
     spare = [c for c in PALETTE if c not in out.values()]
     for item in items:
-        for key in item.get("people") or []:
-            if isinstance(key, str) and key not in out:
+        for key in _people(item):
+            if key not in out:
                 out[key] = spare.pop(0) if spare else NEUTRAL
     return out
+
+
+def _people(item):
+    """An item's person keys; anything but a list of strings counts as none."""
+    people = item.get("people")
+    return [p for p in people if isinstance(p, str)] if isinstance(people, list) else []
 
 
 def _text(value):
