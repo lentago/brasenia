@@ -59,9 +59,13 @@ is governed, not in a pipeline. Each row links to the evidence in this checkout.
   every client follows; falls back to the briefing, then a status card. Run
   as `python3 -m compositor --webroot /srv/www`; tests with
   `python3 -m unittest discover -s tests` from `compositor/`.
-- [`producers/`](producers/) — pane producers for the viewport bus; today
+- [`producers/`](producers/) — pane producers for the viewport bus:
   [`producers/focus/`](producers/focus/), which turns fresh session beacons
-  into one open-pull-requests pane per repo.
+  into one open-pull-requests pane per repo;
+  [`producers/pipeline/`](producers/pipeline/), which shows drosera's change
+  pipeline while a change is in flight; and
+  [`producers/family-brief/`](producers/family-brief/), which turns the
+  morning Family Brief into a today-and-tomorrow pane.
 - [`bin/pane`](bin/pane) — claim, renew, release and list panes on the
   viewport bus (stdlib Python 3.9+); tests with
   `python3 -m unittest discover -s bin/tests`.

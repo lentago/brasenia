@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "date": "2026-10-25",
+  "date_label": "Sunday, October 25",
+  "edition": "Morning edition, 7:09 AM Eastern",
+  "generated_at": "2026-10-25T11:10:49Z",
+  "status_line": "1 item today · 2 pickup gaps this week",
+  "people": {
+    "alex": {"label": "Alex", "color": "#66bb6a"},
+    "sam": {"label": "Sam", "color": "#a48ce0"},
+    "robin": {"label": "Robin", "color": "#64a8f0"},
+    "jordan": {"label": "Jordan", "color": "#f06292"},
+    "family": {"label": "Family", "color": "#90a4ae"}
+  },
+  "tiles": {"today": 1, "decisions": 3, "todos": 1},
+  "week": [],
+  "today": {
+    "items": [
+      {"time": "10:30 - 11:30 AM", "people": ["jordan"], "who": "Jordan", "what": "Brunch with a friend", "where": "the diner", "source": "Jordan's calendar"}
+    ],
+    "coverage": "No kid handoffs today. Robin's calendar is clear while Jordan is out."
+  },
+  "decisions": [
+    {"kind": "gap", "title": "Who does pickups Mon 10/26?", "detail": "Both clubs end while Jordan is at tennis.", "source": "Jordan's calendar", "dates": ["2026-10-26"]},
+    {"kind": "conflict", "title": "Which time is Alex's Tue 10/27 appointment?", "detail": "Two confirmations disagree.", "source": "Clinic, Oct 22", "dates": ["2026-10-27"]},
+    {"kind": "conflict", "title": "Trip Nov 24 - 27 overlaps piano", "detail": "Decide whether to cancel.", "source": "Jordan's calendar", "dates": ["2026-11-24"]}
+  ],
+  "this_week": [
+    {"date": "2026-10-26", "label": "Mon 10/26", "items": [
+      {"time": "8:15 AM", "people": ["alex"], "who": "Alex", "what": "Testing, arrive on time", "source": "School newsletter"},
+      {"time": "All day", "people": ["family"], "who": "Household", "what": "Clothing swap drop-off", "source": "School"},
+      {"time": "3:30 - 4:30 PM", "people": ["alex"], "who": "Alex", "what": "Magic club", "source": "Jordan's calendar"},
+      {"time": "3:30 - 5:00 PM", "people": ["sam"], "who": "Sam", "what": "Hiking club", "source": "Jordan's calendar"},
+      {"time": "5:00 - 6:30 PM", "people": ["jordan"], "who": "Jordan", "what": "Tennis", "source": "Jordan's calendar"}
+    ]},
+    {"date": "2026-10-27", "label": "Tue 10/27", "items": [
+      {"time": "8:15 AM", "people": ["alex"], "who": "Alex", "what": "Testing, arrive on time", "source": "School newsletter"},
+      {"time": "2:15 - 3:15 PM", "people": ["alex"], "who": "Alex", "what": "Flu vaccine", "where": "the clinic", "unconfirmed": true, "source": "Jordan's calendar"},
+      {"time": "3:30 - 4:30 PM", "people": ["alex"], "who": "Alex", "what": "Jewelry club", "source": "Jordan's calendar"},
+      {"time": "4:00 - 4:30 PM", "people": ["sam"], "who": "Sam", "what": "Piano", "source": "Jordan's calendar"},
+      {"time": "5:00 - 6:00 PM", "people": ["sam"], "who": "Sam", "what": "Soccer practice", "note": "Cancelled per coach", "legacy": true, "cancelled": true, "source": "Team app"},
+      {"time": "6:30 PM", "people": ["robin"], "who": "Robin", "what": "Book club", "source": "Robin's calendar"},
+      {"time": "7:30 PM", "people": ["family"], "who": "Household", "what": "Trash out", "source": "Robin's calendar"}
+    ]}
+  ],
+  "todos": [
+    {"tag": "BUY", "text": "Plates for the class party.", "deadline": "Due Fri 10/30", "due": "2026-10-30", "source": "Jordan's calendar"}
+  ],
+  "horizon": [],
+  "fyi": []
+}
