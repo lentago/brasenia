@@ -1,8 +1,9 @@
 """The filesystem half: scan the pane bus, persist state, publish the pointer.
 
 The compositor writes only its own files (``current.json``, ``status.html``,
-``rubric.html`` and ``state/``), each with write-then-rename. Pane directories
-are read, never modified or deleted.
+``rubric.html``, ``rubric.json``, ``configure.html`` and ``state/``), each with
+write-then-rename. Pane directories and the configurator's signal log
+(``signals/rubric.jsonl``, ADR-0011) are read, never modified or deleted.
 """
 
 import html
@@ -10,7 +11,7 @@ import json
 import os
 from datetime import datetime, timezone
 
-from . import board, rubric
+from . import board, configure, rubric, settings
 
 STATE_FILE = "compositor.json"
 BOARD_MAX_AGE_S = 60   # rewrite an unchanged board this often, so its clock stays honest
@@ -26,6 +27,9 @@ def paths(webroot):
         "current": os.path.join(viewport, "current.json"),
         "status": os.path.join(viewport, "status.html"),
         "board": os.path.join(viewport, "rubric.html"),
+        "settings": os.path.join(viewport, "rubric.json"),
+        "configure": os.path.join(viewport, "configure.html"),
+        "signals": os.path.join(webroot, "signals", "rubric.jsonl"),
         "brief": os.path.join(webroot, "brief", "index.html"),
     }
 
@@ -156,9 +160,14 @@ def tick(webroot, url_base, state, now, log=print, tz=None):
     p = paths(webroot)
     ensure_dirs(p)
     entries = scan(p["panes"])
+    overrides, history = settings.load(p["signals"])
+    eff = settings.effective(overrides)
+    priority, dwell = settings.priorities(eff), eff["rotation.dwell_s"]
     brief = _brief(p["brief"])
+    brief_ok, brief_why = settings.brief_usable(brief, eff, now)
     pointer, new_state = rubric.decide(
-        entries, now, state, brief_present=brief["present"], url_base=url_base)
+        entries, now, state, brief_present=brief_ok, url_base=url_base,
+        priority=priority, default_dwell=dwell)
 
     old_skipped = state.get("skipped") or {}
     for pane_id, reason in sorted(new_state["skipped"].items()):
@@ -177,8 +186,43 @@ def tick(webroot, url_base, state, now, log=print, tz=None):
             log(describe(pointer))
     if new_state != state:
         save_state(p["state"], new_state)
-    write_board(p["board"], pointer, rubric.explain(entries, now, pointer), brief, now, url_base, tz)
+    write_settings(p["settings"], settings.document(eff, overrides, history), log)
+    page, key = configure.render(eff, overrides, url_base)
+    _write_if_changed(p["configure"], page, key, configure.key_of)
+    view = {"effective": eff, "overrides": overrides, "history": history,
+            "brief_ok": brief_ok, "brief_why": brief_why}
+    write_board(p["board"], pointer,
+                rubric.explain(entries, now, pointer, priority, dwell),
+                brief, now, url_base, tz, view)
     return new_state
+
+
+def write_settings(path, doc, log=print):
+    """Write ``rubric.json`` (the effective settings) when it changes, with one
+    log line naming the overrides now in force."""
+    text = json.dumps(doc, indent=2, sort_keys=True) + "\n"
+    try:
+        with open(path, encoding="utf-8") as f:
+            old = f.read()
+    except OSError:
+        old = None
+    if old == text:
+        return
+    atomic_write(path, text)
+    if old is None and not doc["overrides"]:
+        return  # first write, nothing overridden: nothing worth a log line
+    log("settings: %s" % (", ".join("%s=%s" % kv for kv in sorted(doc["overrides"].items()))
+                          or "all defaults"))
+
+
+def _write_if_changed(path, page, key, key_of):
+    try:
+        with open(path, encoding="utf-8") as f:
+            if key_of(f.read(200)) == key:
+                return
+    except OSError:
+        pass
+    atomic_write(path, page)
 
 
 def _brief(path):
@@ -190,10 +234,10 @@ def _brief(path):
             "mtime": datetime.fromtimestamp(mtime, timezone.utc)}
 
 
-def write_board(path, pointer, rows, brief, now, url_base, tz=None):
+def write_board(path, pointer, rows, brief, now, url_base, tz=None, view=None):
     """Write ``rubric.html`` when its content changed, or when it is
     ``BOARD_MAX_AGE_S`` old, so a 5 s loop does not rewrite it every tick."""
-    page, key = board.render(pointer, rows, brief, now, url_base, tz)
+    page, key = board.render(pointer, rows, brief, now, url_base, tz, view)
     try:
         with open(path, encoding="utf-8") as f:
             old_key = board.key_of(f.read(200))

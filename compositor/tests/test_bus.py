@@ -167,5 +167,52 @@ class Bus(unittest.TestCase):
             main(["--webroot", self.webroot, "--once", "--tz", "Mars/Olympus"])
 
 
+    def signal(self, *records):
+        os.makedirs(os.path.dirname(self.p["signals"]), exist_ok=True)
+        with open(self.p["signals"], "a", encoding="utf-8") as f:
+            for r in records:
+                f.write(json.dumps(r) + "\n")
+
+    def test_an_override_reorders_the_rubric(self):
+        self.write_pane("focus-pane", self.manifest("focus"))
+        self.write_pane("ambient-pane", self.manifest("ambient"))
+        state = self.tick({})
+        self.assertEqual(self.current()["pane"], "focus-pane")
+        self.signal({"ts": rubric.iso(T0), "id": "priority.ambient", "action": "set", "label": "90"})
+        state = self.tick(state, 5)
+        self.assertEqual((self.current()["pane"], self.current()["priority"]), ("ambient-pane", 90))
+        self.assertIn("settings: priority.ambient=90", self.lines)
+        with open(self.p["settings"]) as f:
+            doc = json.load(f)
+        self.assertEqual(doc["overrides"], {"priority.ambient": 90})
+        self.assertEqual(doc["effective"]["priority.ambient"], 90)
+        with open(self.p["board"], encoding="utf-8") as f:
+            board_page = f.read()
+        self.assertIn('<span class="ovr">default 40</span>', board_page)
+        self.assertIn("ambient priority set to 90", board_page)
+        self.signal({"ts": rubric.iso(T0), "id": "priority.ambient", "action": "undo"})
+        self.tick(state, 10)
+        self.assertEqual(self.current()["pane"], "focus-pane")
+        self.assertIn("settings: all defaults", self.lines)
+
+    def test_a_stale_brief_falls_through_to_the_status_card_under_a_limit(self):
+        os.makedirs(os.path.dirname(self.p["brief"]))
+        open(self.p["brief"], "w").close()
+        old = (T0 - timedelta(days=58)).timestamp()
+        os.utime(self.p["brief"], (old, old))
+        state = self.tick({})
+        self.assertEqual(self.current()["fallback"], "briefing")
+        self.signal({"id": "briefing.max_age_hours", "action": "set", "label": "36"})
+        self.tick(state, 5)
+        self.assertEqual(self.current()["fallback"], "status")
+        with open(self.p["board"], encoding="utf-8") as f:
+            self.assertIn("older than the 36 h limit", f.read())
+
+    def test_writes_the_configurator_page(self):
+        self.tick({})
+        with open(self.p["configure"], encoding="utf-8") as f:
+            self.assertIn('const ENDPOINT = "/api/signals/rubric";', f.read())
+
+
 if __name__ == "__main__":
     unittest.main()

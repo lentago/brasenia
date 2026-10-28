@@ -153,6 +153,14 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
 *Replaces rubric v0 (2026-10-07): adds `focus` at 50, the `origin`
 tie-break, and rotation by `dwell_s`.*
 
+The priorities below, the default dwell and the briefing fallback's maximum
+age are defaults. The household can override them from
+`http://pub.lan/viewport/configure.html`, beside the rubric board. Each change
+is a pub-signals line in `signals/rubric.jsonl` that the compositor validates
+and applies within seconds, and the effective values are in
+`viewport/rubric.json`
+([ADR-0011](adr/0011-rubric-settings-on-the-share.md)).
+
 | Priority | Class | Default TTL |
 |---|---|---|
 | 100 | `alert` | 60 min |
