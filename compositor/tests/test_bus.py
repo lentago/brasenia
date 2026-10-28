@@ -230,5 +230,43 @@ class Bus(unittest.TestCase):
             self.assertIn('const ENDPOINT = "/api/signals/rubric";', f.read())
 
 
+    def lineup(self):
+        with open(self.p["lineup"]) as f:
+            return json.load(f)
+
+    def test_lineup_lists_live_panes_in_rank_order_then_the_briefing(self):
+        self.write_pane("focus-a", self.manifest("focus", title="A"))
+        self.write_pane("alert-b", self.manifest("alert", title="B"))
+        self.write_pane("old", self.manifest("focus", created=rubric.iso(T0 - timedelta(hours=2))))
+        self.write_briefing({"schema": 1, "title": "Family Brief", "published": rubric.iso(T0),
+                             "author": "a@b", "pane": "family-today"})
+        self.tick({})
+        doc = self.lineup()
+        self.assertEqual([(i["id"], i["showing"]) for i in doc["items"]],
+                         [("alert-b", True), ("focus-a", False), ("_briefing", False)])
+        self.assertEqual(doc["items"][0]["url"], "http://pub.lan/viewport/panes/alert-b/pane.html")
+        self.assertEqual(doc["items"][-1]["url"], "http://pub.lan/viewport/briefing/pane.html")
+        self.assertEqual(doc["items"][-1]["title"], "Family Brief")
+        self.assertEqual(doc["decided_at"], self.current()["decided_at"])
+
+    def test_lineup_skips_the_briefing_while_its_pane_is_live(self):
+        self.write_pane("family-today", self.manifest("ambient", title="Family"))
+        self.write_briefing({"schema": 1, "title": "Family Brief", "published": rubric.iso(T0),
+                             "author": "a@b", "pane": "family-today"})
+        self.tick({})
+        self.assertEqual([i["id"] for i in self.lineup()["items"]], ["family-today"])
+
+    def test_lineup_marks_the_briefing_when_it_is_the_fallback(self):
+        self.write_briefing({"schema": 1, "title": "Family Brief", "published": rubric.iso(T0),
+                             "author": "a@b"})
+        self.tick({})
+        self.assertEqual([(i["id"], i["showing"]) for i in self.lineup()["items"]],
+                         [("_briefing", True)])
+
+    def test_empty_lineup_without_panes_or_briefing(self):
+        self.tick({})
+        self.assertEqual(self.lineup()["items"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

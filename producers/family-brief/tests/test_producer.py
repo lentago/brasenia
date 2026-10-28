@@ -76,7 +76,8 @@ class ProducerTests(unittest.TestCase):
         self.assertEqual(sorted(os.listdir(d)), ["detail.html", "manifest.json", "pane.html"])
         m = json.loads(self.briefing("manifest.json"))
         self.assertEqual(m, {"schema": 1, "title": "Family Brief",
-                             "published": "2026-10-25T11:10:49Z", "author": AUTHOR})
+                             "published": "2026-10-25T11:10:49Z", "author": AUTHOR,
+                             "pane": "family-today"})
         self.assertIn("<h1>Sunday, October 25</h1>", self.briefing("pane.html"))
 
     def test_a_stale_brief_leaves_the_briefing_slot_saying_how_old(self):

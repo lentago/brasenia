@@ -114,6 +114,9 @@ class Producer:
             "title": BRIEFING_TITLE,
             "published": _published(doc),
             "author": AUTHOR,
+            # The live pane that carries this same brief; the compositor's
+            # line-up skips the slot while that pane is on the bus.
+            "pane": PANE_ID,
         }, indent=2, ensure_ascii=False) + "\n")
 
     def _manifest(self):
