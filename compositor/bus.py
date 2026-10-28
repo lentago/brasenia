@@ -1,7 +1,8 @@
 """The filesystem half: scan the pane bus, persist state, publish the pointer.
 
 The compositor writes only its own files (``current.json``, ``status.html``,
-``rubric.html``, ``rubric.json``, ``configure.html`` and ``state/``), each with
+``rubric.html``, ``rubric.json``, ``configure.html``, ``lineup.json`` and
+``state/``), each with
 write-then-rename. Pane directories and the configurator's signal log
 (``signals/rubric.jsonl``, ADR-0011) are read, never modified or deleted.
 """
@@ -29,6 +30,7 @@ def paths(webroot):
         "board": os.path.join(viewport, "rubric.html"),
         "settings": os.path.join(viewport, "rubric.json"),
         "configure": os.path.join(viewport, "configure.html"),
+        "lineup": os.path.join(viewport, "lineup.json"),
         "signals": os.path.join(webroot, "signals", "rubric.jsonl"),
         "briefing": os.path.join(viewport, "briefing", "pane.html"),
         "briefing_manifest": os.path.join(viewport, "briefing", "manifest.json"),
@@ -192,10 +194,43 @@ def tick(webroot, url_base, state, now, log=print, tz=None):
     _write_if_changed(p["configure"], page, key, configure.key_of)
     view = {"effective": eff, "overrides": overrides, "history": history,
             "brief_ok": brief_ok, "brief_why": brief_why}
-    write_board(p["board"], pointer,
-                rubric.explain(entries, now, pointer, priority, dwell),
-                brief, now, url_base, tz, view)
+    rows = rubric.explain(entries, now, pointer, priority, dwell)
+    write_board(p["board"], pointer, rows, brief, now, url_base, tz, view)
+    _write_json_if_changed(p["lineup"], lineup(pointer, rows, brief, url_base))
     return new_state
+
+
+BRIEFING_ID = "_briefing"   # not a valid pane id, so it can never collide with one
+
+
+def lineup(pointer, rows, brief, url_base):
+    """The body of ``viewport/lineup.json``: what a client may step through
+    (the Roku remote's peek, ADR-0012). Live panes in rubric order, the one on
+    screen marked, then the briefing slot when it exists and no live pane
+    already carries the same brief. A client only looks; this changes nothing
+    the compositor decides."""
+    base = url_base.rstrip("/")
+    items = [{"id": r["id"], "title": r["title"], "class": r["class"],
+              "priority": r["priority"], "showing": r["status"] == "showing",
+              "url": "%s/viewport/panes/%s/pane.html" % (base, r["id"])}
+             for r in rows if r["status"] in ("showing", "rotating", "outranked")]
+    if brief["present"] and brief.get("pane") not in {i["id"] for i in items}:
+        items.append({"id": BRIEFING_ID, "title": brief["title"], "class": "briefing",
+                      "priority": rubric.PRIORITY["briefing"],
+                      "showing": pointer.get("fallback") == "briefing",
+                      "url": base + rubric.BRIEFING_PATH})
+    return {"schema": 1, "decided_at": pointer["decided_at"], "items": items}
+
+
+def _write_json_if_changed(path, doc):
+    text = json.dumps(doc, indent=2, sort_keys=True) + "\n"
+    try:
+        with open(path, encoding="utf-8") as f:
+            if f.read() == text:
+                return
+    except OSError:
+        pass
+    atomic_write(path, text)
 
 
 def write_settings(path, doc, log=print):
@@ -232,7 +267,7 @@ def _brief(page, manifest_path):
     the manifest's ``published``, not the file: the producer rewrites the page
     every minute whatever the brief's age."""
     if not os.path.isfile(page):
-        return {"present": False, "mtime": None, "title": rubric.BRIEFING_TITLE}
+        return {"present": False, "mtime": None, "title": rubric.BRIEFING_TITLE, "pane": None}
     manifest = _read_manifest(manifest_path)
     if not isinstance(manifest, dict):
         manifest = {}
@@ -241,8 +276,10 @@ def _brief(page, manifest_path):
         published = rubric.parse_time(manifest.get("published"))
     except (ValueError, OverflowError):
         published = datetime.fromtimestamp(os.path.getmtime(page), timezone.utc)
+    pane = manifest.get("pane")
     return {"present": True, "mtime": published,
-            "title": title if isinstance(title, str) and title.strip() else rubric.BRIEFING_TITLE}
+            "title": title if isinstance(title, str) and title.strip() else rubric.BRIEFING_TITLE,
+            "pane": pane if isinstance(pane, str) else None}
 
 
 def write_board(path, pointer, rows, brief, now, url_base, tz=None, view=None):

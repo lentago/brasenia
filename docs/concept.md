@@ -196,10 +196,13 @@ Inside it:
 - `panes/<pane>/pane.html` and `panes/<pane>/manifest.json`, one directory per pane. Pane id `[a-z0-9][a-z0-9-]{0,62}`.
 - `focus/<host>-<session8>.json`, session beacons, the focus producer's input.
 - `current.json`, the compositor's decision (the pointer every client follows).
+- `lineup.json`, what a client may step through without changing that decision (below).
+- `briefing/`, the briefing slot the fallback shows (see Rubric v1).
+- `rubric.html`, `configure.html` and `rubric.json`, the rubric board, its configurator and the effective settings (ADR-0011).
 - `status.html`, the status card the compositor writes as the fallback of last resort.
 - `state/`, compositor rotation state.
 
-Writers use write-then-rename for every file (`x.partial` → `x`) and write `manifest.json` last. A writer relinquishes by deleting its own pane directory. The compositor is the only writer of `current.json`, `status.html` and `state/`.
+Writers use write-then-rename for every file (`x.partial` → `x`) and write `manifest.json` last. A writer relinquishes by deleting its own pane directory. The compositor is the only writer of `current.json`, `lineup.json`, `status.html`, the board files and `state/`.
 
 ### manifest.json
 
@@ -243,6 +246,10 @@ Writers use write-then-rename for every file (`x.partial` → `x`) and write `ma
 - `pane` is null and `fallback` is `"briefing"` or `"status"` when nothing on the bus won. `expires_at` is null for the briefing. `rotation` is null when there is a single winner.
 - The compositor re-evaluates every 5 s and rewrites the file only when the decision changes (so `decided_at` is the time of the last change).
 - Clients poll every 5 s, navigate only when `url` changes, and show their own status card when the pointer has been unreadable for 30 s.
+
+### lineup.json (what a client may step through)
+
+`{"schema": 1, "decided_at", "items": [...]}`, rewritten when it changes. `items` are the live panes in rubric order, then the briefing slot (id `_briefing`, not a valid pane id) when it exists and no live pane is the one its manifest names in `pane`. Each item has `id`, `title`, `class`, `priority`, `url` (the pane's `pane.html`) and `showing` (true for the one the pointer names). It exists for the Roku remote's peek (#80): a client may let a person look at another item, but nothing it does changes the decision. The remote peeks; it never decides.
 
 ### Beacon (the focus input)
 
