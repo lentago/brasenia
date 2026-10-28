@@ -1,5 +1,0 @@
-{
-  "app_id": "83A58DDE",
-  "receiver_url": "http://pub.lan/cast/",
-  "note": "Neither value is a credential. Registered 2026-08-14 in the Cast Developer Console as an UNPUBLISHED Custom Receiver — the console accepted the plain-HTTP LAN receiver URL, so no TLS leg was needed (see README.md). The app stays unpublished by design: it only ever launches on the dev-registered wall-display Chromecast, same posture as the sideloaded Roku dev channel."
-}
