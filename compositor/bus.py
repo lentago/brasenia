@@ -120,11 +120,11 @@ STATUS_HTML = """<!doctype html>
 """
 
 
-def render_status(pointer):
+def render_status(pointer, tz=None):
     """The fallback of last resort, to the pane contract: 1280x720, dark,
     text >= 20 px, and the bottom-right 220x50 px left clear (the bottom
     padding keeps every line above the clock overlay)."""
-    decided = rubric.parse_time(pointer["decided_at"]).astimezone()
+    decided = rubric.parse_time(pointer["decided_at"]).astimezone(tz)
     return STATUS_HTML.format(
         reason=html.escape(pointer["title"]),
         since=html.escape(decided.strftime("%H:%M %Z (%Y-%m-%d)")))
@@ -145,8 +145,9 @@ def describe(pointer):
     return line
 
 
-def tick(webroot, url_base, state, now, log=print):
-    """Scan, decide and publish once; return the next state.
+def tick(webroot, url_base, state, now, log=print, tz=None):
+    """Scan, decide and publish once; return the next state. Times on the
+    status card and the board are shown in ``tz`` (None: the host's zone).
 
     ``current.json`` is rewritten only when the decision changes (or when the
     file is missing); ``status.html`` is written just before a status
@@ -169,14 +170,14 @@ def tick(webroot, url_base, state, now, log=print):
     # the file is missing, not only on a decision change: a deleted
     # status.html must never leave current.json naming an absent page.
     if pointer["fallback"] == "status" and (changed or not os.path.isfile(p["status"])):
-        atomic_write(p["status"], render_status(pointer))
+        atomic_write(p["status"], render_status(pointer, tz))
     if changed or not os.path.exists(p["current"]):
         atomic_write(p["current"], json.dumps(pointer, indent=2) + "\n")
         if changed:
             log(describe(pointer))
     if new_state != state:
         save_state(p["state"], new_state)
-    write_board(p["board"], pointer, rubric.explain(entries, now, pointer), brief, now, url_base)
+    write_board(p["board"], pointer, rubric.explain(entries, now, pointer), brief, now, url_base, tz)
     return new_state
 
 
@@ -189,10 +190,10 @@ def _brief(path):
             "mtime": datetime.fromtimestamp(mtime, timezone.utc)}
 
 
-def write_board(path, pointer, rows, brief, now, url_base):
+def write_board(path, pointer, rows, brief, now, url_base, tz=None):
     """Write ``rubric.html`` when its content changed, or when it is
     ``BOARD_MAX_AGE_S`` old, so a 5 s loop does not rewrite it every tick."""
-    page, key = board.render(pointer, rows, brief, now, url_base)
+    page, key = board.render(pointer, rows, brief, now, url_base, tz)
     try:
         with open(path, encoding="utf-8") as f:
             old_key = board.key_of(f.read(200))
