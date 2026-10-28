@@ -66,13 +66,13 @@ Three nouns:
       ▼
  client adapters — one per screen; adding one must not touch the others
       │
-      ├─ Roku/HLS adapter (first client — production)
-      │    3. shoot winner's pane.html (headless chromium, throwaway profile)
-      │    4. slice into 720-bands → rotate through frame.png
-      │    5. ffmpeg (image2pipe → H.264+AAC) → RTSP → mediamtx → HLS :8888
+      ├─ Roku/HLS adapter (the office — ADR-0009; pinned, not pointer-led)
+      │    3. shoot the Family Brief pane at 3× scale (headless chromium,
+      │       throwaway profile) → one 3840×2160 band → frame.png
+      │    4. ffmpeg (image2pipe → HEVC 5 fps + AAC) → HLS on tmpfs → :8080
       │    ▼
       │  Roku dev channel (roku-app/ in this repo — auto-retry Video node)
-      │       → 32" play-room TV (720p native)
+      │       → office Roku Streaming Stick Plus, 4K display
       │
       └─ Cast adapter (second client — ADR-0006, prototype)
            3. custom Web Receiver navigates to the current pane and renders
@@ -96,6 +96,13 @@ recorded there: the Cast leg wins on text crispness and switching latency but
 depends on Google's cloud at launch and starts with zero unattended soak
 hours, so Roku/HLS stays the production transport until the Cast watchdog
 earns comparable validation evidence.
+
+**The office Roku (2026-10-28).** The play-room Roku was factory reset and
+retired. The Roku/HLS adapter now serves a 4K Roku in the office instead,
+pinned to the Family Brief pane rather than following the pointer, and
+streams HEVC at 3840×2160 from ffmpeg-written HLS
+([ADR-0009](adr/0009-office-roku-4k-hevc-over-ffmpeg-hls.md)). That screen is
+LAN-self-contained, but the rubric does not govern it.
 
 ### Degraded mode: internet outage
 
@@ -125,6 +132,9 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
   stand alone — nothing straddles a boundary. Dark background, ≥20px body
   text, 24px safe margins, bottom-right ~220×50px of each band kept clear
   (clock overlay is composited there).
+- Sizes are CSS pixels. A client may render a pane at an integer scale (the
+  office Roku renders at 3×, 3840×2160 device pixels), and the clock and its
+  clear corner scale with it, so design for 1280×720 CSS pixels only.
 - `manifest.json`: the fields and liveness rule are in
   [Contracts v1](#manifestjson).
 - Writers use write-then-rename (`pane.html.partial` → `pane.html`), create
@@ -315,6 +325,10 @@ usable by every session. The canonical text is
 ## Operational lessons already banked (from the validation night)
 
 - mediamtx ≥1.19 HLS needs `?cookieCheck=1` pre-baked in player URLs.
+- (2026-10-28) Roku plays H.264 only up to 1080p, so 4K needs HEVC; and
+  Roku rejects an HLS playlist declaring `#EXT-X-VERSION:10`, which is what
+  mediamtx's fMP4 variant writes
+  ([ADR-0009](adr/0009-office-roku-4k-hevc-over-ffmpeg-hls.md)).
 - Roku's Video node never retries on its own — the app's state-observer +
   3 s Timer retry is mandatory (rejoins ~1 s after a publisher returns).
 - Headless-chrome shooters need a throwaway profile per shot (HTTP cache
