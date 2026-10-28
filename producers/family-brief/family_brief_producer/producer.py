@@ -4,6 +4,8 @@ Contracts (docs/concept.md, Contracts v1): the pane lives at
 ``viewport/panes/family-today/``, every file is written ``x.partial`` → ``x``
 with ``manifest.json`` last, and the directory is removed when the brief is
 no longer fresh (older than yesterday), so the wall falls back on its own.
+Beside ``pane.html`` sits ``detail.html``, the desk edition a client pins to
+by URL (the office Roku); the compositor never reads it.
 """
 
 import json
@@ -14,6 +16,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from .document import DocumentError, is_fresh, load, urllib_fetch
+from .detail import render_detail
 from .render import render
 
 PANE_ID = "family-today"
@@ -44,6 +47,7 @@ class Producer:
     def __init__(self, webroot, source=DEFAULT_SOURCE, tz=DEFAULT_TZ, fetch=urllib_fetch, clock=None):
         self.pane_dir = os.path.join(webroot, "viewport", "panes", PANE_ID)
         self.page_path = os.path.join(self.pane_dir, "pane.html")
+        self.detail_path = os.path.join(self.pane_dir, "detail.html")
         self.manifest_path = os.path.join(self.pane_dir, "manifest.json")
         self.source = source
         self.tz = ZoneInfo(tz)
@@ -70,6 +74,7 @@ class Producer:
             return
         os.makedirs(self.pane_dir, exist_ok=True)
         write_atomic(self.page_path, render(doc, today, now, self.tz))
+        write_atomic(self.detail_path, render_detail(doc, today, now, self.tz))
         write_atomic(self.manifest_path, json.dumps({
             "schema": 1,
             "class": PANE_CLASS,

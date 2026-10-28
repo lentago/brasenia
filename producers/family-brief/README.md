@@ -9,13 +9,21 @@ shared folder on pub (`viewport/panes/`) where producers drop panes and the
 just today and tomorrow: who needs to be where, the coverage note for today,
 and any decision that lands on those two days. It reads `--source` (default
 `http://pub.lan/family-brief/latest.json`) and writes
-`<webroot>/viewport/panes/family-today/{pane.html,manifest.json}`.
+`<webroot>/viewport/panes/family-today/{pane.html,detail.html,manifest.json}`.
 
 **Why bother:** the full Family Brief is an email and a private dashboard
 page, both too long to glance at from across a room. This pane is the
 glanceable cut for the wall: one 1280×720 band, no scrolling, and at
 1920×1080 (a Cast receiver on an HD set) the same band zooms 1.5x to fill
 the screen.
+
+**The desk edition:** `detail.html`, beside `pane.html`, is the same brief
+for a 4K screen read from a desk (the office Roku, ADR-0009). It is laid out
+at 1920×1080 CSS and shows Today with its coverage note in full, Tomorrow,
+every decision with its detail and date, and the to-do list with deadlines.
+It zooms to fit its viewport: 2/3 in 1280×720, so the office's 3x shooter
+lands it on 3840×2160 at an effective 2x. The compositor never reads it; a
+client shows it by pinning to its URL.
 
 **Time:** a minute to try it against the fixture (below). Running it for
 real on pub is not set up yet. The proposed deployment is a systemd unit in
@@ -57,23 +65,28 @@ ignores the rest:
 |---|---|
 | `schema` (1), `date` (`YYYY-MM-DD`) | Required. The brief is fresh on its own day and the next. |
 | `edition` | Header, right side. |
+| `status_line` | Desk edition only: the header's middle, on the brief's own day. |
 | `today.items`, `today.coverage` | The Today column on the brief's own day. |
 | `this_week[]` (`date`, `items`) | Tomorrow, and Today on the day after the brief. |
-| `decisions[]` (`title`, `dates`) | The decision strip: up to two whose `dates` include today or tomorrow. |
+| `decisions[]` (`title`, `dates`) | The decision strip: up to two whose `dates` include today or tomorrow. The desk edition lists them all by date, with `detail`. |
+| `todos[]` (`tag`, `text`, `deadline`, `due`) | Desk edition only: the to-do list, by `due` date. |
 | `people` (`{key: {label, color}}`) | Optional. Each person's colour on a dark background; without it, colours follow a fixed palette in order of appearance. |
 
 An item is `{time, people, who, what, where?, bring?, note?, legacy?, unconfirmed?, cancelled?}`.
 
 ## How you know it worked
 
-- `panes/family-today/` holds `pane.html` and `manifest.json`, and no
-  `.partial` files. `manifest.json` reads `class: ambient`,
+- `panes/family-today/` holds `pane.html`, `detail.html` and `manifest.json`,
+  and no `.partial` files. `manifest.json` reads `class: ambient`,
   `ttl_minutes: 30`, `author: family-brief-producer@pub`,
   `origin: operator`, `title: Family: today and tomorrow`.
 - Opening `pane.html` at 1280×720 shows a green header with the date, two
   columns (Today with one item and a coverage note, Tomorrow with five
   rows), and an amber strip with one decision and "2 more on the board".
   The bottom-right corner is empty, kept clear for the clock.
+- Opening `detail.html` at 1920×1080 shows the same header with the edition,
+  Today over Tomorrow on the left, and three decisions (with detail, the
+  first marked "Tomorrow") over one to-do on the right.
 - `../../bin/pane --bus "$(mktemp -d)" claim t --class ambient --ttl 5 --title t "$W/viewport/panes/family-today/pane.html"`
   accepts the page (no `<script src=`, `<link href=` or `src="http`).
 - The tests pass: `python3 -m unittest discover -s tests`.
