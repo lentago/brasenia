@@ -4,8 +4,9 @@ The wall's pane.html is built for reading across a room at 1280×720. This
 edition is for a 4K screen read from a desk (the office Roku, ADR-0009): the
 same brief with Today's coverage note in full, every decision with its
 detail, and the to-do list. It sits beside pane.html in the pane directory;
-the compositor reads only pane.html and manifest.json, so the wall never
-shows it. A client pins to it by URL.
+the compositor reads only pane.html and manifest.json, so it never picks
+this page itself. A client pins to it by URL, or prefers it whenever the
+pointer names this pane (the office Roku does).
 
 Geometry, in CSS pixels inside 36 px safe margins: a 64 px header, then two
 columns 855 px tall with a 14 px gap. The left column holds Today (480) over

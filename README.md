@@ -97,12 +97,13 @@ the compositor.
 ## How it works today (Phase 1)
 
 ```
- Family Brief routine → Google Drive → pub (LXC 114) → family-brief producer
-      → http://pub.lan/viewport/panes/family-today/pane.html
+ producers on pub (LXC 114) → viewport/panes/ → compositor
+      → http://pub.lan/viewport/current.json (the pointer; the Family Brief
+        pane, family-today, is the resting surface)
       ▼
- viewport LXC (118, pve4): headless Chromium shoots the pane at 3× →
-      3840×2160 frame.png → ffmpeg (image2pipe, HEVC 5 fps + AAC)
-      → HLS on tmpfs → :8080
+ viewport LXC (118, pve4): headless Chromium shoots the pointer's pane at 3×
+      (its detail.html desk edition when it has one) → 3840×2160 frame.png
+      → ffmpeg (image2pipe, HEVC 5 fps + AAC) → HLS on tmpfs → :8080
       ▼
  Roku dev channel (this repo's roku-app/) → office Roku, 4K display
 ```
@@ -158,7 +159,7 @@ repo, per the ownership split above.
 
 **Repoint what the wall display actually shows (cross-repo — *not* applied from this repo).**
 brasenia owns the Roku client and the stream-URL contract only; nothing here has a CI-applied
-runtime effect. To change the displayed content you edit kalmia's `lunaria_pin_url` (and
+runtime effect. The display follows the compositor's pointer; to pin it to one page instead you set kalmia's `lunaria_pin_url` (and
 `terraform/containers.tf` or `roles/lunaria/`) and open a PR *there*: kalmia's terraform workflow
 applies on merge to `main` via the LAN self-hosted runner, and then a manual on-host `play` run
 repoints the running stream. Merging in brasenia updates the repo and docs — never the live TV.
