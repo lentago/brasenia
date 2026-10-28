@@ -66,9 +66,10 @@ Three nouns:
       ▼
  client adapters — one per screen; adding one must not touch the others
       │
-      ├─ Roku/HLS adapter (the office — ADR-0009; pinned, not pointer-led)
-      │    3. shoot the Family Brief pane at 3× scale (headless chromium,
-      │       throwaway profile) → one 3840×2160 band → frame.png
+      ├─ Roku/HLS adapter (the office — ADR-0009; the viewport's screen)
+      │    3. shoot the pointer's pane at 3× scale, its detail.html desk
+      │       edition when it has one (headless chromium, throwaway
+      │       profile) → 3840×2160 bands → frame.png
       │    4. ffmpeg (image2pipe → HEVC 5 fps + AAC) → HLS on tmpfs → :8080
       │    ▼
       │  Roku dev channel (roku-app/ in this repo — auto-retry Video node)
@@ -99,10 +100,11 @@ earns comparable validation evidence.
 
 **The office Roku (2026-10-28).** The play-room Roku was factory reset and
 retired. The Roku/HLS adapter now serves a 4K Roku in the office instead,
-pinned to the Family Brief pane rather than following the pointer, and
-streams HEVC at 3840×2160 from ffmpeg-written HLS
-([ADR-0009](adr/0009-office-roku-4k-hevc-over-ffmpeg-hls.md)). That screen is
-LAN-self-contained, but the rubric does not govern it.
+streaming HEVC at 3840×2160 from ffmpeg-written HLS
+([ADR-0009](adr/0009-office-roku-4k-hevc-over-ffmpeg-hls.md)). With the
+Chromecast offline the same day, that Roku is the viewport's only screen. It
+follows the pointer and shows a pane's desk edition when the pane offers one
+(#59). It is LAN-self-contained.
 
 ### Degraded mode: internet outage
 
@@ -136,9 +138,10 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
   office Roku renders at 3×, 3840×2160 device pixels), and the clock and its
   clear corner scale with it, so design for 1280×720 CSS pixels only.
 - A pane directory may also hold other renditions beside `pane.html`, such as
-  `family-today/detail.html`, the 1920×1080 desk edition the office Roku pins
-  to. The compositor reads only `pane.html` and `manifest.json`; a client
-  reaches a rendition by pinning to its URL, and it goes when the pane does.
+  `family-today/detail.html`, the 1920×1080 desk edition. The compositor
+  reads only `pane.html` and `manifest.json`. A client reaches a rendition by
+  pinning to its URL, or by preferring it whenever the pointer names that
+  pane, as the office Roku does. It goes when the pane does.
 - `manifest.json`: the fields and liveness rule are in
   [Contracts v1](#manifestjson).
 - Writers use write-then-rename (`pane.html.partial` → `pane.html`), create

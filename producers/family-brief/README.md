@@ -23,7 +23,8 @@ at 1920×1080 CSS and shows Today with its coverage note in full, Tomorrow,
 every decision with its detail and date, and the to-do list with deadlines.
 It zooms to fit its viewport: 2/3 in 1280×720, so the office's 3x shooter
 lands it on 3840×2160 at an effective 2x. The compositor never reads it; a
-client shows it by pinning to its URL.
+client shows it by pinning to its URL, or by preferring it whenever the
+pointer names this pane (the office Roku does the latter).
 
 **Time:** a minute to try it against the fixture (below). Running it for
 real on pub is not set up yet. The proposed deployment is a systemd unit in

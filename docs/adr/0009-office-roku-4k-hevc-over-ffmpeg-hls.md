@@ -1,6 +1,7 @@
 # ADR-0009: The office Roku plays 4K HEVC from ffmpeg-written HLS; the play-room Roku is retired
 
-**Status:** Accepted (2026-10-28; runtime in kalmia#167, product in #52)
+**Status:** Accepted (2026-10-28; runtime in kalmia#167, product in #52).
+Amended the same day (#59): the office follows the pointer; see the end.
 
 ## Context
 
@@ -46,7 +47,7 @@ A bench on 2026-10-28, on LXC 118 and the office Roku, found:
   playlist never carries `#EXT-X-ENDLIST`, and segment numbers come from the
   clock, so an encoder restart never leaves a finished playlist or a
   sequence that runs backwards.
-- **The office is pinned.** The adapter shows the Family Brief pane and does
+- **The office is pinned** *(superseded by the amendment below)*. The adapter shows the Family Brief pane and does
   not read the viewport pointer. Following the pointer stays a one-setting
   change in kalmia (`lunaria_pin_url`).
 - **LXC 118 grows to 4 cores and 4 GB** for the encoder and Chromium's 3×
@@ -60,7 +61,7 @@ A bench on 2026-10-28, on LXC 118 and the office Roku, found:
 - The office display is LAN-self-contained (no cloud launch step), unlike the
   Cast path. During an internet outage it keeps showing the last Family Brief
   pub has.
-- The rubric does not govern the office screen. A client adapter can pin to
+- *(Superseded by the amendment below.)* The rubric does not govern the office screen. A client adapter can pin to
   one pane; the compositor's decision still governs the clients that follow
   the pointer.
 - mediamtx keeps only the RTMP `live` ingest path
@@ -86,3 +87,15 @@ A bench on 2026-10-28, on LXC 118 and the office Roku, found:
   becomes a problem.
 - **Rendering on the Roku itself** (a SceneGraph Poster of a PNG). The
   Roku's UI plane tops out at 1080p; only the video plane reaches 4K.
+
+## Amendment: the office follows the pointer (2026-10-28, #59)
+
+The Chromecast ([ADR-0006](0006-cast-web-receiver-second-client.md)'s Cast
+client) went offline the same day, which left the office Roku as the
+viewport's only screen. The adapter now follows the compositor's pointer
+like any client, so the rubric governs the office screen. Pull-request,
+pipeline and alert panes reach it, and the Family Brief pane is its resting
+surface. To keep the desk edition (#56), the shooter prefers a pane's
+`detail.html` when the pane offers one beside `pane.html`, and panes without
+one show `pane.html` at 3×. Pinning stays a one-setting change in kalmia
+(`lunaria_pin_url`); the preference is `lunaria_prefer_rendition`.
