@@ -166,7 +166,11 @@ def _row(item, colours):
     extras = [x for x in (_text(item.get("where")),) if x]
     if _text(item.get("bring")):
         extras.append("bring " + _text(item.get("bring")))
-    bits.append(e(what + (", " + ", ".join(extras) if extras else "")))
+    if extras:
+        # A sentence's full stop gives way to the comma that adds the place:
+        # "...at the assembly., Harborlight" read badly (#58).
+        what = ", ".join(x for x in [what.rstrip(".")] + extras if x)
+    bits.append(e(what))
     if _text(item.get("note")):
         bits.append(" - " + e(_text(item.get("note"))))
     cls = "row cancelled" if item.get("cancelled") is True else "row"
