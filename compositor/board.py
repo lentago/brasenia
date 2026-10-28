@@ -75,7 +75,7 @@ def render(pointer, rows, brief, now, url_base="http://pub.lan", tz=None, view=N
 
     ``pointer`` is the decision, ``rows`` what ``rubric.explain`` returned for
     the same scan, ``brief`` a dict with ``present`` (bool) and ``mtime``
-    (aware datetime or None) for ``brief/index.html``, and ``now`` an aware
+    (aware datetime or None) and ``title`` for the briefing slot, and ``now`` an aware
     datetime. Times are shown in ``tz`` (a tzinfo; None means the host's zone).
     ``view`` is the household settings the decision used: ``effective``,
     ``overrides``, ``history`` (from ``settings.load``) and ``brief_ok`` /
@@ -144,9 +144,9 @@ def key_of(page_text):
 def _now_card(pointer, brief, now, tz, view):
     e = html.escape
     if pointer.get("fallback") == "briefing":
-        return ('<div class="card fallback"><div class="big">Fallback: the morning brief</div>'
+        return ('<div class="card fallback"><div class="big">Fallback: the briefing (%s)</div>'
                 '<div class="meta">Nothing on the bus is live. %s · <a href="%s">open it</a></div></div>'
-                % (_brief_age(brief, now, tz), e(pointer["url"])))
+                % (e(brief.get("title") or "briefing"), _brief_age(brief, now, tz), e(pointer["url"])))
     if pointer.get("fallback") == "status":
         return ('<div class="card fallback"><div class="big">Fallback: the status card</div>'
                 '<div class="meta">Nothing on the bus is live, and the briefing fallback does not '
@@ -186,18 +186,20 @@ def _ladder(pointer, rows, brief, now, tz, view):
     active = " active" if pointer.get("fallback") == "briefing" else ""
     limit = view["effective"]["briefing.max_age_hours"]
     if not brief["present"]:
-        what = '<span class="muted">skipped: no <code>brief/index.html</code> is published</span>'
+        what = '<span class="muted">skipped: no briefing is published in <code>viewport/briefing/</code></span>'
     elif not view["brief_ok"] and limit == 0:
         what = '<span class="warn">skipped: %s</span>' % html.escape(view["brief_why"])
     elif not view["brief_ok"]:
         published = _clock(brief["mtime"], now, tz) if brief["mtime"] else "at an unknown time"
-        what = ('<span class="warn">skipped: the brief at <code>/brief/</code> was published %s, %s</span>'
-                % (html.escape(published), html.escape(view["brief_why"])))
+        what = ('<span class="warn">skipped: the %s was published %s, %s</span>'
+                % (html.escape(brief.get("title") or "briefing"), html.escape(published),
+                   html.escape(view["brief_why"])))
     elif limit is not None:
-        what = ("the morning brief at <code>/brief/</code>, published %s (within the %d h limit)"
-                % (html.escape(_clock(brief["mtime"], now, tz)), limit))
+        what = ("the %s in <code>viewport/briefing/</code>, published %s (within the %d h limit)"
+                % (html.escape(brief.get("title") or "briefing"), html.escape(_clock(brief["mtime"], now, tz)), limit))
     else:
-        what = "the morning brief at <code>/brief/</code>, %s" % _brief_age(brief, now, tz)
+        what = "the %s in <code>viewport/briefing/</code>, %s" % (
+            html.escape(brief.get("title") or "briefing"), _brief_age(brief, now, tz))
     rungs.append('<li class="rung%s"><span class="prio">%d</span><span class="cls">briefing</span>'
                  '<span class="what">fallback 1: %s</span></li>'
                  % (active, rubric.PRIORITY["briefing"], what))
@@ -229,11 +231,11 @@ def _rules(view):
     dwell = view["effective"]["rotation.dwell_s"]
     limit = view["effective"]["briefing.max_age_hours"]
     if limit is None:
-        brief_rule = "the morning brief is shown if <code>brief/index.html</code> exists, however old it is"
+        brief_rule = "the briefing in <code>viewport/briefing/</code> is shown if it exists, however old it is"
     elif limit == 0:
         brief_rule = "the briefing fallback is off, so the status card is shown"
     else:
-        brief_rule = ("the morning brief is shown if <code>brief/index.html</code> was published "
+        brief_rule = ("the briefing in <code>viewport/briefing/</code> is shown if it was published "
                       "within the last %d hours" % limit)
     return """<ul class="rules">
 <li>A pane is live from its manifest's <code>created</code> time for <code>ttl_minutes</code>; its producer keeps it live by rewriting the manifest.</li>

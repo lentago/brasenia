@@ -25,7 +25,7 @@ from datetime import timedelta
 
 from .document import days, parse_day, touching
 from .render import (AMBER, BAND, BAND_TEXT, BG, CARD, FAINT, LEGACY, LINE, MUTED, TEXT,
-                     _colours, _long_date, _row, _text)
+                     _colours, _edition, _long_date, _row, _text)
 
 TODAY_ROWS = 7
 TODAY_ROWS_UNDER_COVERAGE = 5
@@ -110,13 +110,9 @@ def render_detail(doc, today, now, tz):
     colours = _colours(doc, today_items + tomorrow_items)
 
     brief_day = parse_day(doc["date"])
-    if brief_day == today:
-        edition = '<div class="edition">%s</div>' % e(_text(doc.get("edition")) or "Family Brief")
-        status = _text(doc.get("status_line"))
-    else:
-        edition = ('<div class="edition stale">No brief yet today: showing %s&#39;s</div>'
-                   % e(brief_day.strftime("%A")))
-        status = ""  # yesterday's counts would read as today's
+    edition = _edition(doc, brief_day, today)
+    # An older brief's counts would read as today's.
+    status = _text(doc.get("status_line")) if brief_day == today else ""
 
     return """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">

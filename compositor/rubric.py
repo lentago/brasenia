@@ -22,6 +22,9 @@ PRIORITY = {
 }
 
 ORIGINS = ("operator", "fleet")
+# The briefing slot the fallback shows (written by the family-brief producer).
+BRIEFING_PATH = "/viewport/briefing/pane.html"
+BRIEFING_TITLE = "Briefing"
 DEFAULT_ORIGIN = "fleet"
 DEFAULT_DWELL_S = 20
 
@@ -191,7 +194,7 @@ def _same(a, b):
 
 
 def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
-           priority=None, default_dwell=None):
+           priority=None, default_dwell=None, briefing_title=BRIEFING_TITLE):
     """Rank the bus and return ``(pointer, state)``.
 
     ``panes`` is a list of scanned pane directories, each a dict with ``id``
@@ -201,7 +204,9 @@ def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
     (``{}`` on first run); the returned state is JSON-serialisable.
 
     ``priority`` and ``default_dwell`` override ``PRIORITY`` and
-    ``DEFAULT_DWELL_S`` (see ``parse_manifest``).
+    ``DEFAULT_DWELL_S`` (see ``parse_manifest``). With nothing live and
+    ``brief_present``, the pointer names the briefing slot (``BRIEFING_PATH``),
+    titled ``briefing_title``.
 
     State keys: ``pointer`` (the last decision, so an unchanged decision keeps
     its ``decided_at``), ``rotation`` (the top group's rotation cursor) and
@@ -235,7 +240,7 @@ def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
             **{"class": win["class"], "priority": win["priority"]})
     elif brief_present:
         pointer = _pointer(
-            now, url_base, url=url_base + "/brief/", title="Morning brief",
+            now, url_base, url=url_base + BRIEFING_PATH, title=briefing_title,
             fallback="briefing", **{"class": "briefing", "priority": 0})
     else:
         pointer = _pointer(

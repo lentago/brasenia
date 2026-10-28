@@ -24,7 +24,7 @@ Brasenia (watershield) carpets New England ponds with small floating leaves —
 little panes resting on the water's surface. **brasenia** is the shared window
 into what the Claudes working our estate (everything we run, on-prem and in the
 cloud) are doing: one always-on screen whose
-content is chosen by a rubric, not a remote. The morning brief is the resting
+content is chosen by a rubric, not a remote. The Family Brief is the resting
 surface; higher-value panes (a PR awaiting review, a failing backup, a deploy
 in flight) surface above it when they exist and sink back when they expire.
 
@@ -171,7 +171,9 @@ and applies within seconds, and the effective values are in
 | 40 | `ambient` | while fresh |
 | 0 | `briefing` | never |
 
-Ranking: priority descending, then `origin` (`operator` before `fleet`), then `created` descending. Panes tied on priority and origin rotate; each shows for its `dwell_s` (default 20 s) before the next. Only the top group rotates; lower groups wait. Fallback ladder: no live pane → the briefing URL (`http://pub.lan/brief/` by default, skipped when its `index.html` is absent under the webroot) → `status.html`, which the compositor writes with the reason.
+Ranking: priority descending, then `origin` (`operator` before `fleet`), then `created` descending. Panes tied on priority and origin rotate; each shows for its `dwell_s` (default 20 s) before the next. Only the top group rotates; lower groups wait. Fallback ladder: no live pane → the briefing slot (below), skipped when it is absent or older than the household's `briefing.max_age_hours` → `status.html`, which the compositor writes with the reason.
+
+**The briefing slot** (`viewport/briefing/`, #76) holds what the fallback shows: `pane.html` (the 1280×720 pane contract), optionally `detail.html` (a desk edition, as for panes), and `manifest.json` (`schema` 1, `title`, `published`: when the brief itself was generated, RFC 3339, and `author`). The family-brief producer keeps it filled with the latest Family Brief whatever its age. The `family-today` pane leaves the bus once the brief is older than yesterday; the slot stays, saying how old it is. The compositor names `pane.html` in the pointer, titled from the manifest, and judges the age by `published` rather than the file time, because the producer rewrites the page every minute. Writers follow the bus rules: write-then-rename, and leave a slot another author owns alone. It replaced `http://pub.lan/brief/`, the morning brief, which stopped publishing on 2026-08-31.
 
 ## Contracts v1
 

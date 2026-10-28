@@ -51,12 +51,29 @@ class Bus(unittest.TestCase):
         for key in ("panes", "focus", "state"):
             self.assertTrue(os.path.isdir(self.p[key]), key)
 
+    def write_briefing(self, manifest=None):
+        os.makedirs(os.path.dirname(self.p["briefing"]), exist_ok=True)
+        with open(self.p["briefing"], "w") as f:
+            f.write("<p>briefing</p>")
+        if manifest is not None:
+            with open(self.p["briefing_manifest"], "w") as f:
+                f.write(manifest if isinstance(manifest, str) else json.dumps(manifest))
+
     def test_empty_bus_with_brief(self):
-        os.makedirs(os.path.dirname(self.p["brief"]))
-        open(self.p["brief"], "w").close()
+        self.write_briefing({"schema": 1, "title": "Family Brief",
+                             "published": rubric.iso(T0 - timedelta(hours=5)), "author": "a@b"})
         self.tick({})
         self.assertEqual(self.current()["fallback"], "briefing")
+        self.assertEqual(self.current()["url"], "http://pub.lan/viewport/briefing/pane.html")
+        self.assertEqual(self.current()["title"], "Family Brief")
         self.assertFalse(os.path.exists(self.p["status"]))
+
+    def test_briefing_without_a_readable_manifest_uses_the_file_time(self):
+        self.write_briefing("not json")
+        self.tick({})
+        self.assertEqual(self.current()["title"], rubric.BRIEFING_TITLE)
+        with open(self.p["board"], encoding="utf-8") as f:
+            self.assertIn("Fallback: the briefing (Briefing)", f.read())
 
     def test_empty_bus_without_brief_writes_the_status_card(self):
         self.tick({})
@@ -151,7 +168,7 @@ class Bus(unittest.TestCase):
         pointer = dict(pointer, fallback="briefing", url="http://pub.lan/brief/")
         bus.write_board(self.p["board"], pointer, [], {"present": True, "mtime": now}, now, "http://pub.lan")
         with open(self.p["board"], encoding="utf-8") as f:
-            self.assertIn("Fallback: the morning brief", f.read())
+            self.assertIn("Fallback: the briefing", f.read())
 
 
     def test_the_status_card_and_board_use_the_given_zone(self):
@@ -196,10 +213,9 @@ class Bus(unittest.TestCase):
         self.assertIn("settings: all defaults", self.lines)
 
     def test_a_stale_brief_falls_through_to_the_status_card_under_a_limit(self):
-        os.makedirs(os.path.dirname(self.p["brief"]))
-        open(self.p["brief"], "w").close()
-        old = (T0 - timedelta(days=58)).timestamp()
-        os.utime(self.p["brief"], (old, old))
+        # The age comes from the manifest, not the (freshly rewritten) file.
+        self.write_briefing({"schema": 1, "title": "Family Brief",
+                             "published": rubric.iso(T0 - timedelta(days=58)), "author": "a@b"})
         state = self.tick({})
         self.assertEqual(self.current()["fallback"], "briefing")
         self.signal({"id": "briefing.max_age_hours", "action": "set", "label": "36"})

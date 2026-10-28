@@ -13,7 +13,7 @@ def main(argv=None):
         description="Rank the viewport pane bus by rubric v1 and publish "
                     "<webroot>/viewport/current.json.")
     parser.add_argument("--webroot", required=True,
-                        help="web root that holds viewport/ and brief/ "
+                        help="web root that holds viewport/ "
                              "(on pub: /srv/www)")
     parser.add_argument("--url-base", default="http://pub.lan",
                         help="URL the web root is served at "

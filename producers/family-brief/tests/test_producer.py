@@ -65,3 +65,39 @@ class ProducerTests(unittest.TestCase):
             json.dump({"author": "someone@else"}, fh)
         self.producer.cycle()
         self.assertEqual(os.listdir(self.pane_dir), ["manifest.json"])
+
+    def briefing(self, name):
+        with open(os.path.join(self.webroot, "viewport", "briefing", name), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_fresh_brief_also_fills_the_briefing_slot(self):
+        self.producer.cycle()
+        d = os.path.join(self.webroot, "viewport", "briefing")
+        self.assertEqual(sorted(os.listdir(d)), ["detail.html", "manifest.json", "pane.html"])
+        m = json.loads(self.briefing("manifest.json"))
+        self.assertEqual(m, {"schema": 1, "title": "Family Brief",
+                             "published": "2026-10-25T11:10:49Z", "author": AUTHOR})
+        self.assertIn("<h1>Sunday, October 25</h1>", self.briefing("pane.html"))
+
+    def test_a_stale_brief_leaves_the_briefing_slot_saying_how_old(self):
+        self.doc = with_date(self.doc, "2026-10-23")
+        self.producer.cycle()
+        self.assertFalse(os.path.exists(self.pane_dir))
+        self.assertIn("No brief since Fri 10/23", self.briefing("pane.html"))
+        self.assertIn("No brief since Fri 10/23", self.briefing("detail.html"))
+
+    def test_published_falls_back_to_the_brief_date(self):
+        del self.doc["generated_at"]
+        self.producer.cycle()
+        self.assertEqual(json.loads(self.briefing("manifest.json"))["published"], "2026-10-25T00:00:00Z")
+
+    def test_someone_elses_briefing_slot_is_left_alone(self):
+        d = os.path.join(self.webroot, "viewport", "briefing")
+        os.makedirs(d)
+        with open(os.path.join(d, "manifest.json"), "w", encoding="utf-8") as fh:
+            json.dump({"author": "someone@else"}, fh)
+        self.producer.cycle()
+        self.assertEqual(os.listdir(d), ["manifest.json"])
+        # The pane is unaffected.
+        self.assertTrue(os.path.exists(os.path.join(self.pane_dir, "pane.html")))
+

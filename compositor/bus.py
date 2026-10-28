@@ -30,7 +30,8 @@ def paths(webroot):
         "settings": os.path.join(viewport, "rubric.json"),
         "configure": os.path.join(viewport, "configure.html"),
         "signals": os.path.join(webroot, "signals", "rubric.jsonl"),
-        "brief": os.path.join(webroot, "brief", "index.html"),
+        "briefing": os.path.join(viewport, "briefing", "pane.html"),
+        "briefing_manifest": os.path.join(viewport, "briefing", "manifest.json"),
     }
 
 
@@ -117,7 +118,7 @@ STATUS_HTML = """<!doctype html>
   <h1>brasenia</h1>
   <p>{reason}</p>
   <p class="meta">Status since {since}. The display returns on its own when a
-  pane or the morning brief is published.</p>
+  pane or the briefing is published.</p>
 </main>
 </body>
 </html>
@@ -163,11 +164,11 @@ def tick(webroot, url_base, state, now, log=print, tz=None):
     overrides, history = settings.load(p["signals"])
     eff = settings.effective(overrides)
     priority, dwell = settings.priorities(eff), eff["rotation.dwell_s"]
-    brief = _brief(p["brief"])
+    brief = _brief(p["briefing"], p["briefing_manifest"])
     brief_ok, brief_why = settings.brief_usable(brief, eff, now)
     pointer, new_state = rubric.decide(
         entries, now, state, brief_present=brief_ok, url_base=url_base,
-        priority=priority, default_dwell=dwell)
+        priority=priority, default_dwell=dwell, briefing_title=brief["title"])
 
     old_skipped = state.get("skipped") or {}
     for pane_id, reason in sorted(new_state["skipped"].items()):
@@ -225,13 +226,23 @@ def _write_if_changed(path, page, key, key_of):
     atomic_write(path, page)
 
 
-def _brief(path):
+def _brief(page, manifest_path):
+    """The briefing slot (``viewport/briefing/``, brasenia#76): whether its page
+    exists, its title, and when the brief was published. The age comes from
+    the manifest's ``published``, not the file: the producer rewrites the page
+    every minute whatever the brief's age."""
+    if not os.path.isfile(page):
+        return {"present": False, "mtime": None, "title": rubric.BRIEFING_TITLE}
+    manifest = _read_manifest(manifest_path)
+    if not isinstance(manifest, dict):
+        manifest = {}
+    title = manifest.get("title")
     try:
-        mtime = os.path.getmtime(path)
-    except OSError:
-        return {"present": False, "mtime": None}
-    return {"present": os.path.isfile(path),
-            "mtime": datetime.fromtimestamp(mtime, timezone.utc)}
+        published = rubric.parse_time(manifest.get("published"))
+    except (ValueError, OverflowError):
+        published = datetime.fromtimestamp(os.path.getmtime(page), timezone.utc)
+    return {"present": True, "mtime": published,
+            "title": title if isinstance(title, str) and title.strip() else rubric.BRIEFING_TITLE}
 
 
 def write_board(path, pointer, rows, brief, now, url_base, tz=None, view=None):
