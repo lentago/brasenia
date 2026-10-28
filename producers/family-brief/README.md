@@ -1,6 +1,6 @@
 # family brief producer (the Family Brief → a today-and-tomorrow pane)
 
-**What you're about to do:** run a small Python process (3.9+, standard
+**What you're about to do:** run a small Python process (3.11+, standard
 library only, so there is nothing to install) that reads the morning Family
 Brief document and keeps one pane on the viewport bus. A pane is one
 self-contained web page offered to the wall display; the viewport bus is the

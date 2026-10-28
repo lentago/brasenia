@@ -1,7 +1,7 @@
 # focus producer (session beacons → open-PRs panes)
 
 **What you're about to do:** run a small stdlib-only Python process
-(3.9+) that watches the session beacons on the viewport bus and, for every
+(3.11+) that watches the session beacons on the viewport bus and, for every
 repo with a fresh beacon, keeps a pane on the bus showing that repo's open
 pull requests. It reads `<webroot>/viewport/focus/*.json` and writes
 `<webroot>/viewport/panes/focus-<owner>-<name>/{pane.html,manifest.json}`.
@@ -134,5 +134,5 @@ They run against a fake GitHub transport and temp directories: beacon
 grouping and staleness, pane id mapping, ETag reuse and request pacing,
 rendering (band height, the clock corner, no external references), a
 failure keeping the old pane, and cleanup of orphaned panes. CI runs them
-on 3.9 and 3.12 (`.github/workflows/focus-producer-tests.yml`,
+on 3.11 and 3.12 (`.github/workflows/focus-producer-tests.yml`,
 informational, never a required check).

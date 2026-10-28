@@ -54,7 +54,7 @@ is governed, not in a pipeline. Each row links to the evidence in this checkout.
   `Video` node with the **mandatory auto-retry handler** (a bare Video node
   never recovers from a publisher restart; this one rejoins ~1 s after the
   stream returns).
-- `compositor/` — the Phase 2 compositor (stdlib Python 3.9+): ranks the
+- `compositor/` — the Phase 2 compositor (stdlib Python 3.11+): ranks the
   pane bus by rubric v1 and publishes `viewport/current.json`, the pointer
   every client follows; falls back to the briefing, then a status card. It
   also writes `viewport/rubric.html`, the rubric board, a page showing what is
@@ -69,7 +69,7 @@ is governed, not in a pipeline. Each row links to the evidence in this checkout.
   [`producers/family-brief/`](producers/family-brief/), which turns the
   morning Family Brief into a today-and-tomorrow pane.
 - [`bin/pane`](bin/pane) — claim, renew, release and list panes on the
-  viewport bus (stdlib Python 3.9+); tests with
+  viewport bus (stdlib Python 3.11+); tests with
   `python3 -m unittest discover -s bin/tests`.
 - [`docs/claiming-the-display.md`](docs/claiming-the-display.md) — the
   governance page: what deserves the wall, the classes, the two rules, and

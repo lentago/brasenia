@@ -1,7 +1,7 @@
 # pipeline producer (pipeline.json → the change-pipeline pane)
 
 **What you're about to do:** run a small stdlib-only Python process
-(3.9+) that reads drosera's change-pipeline document and, while any repo has
+(3.11+) that reads drosera's change-pipeline document and, while any repo has
 a change in flight, keeps one pane on the viewport bus showing where each
 change has got to. It reads `<url-base>/viewport/pipeline.json` and writes
 `<webroot>/viewport/panes/change-pipeline/{pane.html,manifest.json}`.
@@ -130,5 +130,5 @@ missing document keeps the pane without renewing it, then removes it at
 TTL; a changed document rewrites the pane; cleanup when the last repo
 lands; someone else's `change-pipeline` directory is left alone; and the
 render (the contract checks, the marker edge, the four-strip cap). CI runs
-them on 3.9 and 3.12 (`.github/workflows/pipeline-producer-tests.yml`,
+them on 3.11 and 3.12 (`.github/workflows/pipeline-producer-tests.yml`,
 informational, never a required check).
