@@ -53,7 +53,9 @@ is governed, not in a pipeline. Each row links to the evidence in this checkout.
 - `roku-app/` — the BrightScript dev channel the TV runs: a full-screen HLS
   `Video` node with the **mandatory auto-retry handler** (a bare Video node
   never recovers from a publisher restart; this one rejoins ~1 s after the
-  stream returns).
+  stream returns), and the remote's **peek**: Up/Down steps through the panes
+  at once as images over the live video, Back returns, and nothing it does
+  changes what the rubric shows ([ADR-0012](docs/adr/0012-the-remote-peeks-it-never-decides.md)).
 - `compositor/` — the Phase 2 compositor (stdlib Python 3.11+): ranks the
   pane bus by rubric v1 and publishes `viewport/current.json`, the pointer
   every client follows; falls back to the briefing, then a status card. It
