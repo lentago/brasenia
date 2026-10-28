@@ -25,14 +25,12 @@ permissions:
 
 jobs:
   test:
-    # Pinned: ubuntu-latest is 26.04, where setup-python has no 3.9 build;
-    # 3.9 (the floor) is built for 22.04 and 24.04 only.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # 3.9 is the floor (pub runs Debian 12's 3.11); 3.12 is current.
-        python: ['3.9', '3.12']
+        # 3.11 is the floor (pub and LXC 118 run Debian 12's 3.11); 3.12 is current.
+        python: ['3.11', '3.12']
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

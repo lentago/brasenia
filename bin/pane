@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """pane: claim, renew and release a pane on the viewport bus.
 
-One stdlib file (Python 3.9+), runnable from a clone or copied onto a PATH.
+One stdlib file (Python 3.11+), runnable from a clone or copied onto a PATH.
 The bus contracts (paths, manifest.json, the liveness rule) and the rubric
 live in docs/concept.md ("Contracts v1", "Rubric v1"); the page for humans and
 Claudes is docs/claiming-the-display.md. Exit codes: 0 ok, 1 refused (reason
