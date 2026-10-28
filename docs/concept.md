@@ -77,7 +77,8 @@ Three nouns:
       │       profile) → 3840×2160 bands → frame.png
       │    4. ffmpeg (image2pipe → HEVC 5 fps + AAC) → HLS on tmpfs → :8080
       │    ▼
-      │  Roku dev channel (roku-app/ in this repo — auto-retry Video node)
+      │  Roku dev channel (roku-app/ in this repo — auto-retry Video node;
+      │  remote Up/Down peeks through lineup.json images, ADR-0012)
       │       → office Roku Streaming Stick Plus, 4K display
       │
       └─ (Cast adapter — ADR-0006 — retired 2026-10-28; Roku is the client

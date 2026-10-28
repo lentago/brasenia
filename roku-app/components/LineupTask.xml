@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="LineupTask" extends="Task">
+  <interface>
+    <field id="url" type="string" />
+    <field id="content" type="string" />
+  </interface>
+  <script type="text/brightscript">
+    <![CDATA[
+    sub init()
+        m.top.functionName = "poll"
+    end sub
+
+    ' Fetch the remote's peek line-up (LXC 118's /peek/index.json) every 15 s
+    ' and publish it only when it changes. A Task runs on its own thread:
+    ' SceneGraph does no network I/O on the render thread. A server that is
+    ' down costs one 5 s timeout per round and leaves the last line-up up.
+    sub poll()
+        port = CreateObject("roMessagePort")
+        while true
+            http = CreateObject("roUrlTransfer")
+            http.SetMessagePort(port)
+            http.SetUrl(m.top.url)
+            if http.AsyncGetToString()
+                msg = wait(5000, port)
+                if type(msg) = "roUrlEvent"
+                    if msg.GetResponseCode() = 200
+                        body = msg.GetString()
+                        if body <> "" and body <> m.top.content then m.top.content = body
+                    end if
+                else
+                    http.AsyncCancel()
+                end if
+            end if
+            sleep(15000)
+        end while
+    end sub
+    ]]>
+  </script>
+</component>

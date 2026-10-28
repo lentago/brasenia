@@ -2,22 +2,46 @@
 <component name="VideoScene" extends="Scene">
   <script type="text/brightscript">
     <![CDATA[
+    ' LXC 118 serves both the live stream and the remote's peek images.
+    function host() as String
+        return "http://192.168.139.19:8080"
+    end function
+
     sub init()
         m.video = m.top.findNode("player")
         m.video.observeField("state", "onVideoState")
         m.retryTimer = m.top.findNode("retryTimer")
         m.retryTimer.observeField("fire", "onRetry")
+
+        ' The remote's peek (#80, ADR-0012): Up/Down shows another pane at
+        ' once as an image over the live video; Back, or a minute without a
+        ' press, returns to the live view. It only looks: the stream keeps
+        ' showing what the compositor decided.
+        m.peek = m.top.findNode("peek")
+        m.bar = m.top.findNode("bar")
+        m.caption = m.top.findNode("caption")
+        m.idleTimer = m.top.findNode("idleTimer")
+        m.idleTimer.observeField("fire", "closePeek")
+        m.items = []
+        m.index = -1
+        m.lineup = m.top.findNode("lineup")
+        m.lineup.observeField("content", "onLineup")
+        m.lineup.url = host() + "/peek/index.json"
+        m.lineup.control = "run"
+
         startPlayback()
+        ' The scene, not the Video node, takes the remote: a focused Video
+        ' answers OK, Play and the arrows with trick play on a live stream.
+        m.top.setFocus(true)
     end sub
 
     sub startPlayback()
         content = CreateObject("roSGNode", "ContentNode")
-        content.url = "http://192.168.139.19:8080/master.m3u8"
+        content.url = host() + "/master.m3u8"
         content.streamformat = "hls"
         content.live = true
         m.video.content = content
         m.video.control = "play"
-        m.video.setFocus(true)
     end sub
 
     ' Publisher restarts kill the HLS session server-side; the Video node
@@ -33,10 +57,111 @@
     sub onRetry()
         startPlayback()
     end sub
+
+    function onKeyEvent(key as String, press as Boolean) as Boolean
+        if not press then return false
+        if key = "up" then
+            stepPeek(-1)
+            return true
+        else if key = "down" then
+            stepPeek(1)
+            return true
+        else if key = "back" then
+            ' Back closes a peek and otherwise does nothing, so a stray press
+            ' can't exit the channel and leave the screen on the Roku home
+            ' screen. (Home still leaves; Roku apps can't catch it.)
+            closePeek()
+            return true
+        end if
+        return false
+    end function
+
+    ' A new line-up from LXC 118. A peek in progress stays on the same pane
+    ' if it is still listed, and closes if it left.
+    sub onLineup()
+        doc = ParseJson(m.lineup.content)
+        if doc = invalid or type(doc.items) <> "roArray" then return
+        current = invalid
+        if m.peek.visible and m.index >= 0 and m.index < m.items.Count() then current = m.items[m.index].id
+        m.items = doc.items
+        if current = invalid then return
+        m.index = findItem(current)
+        if m.index < 0 then
+            closePeek()
+        else
+            showItem()   ' a refresh is not a press: the idle countdown carries on
+        end if
+    end sub
+
+    function findItem(id as String) as Integer
+        for i = 0 to m.items.Count() - 1
+            if m.items[i].id = id then return i
+        end for
+        return -1
+    end function
+
+    ' Step through the line-up (rubric order). The first step starts from the
+    ' pane on screen, so Down shows the next one below it; steps wrap around.
+    sub stepPeek(delta as Integer)
+        n = m.items.Count()
+        if n = 0 then
+            m.peek.visible = false
+            showCaption("Nothing to step through yet")
+            restartIdle()
+            return
+        end if
+        if not m.peek.visible then
+            m.index = -1
+            for i = 0 to n - 1
+                if m.items[i].showing <> invalid and m.items[i].showing = true then m.index = i
+            end for
+            if m.index < 0 and delta < 0 then m.index = 0
+        end if
+        m.index = m.index + delta
+        if m.index < 0 then m.index = n - 1
+        if m.index >= n then m.index = 0
+        showItem()
+        restartIdle()
+    end sub
+
+    sub showItem()
+        item = m.items[m.index]
+        uri = host() + item.image
+        if m.peek.uri <> uri then m.peek.uri = uri
+        m.peek.visible = true
+        position = m.index + 1
+        text = "Up/Down   " + position.ToStr() + " of " + m.items.Count().ToStr() + "  ·  " + item.title
+        if item.showing <> invalid and item.showing = true then text = text + "  ·  on screen now"
+        showCaption(text + "          Back: live view")
+    end sub
+
+    sub showCaption(text as String)
+        m.caption.text = text
+        m.bar.visible = true
+    end sub
+
+    ' "start" restarts a running Timer. Do not set "stop" first: a stop and a
+    ' start in the same callback leave the Timer stopped (seen on Roku OS 15.3).
+    sub restartIdle()
+        m.idleTimer.control = "start"
+    end sub
+
+    sub closePeek()
+        m.idleTimer.control = "stop"
+        m.peek.visible = false
+        m.bar.visible = false
+        m.index = -1
+    end sub
     ]]>
   </script>
   <children>
-    <Video id="player" width="1280" height="720" translation="[0,0]" />
+    <Video id="player" width="1920" height="1080" translation="[0,0]" />
+    <Poster id="peek" width="1920" height="1080" translation="[0,0]" visible="false" loadDisplayMode="scaleToFit" />
+    <Rectangle id="bar" width="1920" height="84" translation="[0,996]" color="0x0E1612E6" visible="false">
+      <Label id="caption" width="1840" height="84" translation="[40,0]" vertAlign="center" color="0xE8EFE9FF" font="font:MediumSystemFont" />
+    </Rectangle>
     <Timer id="retryTimer" duration="3" repeat="false" />
+    <Timer id="idleTimer" duration="60" repeat="false" />
+    <LineupTask id="lineup" />
   </children>
 </component>
