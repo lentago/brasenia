@@ -105,5 +105,22 @@ class RenderTests(unittest.TestCase):
         self.assertIsNone(restamp("<html></html>", later))
 
 
+    def test_no_push_run_is_not_labelled_twice(self):
+        data = {"pulls": [], "main": None}
+        text = render("lentago/brasenia", data, None, NOW, NOW)
+        self.assertIn("main: <b>no push run</b>", text)
+        self.assertNotIn("main: main:", text)
+
+    def test_clock_times_use_the_given_zone(self):
+        from zoneinfo import ZoneInfo
+        data = {"pulls": [], "main": None}
+        row = {"repo": "lentago/brasenia", "stage": "review", "since": "2026-10-07T11:00:00Z"}
+        text = render("lentago/brasenia", data, row, NOW, NOW, ZoneInfo("America/New_York"))
+        self.assertIn("data as of 08:00", text)      # 12:00 UTC is 08:00 EDT
+        self.assertIn("since 07:00", text)
+        later = datetime(2026, 10, 7, 12, 30, 0, tzinfo=timezone.utc)
+        self.assertIn("last tried 08:30", restamp(text, later, ZoneInfo("America/New_York")))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -53,18 +53,23 @@ td { height: 44px; white-space: nowrap; overflow: hidden; text-overflow: ellipsi
 """ % {"bg": BG, "text": TEXT, "muted": MUTED, "accent": ACCENT}
 
 
-def render(repo, data, pipeline_row, as_of, now):
+# A main run that ended any of these ways is fine; anything else is shown as bad.
+GOOD_MAIN = ("success", "skipped", "neutral")
+
+
+def render(repo, data, pipeline_row, as_of, now, tz=None):
     """Return pane.html for ``repo``.
 
     ``data`` is GitHub.repo()'s dict, ``pipeline_row`` the repo's
     pipeline.json object or None, ``as_of`` when the data was fetched and
-    ``now`` the render time (both aware datetimes).
+    ``now`` the render time (both aware datetimes). Clock times are shown in
+    ``tz`` (None: the host's zone).
     """
     e = html.escape
     name = repo.split("/", 1)[1]
     lines = ['<div class="line">main: %s</div>' % _main_line(data.get("main"), now)]
     if pipeline_row:
-        lines.append('<div class="line">pipeline: %s</div>' % _pipeline_line(pipeline_row))
+        lines.append('<div class="line">pipeline: %s</div>' % _pipeline_line(pipeline_row, tz))
 
     pulls = data.get("pulls") or []
     count = "%d open pull request%s" % (len(pulls), "" if len(pulls) == 1 else "s")
@@ -117,11 +122,11 @@ def render(repo, data, pipeline_row, as_of, now):
         "lines": "\n".join(lines),
         "rows": "\n".join(rows),
         "extra": extra,
-        "stamp": stamp(as_of),
+        "stamp": stamp(as_of, tz),
     }
 
 
-def restamp(page, failed_at):
+def restamp(page, failed_at, tz=None):
     """Rewrite only the "as of" stamp of an existing pane.html after a failed refresh.
 
     The data and its original "data as of" time stay; the stamp gains when
@@ -133,12 +138,12 @@ def restamp(page, failed_at):
         return None
     old = found.group(0)[len(STAMP_OPEN):-len(STAMP_CLOSE)]
     kept = old.split(" · ", 1)[0]
-    note = "%s · GitHub unavailable, last tried %s" % (kept, _hhmm(failed_at))
+    note = "%s · GitHub unavailable, last tried %s" % (kept, _hhmm(failed_at, tz))
     return page[:found.start()] + STAMP_OPEN + note + STAMP_CLOSE + page[found.end():]
 
 
-def stamp(as_of):
-    return STAMP_OPEN + "data as of %s" % _hhmm(as_of) + STAMP_CLOSE
+def stamp(as_of, tz=None):
+    return STAMP_OPEN + "data as of %s" % _hhmm(as_of, tz) + STAMP_CLOSE
 
 
 def pane_title(repo):
@@ -147,9 +152,9 @@ def pane_title(repo):
 
 def _main_line(main, now):
     if not main:
-        return "<b>main: no push run</b>"
+        return "<b>no push run</b>"  # the line already reads "main: "
     conclusion = main["conclusion"]
-    cls = ' class="bad"' if conclusion not in ("success", "skipped", "neutral") else ""
+    cls = ' class="bad"' if conclusion not in GOOD_MAIN else ""
     when = ""
     if main.get("updated_at"):
         when = ", %s ago" % _age(parse_ts(main["updated_at"]), now)
@@ -157,14 +162,14 @@ def _main_line(main, now):
     return "<b%s>%s</b>%s%s" % (cls, html.escape(conclusion), name, when)
 
 
-def _pipeline_line(row):
+def _pipeline_line(row, tz=None):
     parts = ["<b>%s</b>" % html.escape(str(row.get("stage", "?")))]
     if row.get("sha"):
         parts.append(html.escape(str(row["sha"])[:7]))
     since = row.get("since")
     if since:
         try:
-            parts.append("since %s" % _hhmm(parse_ts(str(since))))
+            parts.append("since %s" % _hhmm(parse_ts(str(since)), tz))
         except ValueError:
             pass
     return " · ".join(parts)
@@ -183,10 +188,11 @@ def _age(then, now):
     return "%dd" % (secs // 86400)
 
 
-def _hhmm(ts):
-    """Local wall-clock HH:MM, the time a person in the room reads."""
+def _hhmm(ts, tz=None):
+    """Wall-clock HH:MM in ``tz``, the time a person in the room reads (pub's
+    own clock is UTC, so the caller passes the household's zone)."""
     if ts.tzinfo is None:
         ts = ts.replace(tzinfo=timezone.utc)
-    return ts.astimezone().strftime("%H:%M")
+    return ts.astimezone(tz).strftime("%H:%M")
 
 

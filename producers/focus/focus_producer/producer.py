@@ -14,7 +14,7 @@ import shutil
 from datetime import datetime, timedelta, timezone
 
 from .github import GitHubError, parse_ts
-from .render import pane_title, render, restamp
+from .render import GOOD_MAIN, pane_title, render, restamp
 
 STALE_AFTER = timedelta(minutes=10)
 TTL_MINUTES = 10
@@ -84,14 +84,25 @@ def _unlink(path):
         pass
 
 
+
+def quiet(data, pipeline_row):
+    """True when a repo has nothing worth the screen: no open pull requests,
+    main's latest run fine (or no push run at all) and no pipeline row. A
+    beaconed repo that is quiet gets no pane, so an empty table never
+    outranks the resting surface; the pane returns when any of that changes."""
+    main = data.get("main")
+    return (not data.get("pulls") and not pipeline_row
+            and (not main or main.get("conclusion") in GOOD_MAIN))
+
 class Producer:
-    def __init__(self, webroot, url_base, github, clock=None):
+    def __init__(self, webroot, url_base, github, clock=None, tz=None):
         self.viewport = os.path.join(webroot, "viewport")
         self.focus_dir = os.path.join(self.viewport, "focus")
         self.panes_dir = os.path.join(self.viewport, "panes")
         self.pipeline_url = url_base.rstrip("/") + "/viewport/pipeline.json"
         self.github = github
         self.clock = clock or (lambda: datetime.now(timezone.utc))
+        self.tz = tz
 
     def cycle(self):
         now = self.clock()
@@ -115,7 +126,7 @@ class Producer:
             log.warning("%s: GitHub refresh failed, keeping previous pane: %s", repo, err)
             try:
                 with open(page_path, encoding="utf-8") as fh:
-                    page = restamp(fh.read(), now)
+                    page = restamp(fh.read(), now, self.tz)
             except FileNotFoundError:
                 page = None
             if page is None:
@@ -124,7 +135,10 @@ class Producer:
         else:
             as_of = datetime.fromtimestamp(fetched, timezone.utc)
             row = next((r for r in pipeline if isinstance(r, dict) and r.get("repo") == repo), None)
-            page = render(repo, data, row, as_of, now)
+            if quiet(data, row):
+                self._remove(pane_dir, "quiet: no open pull requests, main fine, nothing in the pipeline")
+                return
+            page = render(repo, data, row, as_of, now, self.tz)
 
         os.makedirs(pane_dir, exist_ok=True)
         write_atomic(page_path, page)
@@ -152,6 +166,19 @@ class Producer:
             log.info("pipeline.json unreadable: %s", err)
             return []
         return rows if isinstance(rows, list) else []
+
+    def _remove(self, pane_dir, why):
+        """Remove this producer's pane at ``pane_dir`` (never someone else's)."""
+        if not os.path.isdir(pane_dir):
+            return
+        try:
+            with open(os.path.join(pane_dir, "manifest.json"), encoding="utf-8") as fh:
+                if json.load(fh).get("author") != AUTHOR:
+                    return
+        except (OSError, ValueError, AttributeError):
+            pass  # no manifest yet: a pane this producer started and never finished
+        log.info("removing pane %s (%s)", os.path.basename(pane_dir), why)
+        shutil.rmtree(pane_dir, ignore_errors=True)
 
     def _cleanup(self, live):
         """Remove focus-* pane dirs with no fresh beacon. Other dirs are never touched."""
