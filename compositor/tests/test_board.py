@@ -3,6 +3,7 @@ import re
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))))
@@ -80,6 +81,17 @@ class Board(unittest.TestCase):
         text, _ = page([p])
         self.assertIn("&lt;b&gt;PRs &amp; such&lt;/b&gt;", text)
         self.assertNotIn("<b>PRs", text)
+
+
+    def test_times_are_shown_in_the_given_zone(self):
+        panes = [pane("a")]
+        pointer, _ = decide(panes, T0, {}, brief_present=True)
+        rows = rubric.explain(panes, T0, pointer)
+        eastern, _ = board.render(pointer, rows, FRESH, T0, tz=ZoneInfo("America/New_York"))
+        self.assertIn("Generated 8:00:00 AM EDT", eastern)
+        self.assertIn("live until 8:10 AM (in 10 min)", eastern)
+        utc, _ = board.render(pointer, rows, FRESH, T0, tz=timezone.utc)
+        self.assertIn("Generated 12:00:00 PM UTC", utc)
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))))
@@ -151,6 +152,19 @@ class Bus(unittest.TestCase):
         bus.write_board(self.p["board"], pointer, [], {"present": True, "mtime": now}, now, "http://pub.lan")
         with open(self.p["board"], encoding="utf-8") as f:
             self.assertIn("Fallback: the morning brief", f.read())
+
+
+    def test_the_status_card_and_board_use_the_given_zone(self):
+        bus.tick(self.webroot, "http://pub.lan", {}, T0, self.lines.append,
+                 tz=ZoneInfo("America/New_York"))
+        with open(self.p["status"], encoding="utf-8") as f:
+            self.assertIn("Status since 08:00 EDT (2026-10-07)", f.read())
+        with open(self.p["board"], encoding="utf-8") as f:
+            self.assertIn("Generated 8:00:00 AM EDT", f.read())
+
+    def test_cli_rejects_an_unknown_zone(self):
+        with self.assertRaises(SystemExit):
+            main(["--webroot", self.webroot, "--once", "--tz", "Mars/Olympus"])
 
 
 if __name__ == "__main__":

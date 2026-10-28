@@ -2,6 +2,7 @@ import argparse
 import sys
 import time
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from . import bus
 
@@ -20,11 +21,18 @@ def main(argv=None):
     parser.add_argument("--interval", type=float, default=5.0,
                         help="seconds between evaluations "
                              "(default: %(default)s)")
+    parser.add_argument("--tz", default="America/New_York",
+                        help="time zone for the times on the status card and "
+                             "the rubric board (default: %(default)s)")
     parser.add_argument("--once", action="store_true",
                         help="evaluate once and exit")
     args = parser.parse_args(argv)
     if args.interval <= 0:
         parser.error("--interval must be positive")
+    try:
+        tz = ZoneInfo(args.tz)
+    except (ZoneInfoNotFoundError, ValueError):
+        parser.error("--tz %r is not a known time zone" % args.tz)
 
     def log(line):
         print(line, flush=True)
@@ -33,7 +41,7 @@ def main(argv=None):
     try:
         while True:
             state = bus.tick(args.webroot, args.url_base, state,
-                             datetime.now(timezone.utc), log)
+                             datetime.now(timezone.utc), log, tz)
             if args.once:
                 return 0
             time.sleep(args.interval)

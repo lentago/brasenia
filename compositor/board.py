@@ -65,13 +65,13 @@ footer { margin-top: 36px; font-size: 14px; color: #8fa89a; }
 """
 
 
-def render(pointer, rows, brief, now, url_base="http://pub.lan"):
+def render(pointer, rows, brief, now, url_base="http://pub.lan", tz=None):
     """Return ``(html, key)`` for the board.
 
     ``pointer`` is the decision, ``rows`` what ``rubric.explain`` returned for
     the same scan, ``brief`` a dict with ``present`` (bool) and ``mtime``
     (aware datetime or None) for ``brief/index.html``, and ``now`` an aware
-    datetime. Times are shown in the host's local zone.
+    datetime. Times are shown in ``tz`` (a tzinfo; None means the host's zone).
     """
     e = html.escape
     url_base = url_base.rstrip("/")
@@ -80,13 +80,13 @@ def render(pointer, rows, brief, now, url_base="http://pub.lan"):
         '<p class="sub">What the compositor is showing, and why. '
         'This page refreshes every %d seconds.</p></header>' % REFRESH_S,
         "<h2>Showing now</h2>",
-        _now_card(pointer, brief, now),
+        _now_card(pointer, brief, now, tz),
         "<h2>The rubric</h2>",
         '<p class="muted">The highest rung with a live pane wins. With nothing live, '
         'the fallbacks apply in order.</p>',
-        _ladder(pointer, rows, brief, now),
+        _ladder(pointer, rows, brief, now, tz),
         "<h2>On the bus</h2>",
-        _bus_table(rows, now),
+        _bus_table(rows, now, tz),
         "<h2>How it decides</h2>",
         _rules(),
     ])
@@ -111,7 +111,7 @@ def render(pointer, rows, brief, now, url_base="http://pub.lan"):
 </body>
 </html>
 """ % {"key": key, "refresh": REFRESH_S, "css": CSS, "body": body, "base": e(url_base),
-       "generated": e(_clock(now, now, seconds=True))}
+       "generated": e(_clock(now, now, tz, seconds=True))}
     return page, key
 
 
@@ -125,12 +125,12 @@ def key_of(page_text):
     return page_text[start + len(marker):end] if end > 0 else None
 
 
-def _now_card(pointer, brief, now):
+def _now_card(pointer, brief, now, tz):
     e = html.escape
     if pointer.get("fallback") == "briefing":
         return ('<div class="card fallback"><div class="big">Fallback: the morning brief</div>'
                 '<div class="meta">Nothing on the bus is live. %s · <a href="%s">open it</a></div></div>'
-                % (_brief_age(brief, now), e(pointer["url"])))
+                % (_brief_age(brief, now, tz), e(pointer["url"])))
     if pointer.get("fallback") == "status":
         return ('<div class="card fallback"><div class="big">Fallback: the status card</div>'
                 '<div class="meta">Nothing on the bus is live and no brief is published. '
@@ -139,7 +139,7 @@ def _now_card(pointer, brief, now):
             "pane <code>%s</code>" % e(str(pointer.get("pane")))]
     try:
         expires = rubric.parse_time(pointer.get("expires_at"))
-        meta.append("live until %s" % e(_clock(expires, now)))
+        meta.append("live until %s" % e(_clock(expires, now, tz)))
     except (ValueError, OverflowError):
         pass
     rotation = pointer.get("rotation")
@@ -151,7 +151,7 @@ def _now_card(pointer, brief, now):
             % (e(str(pointer.get("title"))), " · ".join(meta), e(str(pointer.get("url")))))
 
 
-def _ladder(pointer, rows, brief, now):
+def _ladder(pointer, rows, brief, now, tz):
     e = html.escape
     live = [r for r in rows if r["status"] in ("showing", "rotating", "outranked")]
     rungs = []
@@ -166,7 +166,7 @@ def _ladder(pointer, rows, brief, now):
                      % (active, prio, e(cls), chips or '<span class="muted">nothing live</span>'))
     active = " active" if pointer.get("fallback") == "briefing" else ""
     if brief["present"]:
-        what = "the morning brief at <code>/brief/</code>, %s" % _brief_age(brief, now)
+        what = "the morning brief at <code>/brief/</code>, %s" % _brief_age(brief, now, tz)
     else:
         what = '<span class="muted">skipped: no <code>brief/index.html</code> is published</span>'
     rungs.append('<li class="rung%s"><span class="prio">%d</span><span class="cls">briefing</span>'
@@ -179,14 +179,14 @@ def _ladder(pointer, rows, brief, now):
     return '<ol class="ladder">\n%s\n</ol>' % "\n".join(rungs)
 
 
-def _bus_table(rows, now):
+def _bus_table(rows, now, tz):
     e = html.escape
     if not rows:
         return '<p class="muted">The bus is empty: no pane directories under <code>viewport/panes/</code>.</p>'
     out = ['<div class="scroll"><table><thead><tr><th>pane</th><th>title</th><th>class</th>'
            '<th>origin</th><th>live until</th><th>status</th><th>why</th></tr></thead><tbody>']
     for r in rows:
-        until = _clock(r["expires"], now) if "expires" in r else ""
+        until = _clock(r["expires"], now, tz) if "expires" in r else ""
         cls = "%s (%d)" % (r["class"], r["priority"]) if "class" in r else ""
         out.append('<tr><td class="id">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td>'
                    '<td><span class="badge %s">%s</span></td><td>%s</td></tr>'
@@ -207,20 +207,21 @@ def _rules():
 </ul>""" % dwell
 
 
-def _brief_age(brief, now):
+def _brief_age(brief, now, tz):
     if not brief.get("mtime"):
         return "published at an unknown time"
     age = now - brief["mtime"]
-    text = "published %s" % _clock(brief["mtime"], now)
+    text = "published %s" % _clock(brief["mtime"], now, tz)
     if age > STALE_BRIEF:
         return '<span class="warn">%s: stale</span>' % html.escape(text)
     return html.escape(text)
 
 
-def _clock(when, now, seconds=False):
-    """A local time people read at a glance: today as a time, otherwise with the date."""
-    local, today = when.astimezone(), now.astimezone()
-    fmt = "%-I:%M:%S %p" if seconds else "%-I:%M %p"
+def _clock(when, now, tz, seconds=False):
+    """A time in ``tz`` people read at a glance: today as a time, otherwise
+    with the date. ``seconds`` (the footer) adds seconds and the zone name."""
+    local, today = when.astimezone(tz), now.astimezone(tz)
+    fmt = "%-I:%M:%S %p %Z" if seconds else "%-I:%M %p"
     if local.date() != today.date():
         fmt = "%a %b %-d, " + fmt
     text = local.strftime(fmt)
