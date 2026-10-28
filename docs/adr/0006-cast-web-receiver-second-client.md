@@ -1,6 +1,6 @@
 # ADR-0006: Chromecast web receiver as a second client; the compositor's output becomes a decision
 
-**Status:** Accepted (2026-08-14)
+**Status:** Superseded by [ADR-0010](0010-roku-is-the-client-platform.md) (2026-10-28): the Chromecast is retired and Roku is the client platform. Accepted 2026-08-14.
 
 ## Context
 

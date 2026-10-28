@@ -1,5 +1,10 @@
 # cast-app — Chromecast custom web receiver
 
+> **Retired 2026-10-28** ([ADR-0010](../docs/adr/0010-roku-is-the-client-platform.md)):
+> the Chromecast is gone and Roku is the client platform. This directory stays
+> only because pub's daily `publish-cast-receiver` still rsyncs it; it is
+> deleted once lentago/kalmia#174 retires that publishing.
+
 Phase B receiver (Phase A behaviour retained as the 404 rule) per [ADR-0006](../docs/adr/0006-cast-web-receiver-second-client.md)
 and issue #13. This is the **receiver** — the page a Chromecast fetches and
 renders when the app launches. There is no sender in this repo: a watchdog

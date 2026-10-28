@@ -15,6 +15,11 @@ rotation by dwell) replaces rubric v0, the bus contracts are written down as
 [Contracts v1](#contracts-v1), and the compositor moves to pub (LXC 114)
 ([#27](https://github.com/lentago/brasenia/issues/27)).*
 
+*Amended 2026-10-28: the office Roku plays 4K HEVC and is the viewport's
+screen; Roku is the client platform and the Cast client is retired
+([ADR-0009](adr/0009-office-roku-4k-hevc-over-ffmpeg-hls.md),
+[ADR-0010](adr/0010-roku-is-the-client-platform.md)).*
+
 Brasenia (watershield) carpets New England ponds with small floating leaves —
 little panes resting on the water's surface. **brasenia** is the shared window
 into what the Claudes working our estate (everything we run, on-prem and in the
@@ -75,13 +80,8 @@ Three nouns:
       │  Roku dev channel (roku-app/ in this repo — auto-retry Video node)
       │       → office Roku Streaming Stick Plus, 4K display
       │
-      └─ Cast adapter (second client — ADR-0006, prototype)
-           3. custom Web Receiver navigates to the current pane and renders
-              it natively (pixel-perfect text, ~instant pane switching)
-           4. watchdog sender on the LXC re-launches the receiver after
-              reboots / OS updates / ambient reclaims
-           ▼
-         Chromecast → its TV
+      └─ (Cast adapter — ADR-0006 — retired 2026-10-28; Roku is the client
+          platform, ADR-0010)
 ```
 
 The bus is plain files on the share every host already mounts — no broker, no
@@ -90,13 +90,14 @@ Pub stays the *publisher* (Drive → web, credentials live only there); brasenia
 is the *renderer* and needs no credentials at all.
 
 The compositor's real output is the **decision**, not pixels — the
-shoot→slice→encode→HLS chain is the *Roku client's adapter*, not the product,
-and the Cast web receiver is the second client
-([ADR-0006](adr/0006-cast-web-receiver-second-client.md)). The trade is
-recorded there: the Cast leg wins on text crispness and switching latency but
-depends on Google's cloud at launch and starts with zero unattended soak
-hours, so Roku/HLS stays the production transport until the Cast watchdog
-earns comparable validation evidence.
+shoot→slice→encode→HLS chain is the *Roku client's adapter*, not the product.
+A Chromecast web receiver was a second client
+([ADR-0006](adr/0006-cast-web-receiver-second-client.md)) until it was retired
+on 2026-10-28. Roku is now the client platform
+([ADR-0010](adr/0010-roku-is-the-client-platform.md)): every screen is a Roku
+running this repo's dev channel, and Home Assistant, which speaks Roku's
+ECP, is where Roku-side automation such as powering a screen or relaunching
+the channel will go.
 
 **The office Roku (2026-10-28).** The play-room Roku was factory reset and
 retired. The Roku/HLS adapter now serves a 4K Roku in the office instead,
@@ -108,17 +109,13 @@ follows the pointer and shows a pane's desk edition when the pane offers one
 
 ### Degraded mode: internet outage
 
-The Cast path launches the receiver through Google's cloud, so while your
-internet is down the display cannot launch or re-launch the receiver. A receiver
-that is already running keeps polling your LAN for its panes and may carry on
-through the outage; if it stops, or the Chromecast restarts, your display stays
-dark until the internet is back. The LAN-self-contained property belonged to the
-retired Roku/HLS path and is not carried forward. This regression was accepted
-on 2026-10-13 ([#12](https://github.com/lentago/brasenia/issues/12)) as the one
-capability loss of the transport swap, to be revisited only if a LAN-only launch
-path appears. Whether the watchdog's re-launch brings your display back on its
-own once connectivity returns is one of #12's soak checks; until that passes,
-expect to re-cast by hand after an outage.
+The display is LAN-self-contained. The Roku plays an HLS stream from LXC 118,
+which reads only `http://pub.lan/`, so an internet outage leaves the screen up.
+It shows what pub already has; the Family Brief simply stops updating until
+pub can reach Drive again. The Cast-era regression accepted on 2026-10-13
+([#12](https://github.com/lentago/brasenia/issues/12)), a dark display
+whenever the receiver needed relaunching without internet, ended with the Cast
+client ([ADR-0010](adr/0010-roku-is-the-client-platform.md)).
 
 **Compositor placement (2026-10-07).** The compositor runs on pub (LXC
 114), from the `/srv/brasenia` checkout kalmia already keeps there, because
@@ -168,7 +165,7 @@ Ranking: priority descending, then `origin` (`operator` before `fleet`), then `c
 ## Contracts v1
 
 These are the contracts every Phase 2 piece builds to (the compositor, the
-Cast client following the pointer, the focus producer, and the session
+clients following the pointer, the focus producer, and the session
 heartbeat beacon). Other issues and repos quote the parts they need and must
 not diverge; change them here. The implementation is
 [`compositor/`](../compositor/).
