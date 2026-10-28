@@ -15,7 +15,7 @@ import hashlib
 import html
 from datetime import timedelta
 
-from . import rubric
+from . import rubric, settings
 
 STALE_BRIEF = timedelta(hours=36)
 REFRESH_S = 10
@@ -47,6 +47,11 @@ ol.ladder { list-style: none; margin: 0; padding: 0; }
 .chip.showing { background: #e0a81c; color: #1b1405; font-weight: 600; }
 .chip.rotating { background: #3a3317; color: #f0d28a; }
 .warn { color: #f0a53a; font-weight: 600; }
+.ovr { display: block; font-size: 12px; font-weight: 400; color: #e0a81c; }
+tr.overridden td { color: #f0d28a; }
+ul.history { margin: 0; padding-left: 20px; }
+ul.history li { margin: 3px 0; }
+ul.history .rejected { color: #f3b1a8; }
 .scroll { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 15px; }
 th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #1f2e26; vertical-align: top; }
@@ -65,30 +70,41 @@ footer { margin-top: 36px; font-size: 14px; color: #8fa89a; }
 """
 
 
-def render(pointer, rows, brief, now, url_base="http://pub.lan", tz=None):
+def render(pointer, rows, brief, now, url_base="http://pub.lan", tz=None, view=None):
     """Return ``(html, key)`` for the board.
 
     ``pointer`` is the decision, ``rows`` what ``rubric.explain`` returned for
     the same scan, ``brief`` a dict with ``present`` (bool) and ``mtime``
     (aware datetime or None) for ``brief/index.html``, and ``now`` an aware
     datetime. Times are shown in ``tz`` (a tzinfo; None means the host's zone).
+    ``view`` is the household settings the decision used: ``effective``,
+    ``overrides``, ``history`` (from ``settings.load``) and ``brief_ok`` /
+    ``brief_why`` (from ``settings.brief_usable``); None means the defaults.
     """
     e = html.escape
     url_base = url_base.rstrip("/")
+    if view is None:
+        eff = settings.effective({})
+        ok, why = settings.brief_usable(brief, eff, now)
+        view = {"effective": eff, "overrides": {}, "history": [], "brief_ok": ok, "brief_why": why}
     body = "\n".join([
         '<header><h1>brasenia viewport</h1>'
         '<p class="sub">What the compositor is showing, and why. '
-        'This page refreshes every %d seconds.</p></header>' % REFRESH_S,
+        'This page refreshes every %d seconds. '
+        '<a href="%s/viewport/configure.html">Change the settings</a></p></header>'
+        % (REFRESH_S, e(url_base)),
         "<h2>Showing now</h2>",
-        _now_card(pointer, brief, now, tz),
+        _now_card(pointer, brief, now, tz, view),
         "<h2>The rubric</h2>",
         '<p class="muted">The highest rung with a live pane wins. With nothing live, '
         'the fallbacks apply in order.</p>',
-        _ladder(pointer, rows, brief, now, tz),
+        _ladder(pointer, rows, brief, now, tz, view),
         "<h2>On the bus</h2>",
         _bus_table(rows, now, tz),
+        "<h2>Settings</h2>",
+        _settings(view, now, tz, url_base),
         "<h2>How it decides</h2>",
-        _rules(),
+        _rules(view),
     ])
     key = hashlib.sha1(body.encode("utf-8")).hexdigest()
     page = """<!doctype html>
@@ -125,7 +141,7 @@ def key_of(page_text):
     return page_text[start + len(marker):end] if end > 0 else None
 
 
-def _now_card(pointer, brief, now, tz):
+def _now_card(pointer, brief, now, tz, view):
     e = html.escape
     if pointer.get("fallback") == "briefing":
         return ('<div class="card fallback"><div class="big">Fallback: the morning brief</div>'
@@ -133,8 +149,9 @@ def _now_card(pointer, brief, now, tz):
                 % (_brief_age(brief, now, tz), e(pointer["url"])))
     if pointer.get("fallback") == "status":
         return ('<div class="card fallback"><div class="big">Fallback: the status card</div>'
-                '<div class="meta">Nothing on the bus is live and no brief is published. '
-                '<a href="%s">open it</a></div></div>' % e(pointer["url"]))
+                '<div class="meta">Nothing on the bus is live, and the briefing fallback does not '
+                'apply: %s. <a href="%s">open it</a></div></div>'
+                % (e(view["brief_why"] or "no brief"), e(pointer["url"])))
     meta = ["%s (priority %s)" % (e(str(pointer.get("class"))), e(str(pointer.get("priority")))),
             "pane <code>%s</code>" % e(str(pointer.get("pane")))]
     try:
@@ -151,24 +168,36 @@ def _now_card(pointer, brief, now, tz):
             % (e(str(pointer.get("title"))), " · ".join(meta), e(str(pointer.get("url")))))
 
 
-def _ladder(pointer, rows, brief, now, tz):
+def _ladder(pointer, rows, brief, now, tz, view):
     e = html.escape
     live = [r for r in rows if r["status"] in ("showing", "rotating", "outranked")]
     rungs = []
-    for cls, prio in sorted(rubric.PRIORITY.items(), key=lambda kv: -kv[1]):
-        if cls == "briefing":
-            continue
+    prio_map = settings.priorities(view["effective"])
+    for cls in sorted(settings.CLASSES, key=lambda c: (-prio_map[c], c)):
+        prio = prio_map[cls]
         chips = "".join('<span class="chip %s">%s</span>' % (r["status"], e(r["id"]))
                         for r in live if r["class"] == cls)
         active = " active" if pointer.get("class") == cls and not pointer.get("fallback") else ""
-        rungs.append('<li class="rung%s"><span class="prio">%d</span><span class="cls">%s</span>'
+        was = ('<span class="ovr">default %d</span>' % rubric.PRIORITY[cls]
+               if "priority." + cls in view["overrides"] else "")
+        rungs.append('<li class="rung%s"><span class="prio">%d</span><span class="cls">%s%s</span>'
                      '<span class="what">%s</span></li>'
-                     % (active, prio, e(cls), chips or '<span class="muted">nothing live</span>'))
+                     % (active, prio, e(cls), was, chips or '<span class="muted">nothing live</span>'))
     active = " active" if pointer.get("fallback") == "briefing" else ""
-    if brief["present"]:
-        what = "the morning brief at <code>/brief/</code>, %s" % _brief_age(brief, now, tz)
-    else:
+    limit = view["effective"]["briefing.max_age_hours"]
+    if not brief["present"]:
         what = '<span class="muted">skipped: no <code>brief/index.html</code> is published</span>'
+    elif not view["brief_ok"] and limit == 0:
+        what = '<span class="warn">skipped: %s</span>' % html.escape(view["brief_why"])
+    elif not view["brief_ok"]:
+        published = _clock(brief["mtime"], now, tz) if brief["mtime"] else "at an unknown time"
+        what = ('<span class="warn">skipped: the brief at <code>/brief/</code> was published %s, %s</span>'
+                % (html.escape(published), html.escape(view["brief_why"])))
+    elif limit is not None:
+        what = ("the morning brief at <code>/brief/</code>, published %s (within the %d h limit)"
+                % (html.escape(_clock(brief["mtime"], now, tz)), limit))
+    else:
+        what = "the morning brief at <code>/brief/</code>, %s" % _brief_age(brief, now, tz)
     rungs.append('<li class="rung%s"><span class="prio">%d</span><span class="cls">briefing</span>'
                  '<span class="what">fallback 1: %s</span></li>'
                  % (active, rubric.PRIORITY["briefing"], what))
@@ -196,15 +225,23 @@ def _bus_table(rows, now, tz):
     return "\n".join(out)
 
 
-def _rules():
-    dwell = rubric.DEFAULT_DWELL_S
+def _rules(view):
+    dwell = view["effective"]["rotation.dwell_s"]
+    limit = view["effective"]["briefing.max_age_hours"]
+    if limit is None:
+        brief_rule = "the morning brief is shown if <code>brief/index.html</code> exists, however old it is"
+    elif limit == 0:
+        brief_rule = "the briefing fallback is off, so the status card is shown"
+    else:
+        brief_rule = ("the morning brief is shown if <code>brief/index.html</code> was published "
+                      "within the last %d hours" % limit)
     return """<ul class="rules">
 <li>A pane is live from its manifest's <code>created</code> time for <code>ttl_minutes</code>; its producer keeps it live by rewriting the manifest.</li>
 <li>The live pane on the highest rung wins. On a tie, <code>operator</code> panes go before <code>fleet</code> ones, then the newest.</li>
 <li>Panes that tie on rung and origin with the winner take turns, each for its <code>dwell_s</code> (%d s unless the manifest says otherwise).</li>
-<li>With nothing live, the morning brief is shown if <code>brief/index.html</code> exists, however old it is; otherwise the status card.</li>
+<li>With nothing live, %s; otherwise the status card.</li>
 <li>A pane directory without both <code>pane.html</code> and <code>manifest.json</code> is still being written, and a bad manifest is skipped; neither can blank the screen.</li>
-</ul>""" % dwell
+</ul>""" % (dwell, brief_rule)
 
 
 def _brief_age(brief, now, tz):
@@ -240,3 +277,40 @@ def _span(delta):
     if s < 36 * 3600:
         return "%d h" % round(s / 3600)
     return "%d days" % round(s / 86400)
+
+
+def _settings(view, now, tz, url_base):
+    e = html.escape
+    eff, overrides = view["effective"], view["overrides"]
+    defaults = settings.defaults()
+    show = lambda v: "no limit" if v is None else str(v)
+    rows = []
+    for key, (_, _, label, _) in settings.SPEC.items():
+        rows.append('<tr class="%s"><td>%s</td><td>%s</td><td>%s</td></tr>'
+                    % ("overridden" if key in overrides else "", e(label), e(show(eff[key])),
+                       e(show(defaults[key]))))
+    out = ['<p class="muted">%s <a href="%s/viewport/configure.html">Change them</a>.</p>'
+           % ("%d override%s in force." % (len(overrides), "" if len(overrides) == 1 else "s")
+              if overrides else "Every setting is at its default.", e(url_base)),
+           '<div class="scroll"><table><thead><tr><th>setting</th><th>now</th><th>default</th>'
+           '</tr></thead><tbody>%s</tbody></table></div>' % "".join(rows)]
+    if view["history"]:
+        items = []
+        for h in view["history"]:
+            try:
+                when = _clock(rubric.parse_time(h["ts"]), now, tz)
+            except (ValueError, OverflowError, TypeError):
+                when = str(h["ts"])
+            label = settings.SPEC[h["key"]][2] if h["key"] in settings.SPEC else str(h["key"])
+            if h["error"]:
+                what = '<span class="rejected">rejected %s %s: %s</span>' % (
+                    e(str(h["action"])), e(label), e(h["error"]))
+            elif h["action"] == "undo":
+                what = "%s back to its default" % e(label)
+            else:
+                what = "%s set to %s" % (e(label), e(str(h["value"])))
+            items.append("<li>%s · %s%s</li>" % (e(when), what,
+                         " · from %s" % e(str(h["client"])) if h["client"] else ""))
+        out.append("<h3>Recent changes</h3>")
+        out.append('<ul class="history">%s</ul>' % "".join(items))
+    return "\n".join(out)

@@ -26,3 +26,4 @@ decision was made, not reconstructed.
 | [0008](0008-compositor-and-producers-on-pub.md) | The compositor and the producers run on pub; the display guest stays a client | 2026-10-07 |
 | [0009](0009-office-roku-4k-hevc-over-ffmpeg-hls.md) | The office Roku plays 4K HEVC from ffmpeg-written HLS; the play-room Roku is retired | 2026-10-28 |
 | [0010](0010-roku-is-the-client-platform.md) | Roku is the client platform; the Cast client is retired | 2026-10-28 |
+| [0011](0011-rubric-settings-on-the-share.md) | Rubric settings are household overrides on the share, written through pub-signals | 2026-10-28 |

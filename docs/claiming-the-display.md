@@ -91,7 +91,10 @@ generate-page | ./bin/pane claim review-needed --class attention --title "PR #42
 The same answer is a web page: `http://pub.lan/viewport/rubric.html`, which
 the compositor rewrites as it decides. It shows what is on screen, the class
 ladder with each live pane on its rung, the fallbacks, and why every pane on
-the bus is or is not showing.
+the bus is or is not showing. The rubric's settings (class priorities, the
+briefing fallback's age limit, rotation time) are household overrides made at
+`http://pub.lan/viewport/configure.html`; claim with the class that fits, not
+the rung you want.
 
 `--origin` is `operator` by default (use `fleet` for unattended runs),
 `--dwell SEC` sets rotation time among equals, and `--author` overrides the

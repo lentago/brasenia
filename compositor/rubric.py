@@ -55,18 +55,24 @@ def _positive_number(value):
             and value > 0)
 
 
-def parse_manifest(pane_id, data):
+def parse_manifest(pane_id, data, priority=None, default_dwell=None):
     """Validate a decoded manifest and return the fields the rubric uses.
 
-    Raises ``Malformed`` with a short reason on any contract violation.
+    ``priority`` maps class → priority (default ``PRIORITY``) and
+    ``default_dwell`` is the dwell for a manifest without ``dwell_s``
+    (default ``DEFAULT_DWELL_S``); the compositor passes the household's
+    overrides (ADR-0011). Raises ``Malformed`` with a short reason on any
+    contract violation.
     """
+    priority = PRIORITY if priority is None else priority
+    default_dwell = DEFAULT_DWELL_S if default_dwell is None else default_dwell
     if not isinstance(data, dict):
         raise Malformed("manifest is not a JSON object")
     missing = [k for k in REQUIRED if k not in data]
     if missing:
         raise Malformed("missing " + ", ".join(missing))
     cls = data["class"]
-    if cls not in PRIORITY:
+    if cls not in priority:
         raise Malformed("unknown class %r" % (cls,))
     if not isinstance(data["title"], str):
         raise Malformed("title is not a string")
@@ -86,13 +92,13 @@ def parse_manifest(pane_id, data):
     origin = data.get("origin", DEFAULT_ORIGIN)
     if origin not in ORIGINS:
         raise Malformed("unknown origin %r" % (origin,))
-    dwell = data.get("dwell_s", DEFAULT_DWELL_S)
+    dwell = data.get("dwell_s", default_dwell)
     if not _positive_number(dwell):
         raise Malformed("dwell_s is not a positive number")
     return {
         "id": pane_id,
         "class": cls,
-        "priority": PRIORITY[cls],
+        "priority": priority[cls],
         "title": data["title"],
         "created": created,
         "expires": expires,
@@ -101,7 +107,7 @@ def parse_manifest(pane_id, data):
     }
 
 
-def _candidate(entry, now):
+def _candidate(entry, now, priority=None, default_dwell=None):
     """Return ``(pane, skip_reason)`` for one scanned pane directory.
 
     ``pane`` is the parsed pane when it is live. ``skip_reason`` is set only
@@ -119,7 +125,7 @@ def _candidate(entry, now):
     if isinstance(data, Malformed):
         return None, str(data)
     try:
-        pane = parse_manifest(pane_id, data)
+        pane = parse_manifest(pane_id, data, priority, default_dwell)
     except Malformed as exc:
         return None, str(exc)
     if pane["expires"] <= now:
@@ -184,7 +190,8 @@ def _same(a, b):
     return strip(a) == strip(b)
 
 
-def decide(panes, now, state, brief_present=True, url_base="http://pub.lan"):
+def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
+           priority=None, default_dwell=None):
     """Rank the bus and return ``(pointer, state)``.
 
     ``panes`` is a list of scanned pane directories, each a dict with ``id``
@@ -193,6 +200,9 @@ def decide(panes, now, state, brief_present=True, url_base="http://pub.lan"):
     decode). ``now`` is an aware datetime. ``state`` is the previous state
     (``{}`` on first run); the returned state is JSON-serialisable.
 
+    ``priority`` and ``default_dwell`` override ``PRIORITY`` and
+    ``DEFAULT_DWELL_S`` (see ``parse_manifest``).
+
     State keys: ``pointer`` (the last decision, so an unchanged decision keeps
     its ``decided_at``), ``rotation`` (the top group's rotation cursor) and
     ``skipped`` (pane id → reason, for log-once).
@@ -200,7 +210,7 @@ def decide(panes, now, state, brief_present=True, url_base="http://pub.lan"):
     url_base = url_base.rstrip("/")
     live, skipped = [], {}
     for entry in panes:
-        pane, reason = _candidate(entry, now)
+        pane, reason = _candidate(entry, now, priority, default_dwell)
         if pane is not None:
             live.append(pane)
         elif reason is not None:
@@ -245,7 +255,7 @@ STATUSES = ("showing", "rotating", "outranked", "expired", "writing",
             "malformed", "invalid")
 
 
-def explain(panes, now, pointer):
+def explain(panes, now, pointer, priority=None, default_dwell=None):
     """Say what happened to every scanned pane directory under ``pointer``.
 
     Returns one dict per entry, live panes first in rank order: the parsed
@@ -253,7 +263,8 @@ def explain(panes, now, pointer):
     ``expires``, ``dwell_s``; absent when the manifest did not parse), plus
     ``id``, ``status`` (one of ``STATUSES``) and ``reason`` (a short phrase,
     or None). ``pointer`` is the decision ``decide`` returned for the same
-    ``panes`` and ``now``; this function only explains it.
+    ``panes``, ``now``, ``priority`` and ``default_dwell``; this function only
+    explains it.
     """
     live, rest = [], []
     for entry in panes:
@@ -271,7 +282,7 @@ def explain(panes, now, pointer):
         try:
             if isinstance(data, Malformed):
                 raise data
-            pane = parse_manifest(pane_id, data)
+            pane = parse_manifest(pane_id, data, priority, default_dwell)
         except Malformed as exc:
             rest.append({"id": pane_id, "status": "malformed", "reason": str(exc)})
             continue
