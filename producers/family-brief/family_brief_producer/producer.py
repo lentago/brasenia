@@ -6,6 +6,13 @@ with ``manifest.json`` last, and the directory is removed when the brief is
 no longer fresh (older than yesterday), so the wall falls back on its own.
 Beside ``pane.html`` sits ``detail.html``, the desk edition a client pins to
 by URL (the office Roku); the compositor never reads it.
+
+The producer also keeps the **briefing slot**, ``viewport/briefing/``
+(``pane.html``, ``detail.html``, ``manifest.json``): the latest brief rendered
+whatever its age, which the compositor falls back to when nothing on the bus
+is live. The pane goes when the brief is older than yesterday; the slot stays,
+saying how old it is, and the compositor's ``briefing.max_age_hours`` setting
+decides whether it is still worth showing (brasenia#76).
 """
 
 import json
@@ -15,7 +22,7 @@ import shutil
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from .document import DocumentError, is_fresh, load, urllib_fetch
+from .document import DocumentError, is_fresh, load, parse_ts, urllib_fetch
 from .detail import render_detail
 from .render import render
 
@@ -25,6 +32,7 @@ TTL_MINUTES = 30
 AUTHOR = "family-brief-producer@pub"
 ORIGIN = "operator"
 TITLE = "Family: today and tomorrow"
+BRIEFING_TITLE = "Family Brief"
 DEFAULT_SOURCE = "http://pub.lan/family-brief/latest.json"
 DEFAULT_TZ = "America/New_York"
 
@@ -49,6 +57,7 @@ class Producer:
         self.page_path = os.path.join(self.pane_dir, "pane.html")
         self.detail_path = os.path.join(self.pane_dir, "detail.html")
         self.manifest_path = os.path.join(self.pane_dir, "manifest.json")
+        self.briefing_dir = os.path.join(webroot, "viewport", "briefing")
         self.source = source
         self.tz = ZoneInfo(tz)
         self.fetch = fetch
@@ -57,17 +66,18 @@ class Producer:
     def cycle(self):
         now = self.clock()
         today = now.astimezone(self.tz).date()
-        manifest = self._manifest()
-        if manifest is UNKNOWN:
-            return
-        if manifest is not None and manifest.get("author") != AUTHOR:
-            log.warning("panes/%s belongs to %r; leaving it alone", PANE_ID, manifest.get("author"))
-            return
         try:
             doc = load(self.fetch, self.source)
         except DocumentError as err:
             # Keep what is up; the TTL takes it down if the source stays away.
             log.info("family brief %s; leaving the pane to its TTL", err)
+            return
+        self._briefing(doc, today, now)
+        manifest = self._manifest()
+        if manifest is UNKNOWN:
+            return
+        if manifest is not None and manifest.get("author") != AUTHOR:
+            log.warning("panes/%s belongs to %r; leaving it alone", PANE_ID, manifest.get("author"))
             return
         if not is_fresh(doc, today):
             self._remove("brief of %s is older than yesterday" % doc["date"])
@@ -86,22 +96,55 @@ class Producer:
         }, indent=2, ensure_ascii=False) + "\n")
         log.info("%s: brief of %s rendered for %s", PANE_ID, doc["date"], today.isoformat())
 
+    def _briefing(self, doc, today, now):
+        """Render the brief into the briefing slot, whatever its age."""
+        path = os.path.join(self.briefing_dir, "manifest.json")
+        owner = _read_manifest(path, "briefing/manifest.json")
+        if owner is UNKNOWN:
+            return
+        if owner is not None and owner.get("author") != AUTHOR:
+            log.warning("viewport/briefing belongs to %r; leaving it alone", owner.get("author"))
+            return
+        os.makedirs(self.briefing_dir, exist_ok=True)
+        write_atomic(os.path.join(self.briefing_dir, "pane.html"), render(doc, today, now, self.tz))
+        write_atomic(os.path.join(self.briefing_dir, "detail.html"),
+                     render_detail(doc, today, now, self.tz))
+        write_atomic(path, json.dumps({
+            "schema": 1,
+            "title": BRIEFING_TITLE,
+            "published": _published(doc),
+            "author": AUTHOR,
+        }, indent=2, ensure_ascii=False) + "\n")
+
     def _manifest(self):
         """Our pane's manifest; None when absent; UNKNOWN when it cannot be read or parsed."""
-        try:
-            with open(self.manifest_path, encoding="utf-8") as fh:
-                manifest = json.load(fh)
-        except FileNotFoundError:
-            return None
-        except (OSError, ValueError) as err:
-            log.warning("panes/%s/manifest.json cannot be read (%s); leaving the pane alone", PANE_ID, err)
-            return UNKNOWN
-        if not isinstance(manifest, dict):
-            log.warning("panes/%s/manifest.json is not an object; leaving the pane alone", PANE_ID)
-            return UNKNOWN
-        return manifest
+        return _read_manifest(self.manifest_path, "panes/%s/manifest.json" % PANE_ID)
 
     def _remove(self, why):
         if os.path.isdir(self.pane_dir):
             log.info("removing panes/%s (%s)", PANE_ID, why)
             shutil.rmtree(self.pane_dir, ignore_errors=True)
+
+
+def _read_manifest(path, name):
+    """A manifest dict; None when absent; UNKNOWN when it cannot be read or parsed."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            manifest = json.load(fh)
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError) as err:
+        log.warning("%s cannot be read (%s); leaving it alone", name, err)
+        return UNKNOWN
+    if not isinstance(manifest, dict):
+        log.warning("%s is not an object; leaving it alone", name)
+        return UNKNOWN
+    return manifest
+
+
+def _published(doc):
+    """When the brief was generated (``generated_at``), else midnight UTC on its date."""
+    try:
+        return parse_ts(doc.get("generated_at")).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except (TypeError, ValueError, AttributeError):
+        return doc["date"] + "T00:00:00Z"

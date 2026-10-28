@@ -29,9 +29,9 @@ for _cls in CLASSES:
                                 "Rung for %s panes. Higher wins." % _cls)
 SPEC["briefing.max_age_hours"] = (
     0, 8760, "Briefing fallback: maximum age (hours)",
-    "With nothing live, show the morning brief only if it was published within "
-    "this many hours; otherwise the status card. 0 turns the fallback off; "
-    "empty means any age.")
+    "With nothing live, show the briefing (the Family Brief) only if it was "
+    "published within this many hours; otherwise the status card. 0 turns the "
+    "fallback off; empty means any age.")
 SPEC["rotation.dwell_s"] = (
     5, 600, "Rotation: default seconds per pane",
     "How long each tied pane shows before the next, for panes whose manifest "
@@ -111,7 +111,7 @@ def priorities(eff):
 def brief_usable(brief, eff, now):
     """Whether the briefing fallback may use this brief; ``(ok, why_not)``."""
     if not brief["present"]:
-        return False, "no brief/index.html is published"
+        return False, "no briefing is published"
     limit = eff["briefing.max_age_hours"]
     if limit is None:
         return True, None

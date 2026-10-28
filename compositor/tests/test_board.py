@@ -65,7 +65,7 @@ class Board(unittest.TestCase):
         text, _ = page([], brief=ABSENT)
         self.assertEqual(active_rung(text), "status card")
         self.assertIn("Fallback: the status card", text)
-        self.assertIn("skipped: no <code>brief/index.html</code>", text)
+        self.assertIn("skipped: no briefing is published", text)
 
     def test_the_key_ignores_only_the_generated_clock(self):
         text, key = page([pane("a")])

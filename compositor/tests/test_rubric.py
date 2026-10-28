@@ -284,7 +284,10 @@ class Fallback(unittest.TestCase):
     def test_empty_bus_points_at_the_briefing(self):
         pointer, _ = run([])
         self.assertEqual(pointer["fallback"], "briefing")
-        self.assertEqual(pointer["url"], "http://pub.lan/brief/")
+        self.assertEqual(pointer["url"], "http://pub.lan/viewport/briefing/pane.html")
+        self.assertEqual(pointer["title"], rubric.BRIEFING_TITLE)
+        titled, _ = run([], briefing_title="Family Brief")
+        self.assertEqual(titled["title"], "Family Brief")
         self.assertIsNone(pointer["pane"])
         self.assertIsNone(pointer["expires_at"])
         self.assertIsNone(pointer["rotation"])

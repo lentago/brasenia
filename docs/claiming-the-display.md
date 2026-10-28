@@ -37,7 +37,7 @@ Priority order, with the default TTL from
 | `activity` | 60 min | A fleet run is working through a backlog |
 | `focus` | 10 min | Open pull requests for the repo in use |
 | `ambient` | none, pass `--ttl` | Weather, while fresh |
-| `briefing` | none, pass `--ttl` | The morning brief |
+| `briefing` | none, pass `--ttl` | A daily brief (the compositor's own fallback is the Family Brief in `viewport/briefing/`) |
 
 Rubric v1 describes the TTL of `live`, `ambient` and `briefing` as "while the
 publisher is present", "while fresh" and "never". A hand claim has no

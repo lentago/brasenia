@@ -26,6 +26,14 @@ lands it on 3840×2160 at an effective 2x. The compositor never reads it; a
 client shows it by pinning to its URL, or by preferring it whenever the
 pointer names this pane (the office Roku does the latter).
 
+**The briefing slot:** each cycle that loads a brief also writes
+`viewport/briefing/{pane.html,detail.html,manifest.json}`, the compositor's
+fallback when nothing on the bus is live. Unlike the pane, the slot is written
+whatever the brief's age, and an old one says "No brief since Fri 10/23"; the
+manifest's `published` (the brief's `generated_at`) is what the compositor's
+`briefing.max_age_hours` setting judges. A slot whose manifest names another
+author is left alone.
+
 **Time:** a minute to try it against the fixture (below). Running it for
 real on pub is not set up yet. The proposed deployment is a systemd unit in
 kalmia's pub role running `python3 -m family_brief_producer --webroot /srv/www`

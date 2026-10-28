@@ -99,11 +99,7 @@ def render(doc, today, now, tz):
     colours = _colours(doc, today_items + tomorrow_items)
 
     brief_day = parse_day(doc["date"])
-    if brief_day == today:
-        edition = '<div class="edition">%s</div>' % e(_text(doc.get("edition")) or "Family Brief")
-    else:
-        edition = ('<div class="edition stale">No brief yet today: showing %s&#39;s</div>'
-                   % e(brief_day.strftime("%A")))
+    edition = _edition(doc, brief_day, today)
 
     decisions = touching(doc.get("decisions"), (today, tomorrow), "dates")
     return """<!DOCTYPE html>
@@ -131,6 +127,19 @@ def render(doc, today, now, tz):
         "foot": e("Family Brief of %s · rendered %s" % (
             brief_day.strftime("%a %-m/%-d"), now.astimezone(tz).strftime("%-I:%M %p"))),
     }
+
+
+def _edition(doc, brief_day, today):
+    """The header's right side: the edition on the brief's own day, otherwise
+    an amber note that today's brief has not landed. A brief older than
+    yesterday (only ever rendered into the briefing slot) names its date."""
+    e = html.escape
+    if brief_day == today:
+        return '<div class="edition">%s</div>' % e(_text(doc.get("edition")) or "Family Brief")
+    if brief_day == today - timedelta(days=1):
+        return ('<div class="edition stale">No brief yet today: showing %s&#39;s</div>'
+                % e(brief_day.strftime("%A")))
+    return '<div class="edition stale">No brief since %s</div>' % e(brief_day.strftime("%a %-m/%-d"))
 
 
 def _column(name, day, items, coverage, colours):

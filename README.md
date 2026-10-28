@@ -13,7 +13,7 @@ little panes resting on the water's surface. **brasenia** is the Lentago Labs
 shared viewport: one always-on wall display whose content is chosen by a
 **rubric, not a remote**. Panes surface when there's something worth showing —
 a PR awaiting review, a failing backup, a deploy in flight — and sink back
-when they resolve; the daily morning brief is the resting surface underneath.
+when they resolve; the daily Family Brief is the resting surface underneath.
 Today it drives a 4K Roku in the office via a live HLS stream; the pane bus and
 compositor are the roadmap.
 
