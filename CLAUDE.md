@@ -44,11 +44,17 @@ change goes.
   lands — don't "fix" stray `lunaria` strings there from this repo; that
   issue owns the runtime rename per the fleet rename discipline.)
 - **Deploying the Roku app** needs `ROKU_IP` and `ROKU_DEV_PASS` in the
-  environment (Chris has the dev password). Never commit either; never bake
-  them into the script. The TV must be in dev mode and powered on.
-- **The stream URL is baked into `VideoScene.xml`** and must keep the
-  `?cookieCheck=1` suffix — mediamtx ≥1.19 302-redirects without it and Roku's
-  HLS client won't follow the session dance reliably.
+  environment. Never commit either; never bake them into the script. The
+  office Roku is `192.168.139.21`; Chris keeps its dev password in
+  `~/.config/brasenia/roku-dev.env` (mode 600) — source it with
+  `set -a; . ~/.config/brasenia/roku-dev.env; set +a` and never print it. The
+  Roku must be in dev mode and powered on.
+- **The stream URL is baked into `VideoScene.xml`**:
+  `http://192.168.139.19:8080/master.m3u8`, the 4K HEVC stream from kalmia's
+  `lunaria-hls-serve` ([ADR-0009](docs/adr/0009-office-roku-4k-hevc-over-ffmpeg-hls.md)).
+  A mediamtx URL (the RTMP `live` path) would instead need the
+  `?cookieCheck=1` suffix — mediamtx ≥1.19 302-redirects without it and
+  Roku's HLS client won't follow the session dance reliably.
 - **Never remove the retry handler** in `VideoScene.xml`. A bare `Video` node
   lands in `state=error` on any publisher restart and stays there forever;
   the observer + 3 s Timer retry is what makes the display unattended-safe.

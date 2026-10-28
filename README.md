@@ -14,7 +14,7 @@ shared viewport: one always-on wall display whose content is chosen by a
 **rubric, not a remote**. Panes surface when there's something worth showing —
 a PR awaiting review, a failing backup, a deploy in flight — and sink back
 when they resolve; the daily morning brief is the resting surface underneath.
-Today it drives a 32" Roku TV via a live HLS stream; the pane bus and
+Today it drives a 4K Roku in the office via a live HLS stream; the pane bus and
 compositor are the roadmap.
 
 *(Renamed from `lunaria` on 2026-07-20, hours after creation — Lunaria annua
@@ -97,14 +97,19 @@ the compositor.
 ## How it works today (Phase 1)
 
 ```
- claude.ai routine (8:08 ET) → Google Drive → pub (LXC 114) → http://pub.lan/brief/
+ Family Brief routine → Google Drive → pub (LXC 114) → family-brief producer
+      → http://pub.lan/viewport/panes/family-today/pane.html
       ▼
- viewport LXC (118, pve4): headless Chromium shoots the TV edition →
-      720p bands rotate through frame.png → ffmpeg (image2pipe, H.264+AAC)
-      → mediamtx → HLS :8888
+ viewport LXC (118, pve4): headless Chromium shoots the pane at 3× →
+      3840×2160 frame.png → ffmpeg (image2pipe, HEVC 5 fps + AAC)
+      → HLS on tmpfs → :8080
       ▼
- Roku dev channel (this repo's roku-app/) → 32" play-room TV
+ Roku dev channel (this repo's roku-app/) → office Roku, 4K display
 ```
+
+The 720p play-room Roku this first drove was retired on 2026-10-28;
+[ADR-0009](docs/adr/0009-office-roku-4k-hevc-over-ffmpeg-hls.md) records
+the switch to 4K HEVC.
 
 Glass-to-glass latency runs 7–17 s depending on playlist join depth; the whole
 chain survives publisher restarts unattended. Validation evidence and the
@@ -153,7 +158,7 @@ repo, per the ownership split above.
 
 **Repoint what the wall display actually shows (cross-repo — *not* applied from this repo).**
 brasenia owns the Roku client and the stream-URL contract only; nothing here has a CI-applied
-runtime effect. To change the displayed content you edit kalmia's `lunaria_tv_url` (and
+runtime effect. To change the displayed content you edit kalmia's `lunaria_pin_url` (and
 `terraform/containers.tf` or `roles/lunaria/`) and open a PR *there*: kalmia's terraform workflow
 applies on merge to `main` via the LAN self-hosted runner, and then a manual on-host `play` run
 repoints the running stream. Merging in brasenia updates the repo and docs — never the live TV.
