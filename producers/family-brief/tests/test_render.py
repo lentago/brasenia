@@ -86,6 +86,22 @@ class RenderTests(unittest.TestCase):
         page = render(doc, SUN, NOW, TZ)
         self.assertEqual(len(columns(page)), 2)
 
+    def test_where_follows_what_without_a_stray_full_stop(self):
+        doc = fixture()
+        item = doc["today"]["items"][0]
+        item.update(what="Assembly, then the reading test. Families welcome.",
+                    where="Harborlight", bring="a snack")
+        today = columns(render(doc, SUN, NOW, TZ))[0]
+        self.assertIn("Families welcome, Harborlight, bring a snack", today)
+        self.assertNotIn(".,", today)
+        # A full stop with nothing after it stays.
+        item.update(where="", bring="")
+        self.assertIn("Families welcome.</div>", columns(render(doc, SUN, NOW, TZ))[0])
+        # No what: the place stands alone, with no leading comma.
+        item.update(what="", where="Harborlight")
+        self.assertIn('<div class="what"><span class="who">', columns(render(doc, SUN, NOW, TZ))[0])
+        self.assertRegex(columns(render(doc, SUN, NOW, TZ))[0], r"</span> Harborlight</div>")
+
     def test_empty_day(self):
         doc = fixture()
         doc["today"] = {}
