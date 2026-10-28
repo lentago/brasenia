@@ -37,7 +37,8 @@ about 10–20 s).
 - **The Cast client is retired.**
   - LXC 118's watchdog is removed (lentago/kalmia#175).
   - pub's receiver publishing goes next (lentago/kalmia#174).
-  - `cast-app/` is deleted once that lands.
+  - `cast-app/` is deleted once that lands. *(Done 2026-10-28: lentago/kalmia#177
+    replaced the publisher with `brasenia-update`, and #73 deleted the directory.)*
   - ADR-0006 is superseded, and #12 is closed as not planned.
 - **The compositor's output stays a decision.** ADR-0006 reframed the output
   as a pointer each client follows rather than pixels; that survives. Only the
