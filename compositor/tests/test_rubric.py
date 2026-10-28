@@ -308,5 +308,50 @@ class Fallback(unittest.TestCase):
         self.assertIsNone(pointer["fallback"])
 
 
+
+class Explain(unittest.TestCase):
+
+    def explain(self, panes, now=T0, **kw):
+        pointer, _ = run(panes, now=now, **kw)
+        return pointer, {r["id"]: r for r in rubric.explain(panes, now, pointer)}
+
+    def test_showing_rotating_and_outranked(self):
+        panes = [pane("a", "focus", origin="operator"),
+                 pane("b", "focus", origin="operator", created=T0 - timedelta(minutes=1)),
+                 pane("c", "focus", origin="fleet"),
+                 pane("d", "ambient")]
+        pointer, rows = self.explain(panes)
+        self.assertEqual(pointer["pane"], "a")
+        self.assertEqual(rows["a"]["status"], "showing")
+        self.assertEqual(rows["b"]["status"], "rotating")
+        self.assertIn("takes turns with a", rows["b"]["reason"])
+        self.assertEqual(rows["c"]["status"], "outranked")
+        self.assertIn("operator panes go first", rows["c"]["reason"])
+        self.assertEqual(rows["d"]["status"], "outranked")
+        self.assertIn("lower priority than a (focus 50)", rows["d"]["reason"])
+
+    def test_dead_panes_say_why(self):
+        panes = [pane("old", ttl=1, created=T0 - timedelta(minutes=5)),
+                 pane("half", files=("pane.html",)),
+                 pane("bad", cls="nonsense"),
+                 pane("Bad_Id")]
+        pointer, rows = self.explain(panes)
+        self.assertEqual(pointer["fallback"], "briefing")
+        self.assertEqual(rows["old"]["status"], "expired")
+        self.assertIn("expired at", rows["old"]["reason"])
+        self.assertEqual((rows["half"]["status"], rows["half"]["reason"]),
+                         ("writing", "no manifest.json yet"))
+        self.assertEqual(rows["bad"]["status"], "malformed")
+        self.assertIn("unknown class", rows["bad"]["reason"])
+        self.assertEqual(rows["Bad_Id"]["status"], "invalid")
+
+    def test_live_panes_come_first_in_rank_order(self):
+        panes = [pane("z-dead", ttl=1, created=T0 - timedelta(minutes=5)),
+                 pane("low", "ambient"), pane("high", "alert")]
+        pointer, _ = run(panes)
+        ids = [r["id"] for r in rubric.explain(panes, T0, pointer)]
+        self.assertEqual(ids, ["high", "low", "z-dead"])
+
+
 if __name__ == "__main__":
     unittest.main()

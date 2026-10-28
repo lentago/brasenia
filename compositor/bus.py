@@ -1,17 +1,19 @@
 """The filesystem half: scan the pane bus, persist state, publish the pointer.
 
-The compositor writes only its own files (``current.json``, ``status.html``
-and ``state/``), each with write-then-rename. Pane directories are read, never
-modified or deleted.
+The compositor writes only its own files (``current.json``, ``status.html``,
+``rubric.html`` and ``state/``), each with write-then-rename. Pane directories
+are read, never modified or deleted.
 """
 
 import html
 import json
 import os
+from datetime import datetime, timezone
 
-from . import rubric
+from . import board, rubric
 
 STATE_FILE = "compositor.json"
+BOARD_MAX_AGE_S = 60   # rewrite an unchanged board this often, so its clock stays honest
 
 
 def paths(webroot):
@@ -23,6 +25,7 @@ def paths(webroot):
         "state": os.path.join(viewport, "state"),
         "current": os.path.join(viewport, "current.json"),
         "status": os.path.join(viewport, "status.html"),
+        "board": os.path.join(viewport, "rubric.html"),
         "brief": os.path.join(webroot, "brief", "index.html"),
     }
 
@@ -151,9 +154,10 @@ def tick(webroot, url_base, state, now, log=print):
     """
     p = paths(webroot)
     ensure_dirs(p)
+    entries = scan(p["panes"])
+    brief = _brief(p["brief"])
     pointer, new_state = rubric.decide(
-        scan(p["panes"]), now, state,
-        brief_present=os.path.isfile(p["brief"]), url_base=url_base)
+        entries, now, state, brief_present=brief["present"], url_base=url_base)
 
     old_skipped = state.get("skipped") or {}
     for pane_id, reason in sorted(new_state["skipped"].items()):
@@ -172,4 +176,28 @@ def tick(webroot, url_base, state, now, log=print):
             log(describe(pointer))
     if new_state != state:
         save_state(p["state"], new_state)
+    write_board(p["board"], pointer, rubric.explain(entries, now, pointer), brief, now, url_base)
     return new_state
+
+
+def _brief(path):
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        return {"present": False, "mtime": None}
+    return {"present": os.path.isfile(path),
+            "mtime": datetime.fromtimestamp(mtime, timezone.utc)}
+
+
+def write_board(path, pointer, rows, brief, now, url_base):
+    """Write ``rubric.html`` when its content changed, or when it is
+    ``BOARD_MAX_AGE_S`` old, so a 5 s loop does not rewrite it every tick."""
+    page, key = board.render(pointer, rows, brief, now, url_base)
+    try:
+        with open(path, encoding="utf-8") as f:
+            old_key = board.key_of(f.read(200))
+        age = now.timestamp() - os.path.getmtime(path)
+    except OSError:
+        old_key, age = None, None
+    if key != old_key or age is None or not 0 <= age < BOARD_MAX_AGE_S:
+        atomic_write(path, page)

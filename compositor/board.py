@@ -1,0 +1,241 @@
+"""The rubric board: viewport/rubric.html, what the compositor shows and why.
+
+A page for people, not for the screen: one self-contained HTML file (inline
+CSS, no scripts, a meta refresh) rendered from the same scan and decision as
+``current.json``. It shows the pointer, the class ladder from ``rubric.PRIORITY``
+with each live pane on its rung, the fallback chain (with the brief's age, so
+a stale briefing fallback is visible before it is shown), every pane directory
+on the bus with what ``rubric.explain`` made of it, and the rules in words.
+
+``render`` returns the page and a key: a hash of everything but the
+"generated" line, so the caller can skip rewrites that would change nothing.
+"""
+
+import hashlib
+import html
+from datetime import timedelta
+
+from . import rubric
+
+STALE_BRIEF = timedelta(hours=36)
+REFRESH_S = 10
+
+CSS = """
+:root { color-scheme: dark; }
+html, body { margin: 0; padding: 0; background: #0e1612; color: #d8e4dc;
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 40px; }
+h1 { margin: 0; font-size: 28px; color: #e0a81c; }
+h2 { margin: 32px 0 12px; font-size: 19px; color: #e8efe9; }
+.sub, .muted { color: #8fa89a; }
+.sub { margin: 4px 0 0; }
+a { color: #9fd3b4; }
+.card { background: #15211b; border: 1px solid #24372d; border-left: 6px solid #e0a81c;
+  border-radius: 10px; padding: 14px 18px; }
+.card.fallback { border-left-color: #8fa89a; }
+.card .big { font-size: 22px; font-weight: 600; }
+.card .meta { color: #a9bdb1; margin-top: 4px; }
+ol.ladder { list-style: none; margin: 0; padding: 0; }
+.rung { display: flex; gap: 14px; align-items: baseline; padding: 9px 12px;
+  border-bottom: 1px solid #1f2e26; }
+.rung.active { background: #1c2a22; border-left: 4px solid #e0a81c; }
+.prio { flex: 0 0 44px; text-align: right; font-variant-numeric: tabular-nums; color: #8fa89a; }
+.cls { flex: 0 0 120px; font-weight: 600; }
+.rung .what { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.chip { display: inline-block; margin: 2px 6px 2px 0; padding: 1px 9px; border-radius: 999px;
+  background: #22332a; font-size: 14px; }
+.chip.showing { background: #e0a81c; color: #1b1405; font-weight: 600; }
+.chip.rotating { background: #3a3317; color: #f0d28a; }
+.warn { color: #f0a53a; font-weight: 600; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 15px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #1f2e26; vertical-align: top; }
+th { color: #8fa89a; font-weight: 500; }
+td.id { font-family: ui-monospace, "DejaVu Sans Mono", monospace; font-size: 14px; }
+.badge { display: inline-block; padding: 0 8px; border-radius: 6px; font-size: 13px;
+  font-weight: 600; background: #22332a; white-space: nowrap; }
+.badge.showing { background: #e0a81c; color: #1b1405; }
+.badge.rotating { background: #3a3317; color: #f0d28a; }
+.badge.expired, .badge.writing { background: #1f2e26; color: #8fa89a; }
+.badge.malformed, .badge.invalid { background: #4a1f1f; color: #f3b1a8; }
+ul.rules { margin: 0; padding-left: 20px; }
+ul.rules li { margin: 4px 0; }
+footer { margin-top: 36px; font-size: 14px; color: #8fa89a; }
+@media (max-width: 520px) { .prio { flex-basis: 28px; } .cls { flex-basis: 84px; } }
+"""
+
+
+def render(pointer, rows, brief, now, url_base="http://pub.lan"):
+    """Return ``(html, key)`` for the board.
+
+    ``pointer`` is the decision, ``rows`` what ``rubric.explain`` returned for
+    the same scan, ``brief`` a dict with ``present`` (bool) and ``mtime``
+    (aware datetime or None) for ``brief/index.html``, and ``now`` an aware
+    datetime. Times are shown in the host's local zone.
+    """
+    e = html.escape
+    url_base = url_base.rstrip("/")
+    body = "\n".join([
+        '<header><h1>brasenia viewport</h1>'
+        '<p class="sub">What the compositor is showing, and why. '
+        'This page refreshes every %d seconds.</p></header>' % REFRESH_S,
+        "<h2>Showing now</h2>",
+        _now_card(pointer, brief, now),
+        "<h2>The rubric</h2>",
+        '<p class="muted">The highest rung with a live pane wins. With nothing live, '
+        'the fallbacks apply in order.</p>',
+        _ladder(pointer, rows, brief, now),
+        "<h2>On the bus</h2>",
+        _bus_table(rows, now),
+        "<h2>How it decides</h2>",
+        _rules(),
+    ])
+    key = hashlib.sha1(body.encode("utf-8")).hexdigest()
+    page = """<!doctype html>
+<!-- board:%(key)s -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="%(refresh)d">
+<title>brasenia rubric</title>
+<style>%(css)s</style>
+</head>
+<body>
+<main>
+%(body)s
+<footer>Generated %(generated)s by the compositor on pub ·
+<a href="%(base)s/viewport/current.json">current.json</a> ·
+<a href="%(base)s/viewport/panes/">panes/</a></footer>
+</main>
+</body>
+</html>
+""" % {"key": key, "refresh": REFRESH_S, "css": CSS, "body": body, "base": e(url_base),
+       "generated": e(_clock(now, now, seconds=True))}
+    return page, key
+
+
+def key_of(page_text):
+    """The key a rendered page carries, or None."""
+    marker = "<!-- board:"
+    start = page_text.find(marker)
+    if start < 0:
+        return None
+    end = page_text.find(" -->", start)
+    return page_text[start + len(marker):end] if end > 0 else None
+
+
+def _now_card(pointer, brief, now):
+    e = html.escape
+    if pointer.get("fallback") == "briefing":
+        return ('<div class="card fallback"><div class="big">Fallback: the morning brief</div>'
+                '<div class="meta">Nothing on the bus is live. %s · <a href="%s">open it</a></div></div>'
+                % (_brief_age(brief, now), e(pointer["url"])))
+    if pointer.get("fallback") == "status":
+        return ('<div class="card fallback"><div class="big">Fallback: the status card</div>'
+                '<div class="meta">Nothing on the bus is live and no brief is published. '
+                '<a href="%s">open it</a></div></div>' % e(pointer["url"]))
+    meta = ["%s (priority %s)" % (e(str(pointer.get("class"))), e(str(pointer.get("priority")))),
+            "pane <code>%s</code>" % e(str(pointer.get("pane")))]
+    try:
+        expires = rubric.parse_time(pointer.get("expires_at"))
+        meta.append("live until %s" % e(_clock(expires, now)))
+    except (ValueError, OverflowError):
+        pass
+    rotation = pointer.get("rotation")
+    if rotation:
+        meta.append("taking turns: %d of %d, %ss each"
+                    % (rotation["index"] + 1, rotation["of"], rotation["dwell_s"]))
+    return ('<div class="card"><div class="big">%s</div><div class="meta">%s · '
+            '<a href="%s">open the pane</a></div></div>'
+            % (e(str(pointer.get("title"))), " · ".join(meta), e(str(pointer.get("url")))))
+
+
+def _ladder(pointer, rows, brief, now):
+    e = html.escape
+    live = [r for r in rows if r["status"] in ("showing", "rotating", "outranked")]
+    rungs = []
+    for cls, prio in sorted(rubric.PRIORITY.items(), key=lambda kv: -kv[1]):
+        if cls == "briefing":
+            continue
+        chips = "".join('<span class="chip %s">%s</span>' % (r["status"], e(r["id"]))
+                        for r in live if r["class"] == cls)
+        active = " active" if pointer.get("class") == cls and not pointer.get("fallback") else ""
+        rungs.append('<li class="rung%s"><span class="prio">%d</span><span class="cls">%s</span>'
+                     '<span class="what">%s</span></li>'
+                     % (active, prio, e(cls), chips or '<span class="muted">nothing live</span>'))
+    active = " active" if pointer.get("fallback") == "briefing" else ""
+    if brief["present"]:
+        what = "the morning brief at <code>/brief/</code>, %s" % _brief_age(brief, now)
+    else:
+        what = '<span class="muted">skipped: no <code>brief/index.html</code> is published</span>'
+    rungs.append('<li class="rung%s"><span class="prio">%d</span><span class="cls">briefing</span>'
+                 '<span class="what">fallback 1: %s</span></li>'
+                 % (active, rubric.PRIORITY["briefing"], what))
+    active = " active" if pointer.get("fallback") == "status" else ""
+    rungs.append('<li class="rung%s"><span class="prio">&ndash;</span><span class="cls">status card</span>'
+                 '<span class="what">fallback 2: <code>viewport/status.html</code>, written when '
+                 'it is needed</span></li>' % active)
+    return '<ol class="ladder">\n%s\n</ol>' % "\n".join(rungs)
+
+
+def _bus_table(rows, now):
+    e = html.escape
+    if not rows:
+        return '<p class="muted">The bus is empty: no pane directories under <code>viewport/panes/</code>.</p>'
+    out = ['<div class="scroll"><table><thead><tr><th>pane</th><th>title</th><th>class</th>'
+           '<th>origin</th><th>live until</th><th>status</th><th>why</th></tr></thead><tbody>']
+    for r in rows:
+        until = _clock(r["expires"], now) if "expires" in r else ""
+        cls = "%s (%d)" % (r["class"], r["priority"]) if "class" in r else ""
+        out.append('<tr><td class="id">%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td>'
+                   '<td><span class="badge %s">%s</span></td><td>%s</td></tr>'
+                   % (e(r["id"]), e(r.get("title", "")), e(cls), e(r.get("origin", "")),
+                      e(until), r["status"], e(r["status"]), e(r.get("reason") or "")))
+    out.append("</tbody></table></div>")
+    return "\n".join(out)
+
+
+def _rules():
+    dwell = rubric.DEFAULT_DWELL_S
+    return """<ul class="rules">
+<li>A pane is live from its manifest's <code>created</code> time for <code>ttl_minutes</code>; its producer keeps it live by rewriting the manifest.</li>
+<li>The live pane on the highest rung wins. On a tie, <code>operator</code> panes go before <code>fleet</code> ones, then the newest.</li>
+<li>Panes that tie on rung and origin with the winner take turns, each for its <code>dwell_s</code> (%d s unless the manifest says otherwise).</li>
+<li>With nothing live, the morning brief is shown if <code>brief/index.html</code> exists, however old it is; otherwise the status card.</li>
+<li>A pane directory without both <code>pane.html</code> and <code>manifest.json</code> is still being written, and a bad manifest is skipped; neither can blank the screen.</li>
+</ul>""" % dwell
+
+
+def _brief_age(brief, now):
+    if not brief.get("mtime"):
+        return "published at an unknown time"
+    age = now - brief["mtime"]
+    text = "published %s" % _clock(brief["mtime"], now)
+    if age > STALE_BRIEF:
+        return '<span class="warn">%s: stale</span>' % html.escape(text)
+    return html.escape(text)
+
+
+def _clock(when, now, seconds=False):
+    """A local time people read at a glance: today as a time, otherwise with the date."""
+    local, today = when.astimezone(), now.astimezone()
+    fmt = "%-I:%M:%S %p" if seconds else "%-I:%M %p"
+    if local.date() != today.date():
+        fmt = "%a %b %-d, " + fmt
+    text = local.strftime(fmt)
+    if not seconds:
+        delta = when - now
+        text += " (in %s)" % _span(delta) if delta.total_seconds() > 0 else " (%s ago)" % _span(-delta)
+    return text
+
+
+def _span(delta):
+    s = int(delta.total_seconds())
+    if s < 90:
+        return "%d s" % s
+    if s < 90 * 60:
+        return "%d min" % round(s / 60)
+    if s < 36 * 3600:
+        return "%d h" % round(s / 3600)
+    return "%d days" % round(s / 86400)

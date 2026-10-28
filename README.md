@@ -56,7 +56,9 @@ is governed, not in a pipeline. Each row links to the evidence in this checkout.
   stream returns).
 - `compositor/` — the Phase 2 compositor (stdlib Python 3.9+): ranks the
   pane bus by rubric v1 and publishes `viewport/current.json`, the pointer
-  every client follows; falls back to the briefing, then a status card. Run
+  every client follows; falls back to the briefing, then a status card. It
+  also writes `viewport/rubric.html`, the rubric board, a page showing what is
+  on screen and why (`http://pub.lan/viewport/rubric.html`). Run
   as `python3 -m compositor --webroot /srv/www`; tests with
   `python3 -m unittest discover -s tests` from `compositor/`.
 - [`producers/`](producers/) — pane producers for the viewport bus:
