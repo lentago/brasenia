@@ -24,7 +24,7 @@ class ProducerTests(unittest.TestCase):
 
     def test_fresh_brief_writes_pane_then_manifest(self):
         self.producer.cycle()
-        self.assertEqual(sorted(os.listdir(self.pane_dir)), ["manifest.json", "pane.html"])
+        self.assertEqual(sorted(os.listdir(self.pane_dir)), ["detail.html", "manifest.json", "pane.html"])
         m = self.manifest()
         self.assertEqual((m["class"], m["ttl_minutes"], m["author"], m["origin"]),
                          ("ambient", 30, AUTHOR, "operator"))

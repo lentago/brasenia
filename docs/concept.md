@@ -135,6 +135,10 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
 - Sizes are CSS pixels. A client may render a pane at an integer scale (the
   office Roku renders at 3×, 3840×2160 device pixels), and the clock and its
   clear corner scale with it, so design for 1280×720 CSS pixels only.
+- A pane directory may also hold other renditions beside `pane.html`, such as
+  `family-today/detail.html`, the 1920×1080 desk edition the office Roku pins
+  to. The compositor reads only `pane.html` and `manifest.json`; a client
+  reaches a rendition by pinning to its URL, and it goes when the pane does.
 - `manifest.json`: the fields and liveness rule are in
   [Contracts v1](#manifestjson).
 - Writers use write-then-rename (`pane.html.partial` → `pane.html`), create
