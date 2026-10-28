@@ -238,3 +238,67 @@ def decide(panes, now, state, brief_present=True, url_base="http://pub.lan"):
         pointer = previous
     return pointer, {"pointer": pointer, "rotation": rotation_state,
                      "skipped": skipped}
+
+
+# explain() statuses, in the order the board lists them.
+STATUSES = ("showing", "rotating", "outranked", "expired", "writing",
+            "malformed", "invalid")
+
+
+def explain(panes, now, pointer):
+    """Say what happened to every scanned pane directory under ``pointer``.
+
+    Returns one dict per entry, live panes first in rank order: the parsed
+    fields (``class``, ``priority``, ``title``, ``origin``, ``created``,
+    ``expires``, ``dwell_s``; absent when the manifest did not parse), plus
+    ``id``, ``status`` (one of ``STATUSES``) and ``reason`` (a short phrase,
+    or None). ``pointer`` is the decision ``decide`` returned for the same
+    ``panes`` and ``now``; this function only explains it.
+    """
+    live, rest = [], []
+    for entry in panes:
+        pane_id = entry["id"]
+        if not PANE_ID.match(pane_id):
+            rest.append({"id": pane_id, "status": "invalid", "reason": "invalid pane id"})
+            continue
+        files = entry["files"]
+        if "pane.html" not in files or "manifest.json" not in files:
+            missing = [n for n in ("pane.html", "manifest.json") if n not in files]
+            rest.append({"id": pane_id, "status": "writing",
+                         "reason": "no " + " or ".join(missing) + " yet"})
+            continue
+        data = entry.get("manifest")
+        try:
+            if isinstance(data, Malformed):
+                raise data
+            pane = parse_manifest(pane_id, data)
+        except Malformed as exc:
+            rest.append({"id": pane_id, "status": "malformed", "reason": str(exc)})
+            continue
+        if pane["expires"] <= now:
+            rest.append(dict(pane, status="expired",
+                             reason="expired at " + iso(pane["expires"])))
+            continue
+        live.append(pane)
+
+    live.sort(key=_rank_key)
+    shown = pointer.get("pane")
+    win = next((p for p in live if p["id"] == shown), None)
+    rows = []
+    for p in live:
+        if p is win:
+            status, reason = "showing", None
+        elif win is not None and (p["priority"], p["origin"]) == (win["priority"], win["origin"]):
+            status, reason = "rotating", "takes turns with %s every %ss" % (win["id"], p["dwell_s"])
+        else:
+            status, reason = "outranked", None
+            if win is None:
+                pass
+            elif p["priority"] < win["priority"]:
+                reason = "lower priority than %s (%s %d)" % (win["id"], win["class"], win["priority"])
+            else:
+                reason = "same priority as %s; %s panes go first" % (win["id"], win["origin"])
+        rows.append(dict(p, status=status, reason=reason))
+    order = {s: i for i, s in enumerate(STATUSES)}
+    rest.sort(key=lambda r: (order[r["status"]], r["id"]))
+    return rows + rest

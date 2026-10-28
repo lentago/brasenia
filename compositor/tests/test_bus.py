@@ -127,5 +127,31 @@ class Bus(unittest.TestCase):
                                                     "current.json")))
 
 
+    def test_writes_the_rubric_board(self):
+        self.write_pane("one", self.manifest())
+        self.tick({})
+        with open(self.p["board"], encoding="utf-8") as f:
+            page = f.read()
+        self.assertIsNotNone(bus.board.key_of(page))
+        self.assertIn('<span class="chip showing">one</span>', page)
+        self.assertNotIn("<script", page)
+
+    def test_an_unchanged_board_is_not_rewritten_within_a_minute(self):
+        now = datetime.now(timezone.utc)
+        pointer = {"pane": None, "fallback": "status", "url": "http://pub.lan/viewport/status.html",
+                   "title": "t", "class": None, "priority": None}
+        brief = {"present": False, "mtime": None}
+        os.makedirs(self.p["viewport"])
+        bus.write_board(self.p["board"], pointer, [], brief, now, "http://pub.lan")
+        first = os.stat(self.p["board"]).st_mtime_ns
+        bus.write_board(self.p["board"], pointer, [], brief, now + timedelta(seconds=5), "http://pub.lan")
+        self.assertEqual(os.stat(self.p["board"]).st_mtime_ns, first)
+        # A changed decision is written at once.
+        pointer = dict(pointer, fallback="briefing", url="http://pub.lan/brief/")
+        bus.write_board(self.p["board"], pointer, [], {"present": True, "mtime": now}, now, "http://pub.lan")
+        with open(self.p["board"], encoding="utf-8") as f:
+            self.assertIn("Fallback: the morning brief", f.read())
+
+
 if __name__ == "__main__":
     unittest.main()

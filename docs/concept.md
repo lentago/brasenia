@@ -86,6 +86,9 @@ Three nouns:
 
 The bus is plain files on the share every host already mounts — no broker, no
 daemon on the NAS, browsable at `http://pub.lan/viewport/` for free debugging.
+The compositor also writes the rubric board, `http://pub.lan/viewport/rubric.html`:
+the decision, the class ladder with each live pane on its rung, the fallback
+chain (flagging a stale brief), and why each pane is or isn't showing.
 Pub stays the *publisher* (Drive → web, credentials live only there); brasenia
 is the *renderer* and needs no credentials at all.
 

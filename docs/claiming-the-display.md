@@ -88,6 +88,11 @@ generate-page | ./bin/pane claim review-needed --class attention --title "PR #42
 ./bin/pane ls
 ```
 
+The same answer is a web page: `http://pub.lan/viewport/rubric.html`, which
+the compositor rewrites as it decides. It shows what is on screen, the class
+ladder with each live pane on its rung, the fallbacks, and why every pane on
+the bus is or is not showing.
+
 `--origin` is `operator` by default (use `fleet` for unattended runs),
 `--dwell SEC` sets rotation time among equals, and `--author` overrides the
 default `<user>@<hostname>`. Renew and release identify you the same way, so
