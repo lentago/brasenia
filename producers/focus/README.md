@@ -33,13 +33,17 @@ ls "$W/viewport/panes/focus-lentago-brasenia/"
 ```
 
 Options: `--url-base` (default `http://pub.lan`, where `pipeline.json` is
-read from), `--interval` (default 30 s), `--once` (one cycle, then exit).
+read from), `--interval` (default 30 s), `--tz` (default `America/New_York`,
+the zone of the pane's clock times; pub itself runs in UTC), `--once` (one
+cycle, then exit).
 Logs go to stdout, which is the journal under systemd.
 
 ## How you know it worked
 
 - `panes/focus-lentago-brasenia/` holds `pane.html` and `manifest.json`,
-  and no `.partial` files.
+  and no `.partial` files, as long as the repo has something to show: an
+  open PR, a `main` run that didn't pass, or a pipeline row. A quiet repo
+  gets no pane (see below), so try it with a repo that has an open PR.
 - Opening `pane.html` in a browser at 1280×720 shows the repo name, its open
   PRs (number, title, author, age, draft flag, check state, review
   decision), `main`'s latest push run, and a "data as of HH:MM" stamp
@@ -77,6 +81,14 @@ outside `[a-z0-9]` turned into `-`: `lentago/.github` →
 an issue or pull-request comment triggered) whose conclusion is not `skipped`,
 `neutral` or `cancelled`, so a skipped comment-triggered workflow doesn't mask
 the real state. When none qualifies the pane says `main: no push run`.
+
+**Quiet repos get no pane.** A beaconed repo with no open pull requests, a
+`main` run that passed (`success`, `skipped` or `neutral`) or no push run at
+all, and no pipeline row has nothing worth the screen, and a `focus` pane
+would still outrank the household's resting surface. So the producer writes
+nothing for it, and removes its own pane if one is up; the pane returns on
+the first cycle where any of that changes. A GitHub failure never counts as
+quiet: the previous pane is kept, as below.
 
 **Check state** folds the head commit's check runs: any failed, cancelled or
 timed-out run is `failing`, otherwise any unfinished run is `pending`,

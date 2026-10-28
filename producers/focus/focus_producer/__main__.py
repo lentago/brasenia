@@ -4,6 +4,7 @@ import argparse
 import logging
 import sys
 import time
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .github import GitHub
 from .producer import Producer
@@ -20,13 +21,19 @@ def main(argv=None):
                         help="where the webroot is served; pipeline.json is read from here")
     parser.add_argument("--interval", type=float, default=30.0,
                         help="seconds between cycles (default 30)")
+    parser.add_argument("--tz", default="America/New_York",
+                        help="time zone for the clock times on panes (default America/New_York)")
     parser.add_argument("--once", action="store_true",
                         help="run a single cycle and exit")
     args = parser.parse_args(argv)
+    try:
+        tz = ZoneInfo(args.tz)
+    except (ZoneInfoNotFoundError, ValueError):
+        parser.error("--tz %r is not a known time zone" % args.tz)
 
     logging.basicConfig(stream=sys.stdout, level=logging.INFO,
                         format="%(levelname)s %(message)s")
-    producer = Producer(args.webroot, args.url_base, GitHub())
+    producer = Producer(args.webroot, args.url_base, GitHub(), tz=tz)
     while True:
         try:
             producer.cycle()

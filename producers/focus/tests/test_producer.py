@@ -206,5 +206,43 @@ class ProducerTests(unittest.TestCase):
         self.assertFalse(os.path.exists(self.panes) and os.listdir(self.panes))
 
 
+    def quiet_repo(self):
+        serve_repo(self.t, "lentago/osmunda", [], main_conclusion="success")
+        self.beacon("thinkpad-quiet001", repo="lentago/osmunda")
+
+    def test_a_quiet_repo_gets_no_pane(self):
+        self.quiet_repo()
+        self.producer.cycle()
+        self.assertFalse(os.path.exists(os.path.join(self.panes, "focus-lentago-osmunda")))
+
+    def test_a_quiet_repo_with_a_pipeline_row_keeps_its_pane(self):
+        self.t.set("http://pub.lan/viewport/pipeline.json", [
+            {"repo": "lentago/osmunda", "sha": "3333333", "stage": "review",
+             "since": "2026-10-07T11:00:00Z"}])
+        self.quiet_repo()
+        self.producer.cycle()
+        self.assertIn("pipeline: <b>review</b>", self.read("focus-lentago-osmunda", "pane.html"))
+
+    def test_a_repo_that_goes_quiet_loses_its_own_pane_only(self):
+        mine = os.path.join(self.panes, "focus-lentago-osmunda")
+        os.makedirs(mine)
+        with open(os.path.join(mine, "manifest.json"), "w") as fh:
+            json.dump({"author": "focus-producer@pub", "repo": "lentago/osmunda"}, fh)
+        self.quiet_repo()
+        self.producer.cycle()
+        self.assertFalse(os.path.exists(mine))
+        # A focus-* pane someone else claimed is never removed for being quiet.
+        os.makedirs(mine)
+        with open(os.path.join(mine, "manifest.json"), "w") as fh:
+            json.dump({"author": "chris@thinkpad", "repo": "lentago/osmunda"}, fh)
+        self.producer.cycle()
+        self.assertTrue(os.path.isdir(mine))
+
+    def test_cli_rejects_an_unknown_zone(self):
+        from focus_producer.__main__ import main
+        with self.assertRaises(SystemExit):
+            main(["--webroot", self.webroot, "--once", "--tz", "Mars/Olympus"])
+
+
 if __name__ == "__main__":
     unittest.main()
