@@ -1,5 +1,7 @@
 title=brasenia
 major_version=1
 minor_version=0
-build_version=9
+build_version=10
 ui_resolutions=fhd
+mm_icon_focus_fhd=pkg:/images/roku-poster-fhd.png
+mm_icon_focus_hd=pkg:/images/roku-poster-hd.png
