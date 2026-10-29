@@ -18,6 +18,15 @@
         m.retryTimer = m.top.findNode("retryTimer")
         m.retryTimer.observeField("fire", "onRetry")
 
+        ' The live edge (#95): every stall leaves the player further behind
+        ' live, and it never catches up on its own (20 s behind on 2026-10-29).
+        ' Two checks in a row over lagMax() rejoin the stream, which lands
+        ' near the edge because LXC 118's playlist is only 3 segments long.
+        m.lagHigh = 0
+        m.lagTimer = m.top.findNode("lagTimer")
+        m.lagTimer.observeField("fire", "checkLag")
+        m.lagTimer.control = "start"
+
         ' The remote's peek (#80, ADR-0012): Up/Down shows another pane at
         ' once as an image over the live video; Back, or a minute without a
         ' press, returns to the live view. It only looks: the stream keeps
@@ -65,6 +74,33 @@
 
     sub onRetry()
         startPlayback()
+    end sub
+
+    ' Seconds behind the end of the live window before the player rejoins.
+    ' A fresh join on a 3-segment playlist sits 4-6 s behind.
+    function lagMax() as Float
+        return 8
+    end function
+
+    sub checkLag()
+        if m.video.state <> "playing" or m.video.duration <= 0 then
+            m.lagHigh = 0
+            return
+        end if
+        lag = m.video.duration - m.video.position
+        if lag <= lagMax() then
+            m.lagHigh = 0
+            return
+        end if
+        m.lagHigh = m.lagHigh + 1
+        if m.lagHigh < 2 then return
+        print "brasenia: "; Int(lag); " s behind live, rejoining"
+        ' Rejoin rather than seek: Roku keeps a live seek well back from the
+        ' edge, which on a short playlist means its oldest segment (seeking
+        ' made 12 s behind into 20 on 2026-10-29).
+        m.video.control = "stop"
+        startPlayback()
+        m.lagHigh = 0
     end sub
 
     function onKeyEvent(key as String, press as Boolean) as Boolean
@@ -264,6 +300,7 @@
       <Label id="caption" width="1840" height="84" translation="[40,0]" vertAlign="center" color="0xE8EFE9FF" font="font:MediumSystemFont" />
     </Rectangle>
     <Timer id="retryTimer" duration="3" repeat="false" />
+    <Timer id="lagTimer" duration="15" repeat="true" />
     <Timer id="idleTimer" duration="60" repeat="false" />
     <Timer id="postTimer" duration="1.5" repeat="false" />
     <LineupTask id="lineup" />
