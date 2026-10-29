@@ -102,6 +102,30 @@ default `<user>@<hostname>`. Renew and release identify you the same way, so
 pass the same `--author` you claimed with if you set one. Exit codes: 0 ok,
 1 refused (the reason is on stderr), 2 usage.
 
+### A web page instead of your own pane
+
+When the page that matters already exists (a pull request, a status page),
+claim it as a **link pane** with `--url` and no `pane.html`
+([ADR-0016](adr/0016-panes-carry-a-revision-and-may-link-a-web-page.md)):
+
+```sh
+./bin/pane claim pr-42 --class attention --title "PR #42 needs you" \
+    --url https://github.com/lentago/brasenia/pull/42
+```
+
+`--theme dark|light` (default dark), `--screens N` (720 px bands to show,
+1–4, default 1), `--viewport WxH` (the CSS size to lay the page out at,
+default 1280x720) and `--refresh SEC` (render it again this often, at
+least 10, default 60) set how it is shown. The URL must be http or https,
+with no user or password in it (the decision is readable on the LAN). Pages
+that need a login, such as Grafana, are not link panes; pub renders those
+itself.
+
+Link panes stay **off** until the renderer on LXC 118 can show outside sites
+safely ([kalmia#194](https://github.com/lentago/kalmia/issues/194)). Until
+then the board lists yours as `off` and the screen does not show it. Renew
+and release work as for any other pane.
+
 ## If you forget to release
 
 Nothing breaks. A pane stops being live when `created + ttl_minutes` passes,

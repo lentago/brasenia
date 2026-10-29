@@ -269,6 +269,72 @@ class RenewReleaseTests(PaneCase):
         self.assertTrue(os.path.isdir(self.pane_dir("bad")))
 
 
+class LinkTests(PaneCase):
+    """claim --url: a link pane (ADR-0016), a manifest naming a web page."""
+
+    URL = "https://github.com/lentago/brasenia/pull/93"
+
+    def link(self, *extra, pane_id="pr-93", author="ann@a"):
+        return self.run_cli("claim", pane_id, "--class", "attention", "--title",
+                            "PR 93", "--author", author, "--url", self.URL, *extra)
+
+    def test_writes_only_a_manifest_and_prints_the_url(self):
+        code, out, err = self.link()
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual(out.strip(), self.URL)
+        self.assertEqual(sorted(os.listdir(self.pane_dir("pr-93"))), ["manifest.json"])
+        self.assertEqual(self.manifest("pr-93")["source"], {"url": self.URL})
+
+    def test_display_options(self):
+        code, _, err = self.link("--theme", "light", "--screens", "2",
+                                 "--viewport", "1920x1080", "--refresh", "300")
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual(self.manifest("pr-93")["source"],
+                         {"url": self.URL, "theme": "light", "screens": 2,
+                          "viewport": [1920, 1080], "refresh_s": 300})
+
+    def test_refusals(self):
+        cases = [
+            (["--url", "ftp://x.test/"], "http(s)"),
+            (["--url", "https://ann:pw@x.test/"], "user or password"),
+            (["--url", "https://x.test/a b"], "not a URL"),
+            (["--url", self.URL, "--screens", "5"], "--screens"),
+            (["--url", self.URL, "--viewport", "100x720"], "--viewport"),
+            (["--url", self.URL, "--viewport", "wide"], "--viewport"),
+            (["--url", self.URL, "--refresh", "5"], "--refresh"),
+            (["--theme", "dark", self.page], "need --url"),
+            ([], "pass pane.html"),
+            (["--url", self.URL, self.page], "not both"),
+        ]
+        for extra, reason in cases:
+            with self.subTest(extra=extra):
+                code, _, err = self.run_cli("claim", "x", "--class", "attention",
+                                            "--title", "t", "--author", "ann@a", *extra)
+                self.assertEqual(code, 1)
+                self.assertIn(reason, err)
+                self.assertFalse(os.path.exists(self.pane_dir("x")))
+
+    def test_reclaiming_a_page_pane_as_a_link_drops_the_page(self):
+        self.claim("pr-93")
+        self.assertIn("pane.html", os.listdir(self.pane_dir("pr-93")))
+        self.assertEqual(self.link()[0], 0)
+        self.assertEqual(os.listdir(self.pane_dir("pr-93")), ["manifest.json"])
+
+    def test_renew_keeps_the_source(self):
+        self.link()
+        code, _, _ = self.run_cli("renew", "pr-93", "--author", "ann@a",
+                                  now=T0 + timedelta(minutes=5))
+        self.assertEqual(code, 0)
+        self.assertEqual(self.manifest("pr-93")["source"], {"url": self.URL})
+        self.assertEqual(self.manifest("pr-93")["created"], "2026-10-07T12:05:00Z")
+
+    def test_another_authors_pane_cannot_become_a_link(self):
+        self.claim("pr-93", "bob@b")
+        code, _, err = self.link()
+        self.assertEqual(code, 1)
+        self.assertIn("belongs to bob@b", err)
+
+
 class LsTests(PaneCase):
     def test_empty_bus(self):
         code, out, _ = self.run_cli("ls")

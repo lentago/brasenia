@@ -43,6 +43,12 @@ EXTERNAL = (
 )
 
 
+THEMES = ("dark", "light")
+VIEWPORT = re.compile(r"(\d+)x(\d+)\Z")
+VIEWPORT_RANGE = (240, 3840)   # CSS pixels, each of width and height
+MIN_REFRESH_S = 10
+
+
 class Refused(Exception):
     """A request the bus rules forbid; the message is the reason."""
 
@@ -95,6 +101,44 @@ def check_page(html):
                           "(inline the CSS and JS)" % m.group(0).strip())
 
 
+def link_source(url, theme=None, screens=None, viewport=None, refresh=None):
+    """The manifest ``source`` of a link pane (ADR-0016): a web page shown
+    instead of pane.html. Mirrors the compositor's rules (rubric.parse_source)
+    so a bad claim is refused here rather than skipped there."""
+    from urllib.parse import urlsplit
+    if len(url) > 2048 or any(c.isspace() for c in url):
+        raise Refused("--url is not a URL")
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+    except ValueError:
+        raise Refused("--url is not a URL")
+    if parts.scheme not in ("http", "https") or not host:
+        raise Refused("--url must be an http(s) URL")
+    if parts.username is not None or parts.password is not None:
+        raise Refused("--url must not carry a user or password: the pointer "
+                      "is readable on the LAN")
+    source = {"url": url}
+    if theme is not None:
+        source["theme"] = theme
+    if screens is not None:
+        if not 1 <= screens <= 4:
+            raise Refused("--screens must be 1-4")
+        source["screens"] = screens
+    if viewport is not None:
+        m = VIEWPORT.match(viewport)
+        lo, hi = VIEWPORT_RANGE
+        if not m or not all(lo <= int(v) <= hi for v in m.groups()):
+            raise Refused("--viewport must be WIDTHxHEIGHT in CSS pixels, "
+                          "each %d-%d" % VIEWPORT_RANGE)
+        source["viewport"] = [int(v) for v in m.groups()]
+    if refresh is not None:
+        if not (math.isfinite(refresh) and refresh >= MIN_REFRESH_S):
+            raise Refused("--refresh must be at least %d seconds" % MIN_REFRESH_S)
+        source["refresh_s"] = refresh
+    return source
+
+
 def atomic_write(path, text):
     """Write ``path`` via ``path.partial`` and a rename, so readers never see
     a half-written file."""
@@ -142,7 +186,9 @@ def owned_manifest(bus, pane_id, author):
 
 
 def claim(bus, pane_id, cls, title, page, now, ttl=None, origin="operator",
-          repo=None, dwell=None, author=None):
+          repo=None, dwell=None, author=None, source=None):
+    """Write the pane. With ``source`` (see ``link_source``) it is a link pane:
+    no page, and the manifest names the web page instead."""
     author = author or default_author()
     check_id(pane_id)
     if cls not in CLASS_TTL:
@@ -160,7 +206,10 @@ def claim(bus, pane_id, cls, title, page, now, ttl=None, origin="operator",
         raise Refused("--repo %r is not owner/name" % repo)
     if dwell is not None and not (math.isfinite(dwell) and dwell > 0):
         raise Refused("--dwell must be a positive number of seconds")
-    check_page(page)
+    if source is None:
+        check_page(page)
+    elif page is not None:
+        raise Refused("a link pane has no page: pass --url or pane.html, not both")
 
     base = panes_dir(bus)
     pane_dir = os.path.join(base, pane_id)
@@ -183,6 +232,15 @@ def claim(bus, pane_id, cls, title, page, now, ttl=None, origin="operator",
         manifest["repo"] = repo
     if dwell is not None:
         manifest["dwell_s"] = dwell
+    if source is not None:
+        manifest["source"] = source
+        atomic_write(os.path.join(pane_dir, "manifest.json"),
+                     json.dumps(manifest, indent=2) + "\n")
+        try:   # a page left from an earlier claim of this pane is now unused
+            os.unlink(os.path.join(pane_dir, "pane.html"))
+        except FileNotFoundError:
+            pass
+        return source["url"]
     atomic_write(os.path.join(pane_dir, "pane.html"), page)
     atomic_write(os.path.join(pane_dir, "manifest.json"),
                  json.dumps(manifest, indent=2) + "\n")  # manifest last
@@ -301,7 +359,20 @@ def build_parser():
     c.add_argument("--repo", metavar="owner/name")
     c.add_argument("--dwell", type=finite, metavar="SEC")
     c.add_argument("--author", help="default: <user>@<hostname>")
-    c.add_argument("page", metavar="pane.html", help="page file, or - for stdin")
+    c.add_argument("page", metavar="pane.html", nargs="?",
+                   help="page file, or - for stdin; omit with --url")
+    link = c.add_argument_group(
+        "link pane", "show a web page instead of pane.html (ADR-0016); the "
+        "compositor shows link panes only once they are turned on")
+    link.add_argument("--url", help="the page to show (http or https)")
+    link.add_argument("--theme", choices=THEMES, help="default: dark")
+    link.add_argument("--screens", type=int, metavar="N",
+                      help="720 px bands of the page to show, 1-4 (default 1)")
+    link.add_argument("--viewport", metavar="WxH",
+                      help="CSS size to lay the page out at (default 1280x720)")
+    link.add_argument("--refresh", type=finite, metavar="SEC",
+                      help="render it again this often, at least %d (default 60)"
+                           % MIN_REFRESH_S)
 
     r = sub.add_parser("renew", help="slide a pane's TTL from now")
     r.add_argument("id")
@@ -346,10 +417,17 @@ def main(argv=None, now=None):
     now = now or utc_now()
     try:
         if args.command == "claim":
-            url = claim(args.bus, args.id, args.cls, args.title,
-                        read_page(args.page), now, ttl=whole(args.ttl),
-                        origin=args.origin, repo=args.repo,
-                        dwell=whole(args.dwell), author=args.author)
+            link_opts = (args.theme, args.screens, args.viewport, args.refresh)
+            if args.url is None and any(v is not None for v in link_opts):
+                raise Refused("--theme, --screens, --viewport and --refresh need --url")
+            if args.url is None and args.page is None:
+                raise Refused("pass pane.html (or - for stdin), or --url for a link pane")
+            source = None if args.url is None else link_source(
+                args.url, args.theme, args.screens, args.viewport, whole(args.refresh))
+            page = None if args.page is None else read_page(args.page)
+            url = claim(args.bus, args.id, args.cls, args.title, page, now,
+                        ttl=whole(args.ttl), origin=args.origin, repo=args.repo,
+                        dwell=whole(args.dwell), author=args.author, source=source)
             print(url)
         elif args.command == "renew":
             renew(args.bus, args.id, now, ttl=whole(args.ttl),
