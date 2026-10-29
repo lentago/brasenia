@@ -1,6 +1,8 @@
 # ADR-0008: The compositor and the producers run on pub; the display guest stays a client
 
-**Status:** Accepted (2026-10-07; live since kalmia#141)
+**Status:** Accepted (2026-10-07; live since kalmia#141). Amended by
+[ADR-0014](0014-home-and-fleet-feed-resting-panes.md): the home producer
+holds a Home Assistant token, an exception recorded there.
 
 ## Context
 

@@ -145,15 +145,18 @@
     end sub
 
     ' Left/Right on the main view picks the household's default resting pane
-    ' (#83, ADR-0013): it cycles the line-up's ambient items, starting from
-    ' the one on screen (or, while something urgent is up, the first, which
-    ' is the current default). The choice is saved to the rubric's settings
-    ' a moment after the last press; urgent panes still take over.
+    ' (#83, ADR-0013): it cycles the line-up's ambient items in a fixed order,
+    ' by id (#86), starting from the one on screen (or, while something urgent
+    ' is up, the current default). The choice is saved to the rubric's
+    ' settings a moment after the last press; urgent panes still take over.
     sub chooseDefault(delta as Integer)
+        ' The line-up puts the default first, so its order moves with every
+        ' save; sorting by id keeps Left and Right going the same way round.
         resting = []
         for i = 0 to m.items.Count() - 1
-            if m.items[i]["class"] = "ambient" then resting.Push(i)
+            if m.items[i]["class"] = "ambient" then resting.Push({id: m.items[i].id, i: i})
         end for
+        resting.SortBy("id")
         n = resting.Count()
         if n = 0 then
             m.peek.visible = false
@@ -162,11 +165,18 @@
             return
         end if
         if m.mode <> "default" then
-            m.choice = 0
+            m.choice = -1
             for k = 0 to n - 1
-                item = m.items[resting[k]]
+                item = m.items[resting[k].i]
                 if item.showing <> invalid and item.showing = true then m.choice = k
             end for
+            if m.choice < 0 then
+                m.choice = 0
+                for k = 0 to n - 1
+                    item = m.items[resting[k].i]
+                    if item["default"] <> invalid and item["default"] = true then m.choice = k
+                end for
+            end if
             if n > 1 then m.choice = m.choice + delta   ' the first press moves off the current one
         else
             m.choice = m.choice + delta
@@ -174,7 +184,7 @@
         if m.choice < 0 then m.choice = n - 1
         if m.choice >= n then m.choice = 0
         m.mode = "default"
-        m.index = resting[m.choice]
+        m.index = resting[m.choice].i
         item = m.items[m.index]
         showImage(item)
         position = m.choice + 1

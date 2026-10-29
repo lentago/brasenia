@@ -1,0 +1,43 @@
+# ============================================================================
+# Fleet producer unit tests
+# ============================================================================
+# Runs the stdlib-only unit suite for producers/fleet. The suite drives
+# a made-up claude-jobs queue built in temp directories and a fake GitHub
+# search, so it needs no tokens and no network.
+#
+# Path-filtered to producers/fleet/** to stay cheap, so this must NOT be made a
+# required status check: a required check whose workflow never triggers on a
+# given PR is held "Expected" forever, deadlocking that PR. Leave it
+# informational.
+# ============================================================================
+
+name: Fleet Producer Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+    paths:
+      - 'producers/fleet/**'
+      - '.github/workflows/fleet-producer-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is the floor (pub runs Debian 12's 3.11); 3.12 is current.
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run unit tests (Python ${{ matrix.python }})
+        working-directory: producers/fleet
+        run: python3 -m unittest discover -s tests

@@ -164,8 +164,9 @@ and applies within seconds, and the effective values are in
 ([ADR-0011](adr/0011-rubric-settings-on-the-share.md)).
 
 **The default resting pane** (`default.pane`, #83). Several `ambient` panes
-(the Family Brief's today and week, more to come) share the resting rung and
-take turns, each for its `dwell_s`. The household can name one as the
+(the Family Brief's today and week, Home, Weather and Fleet, #86) share the
+resting rung and take turns in a fixed order (by id), each for its
+`dwell_s`. The household can name one as the
 default, from the configurator's dropdown or with Left/Right on the Roku
 remote: when it is live it ranks first in its rung and holds, and the others
 wait. It only orders the resting panes, so `focus`, `activity`, `live`,
@@ -182,7 +183,7 @@ default returns after them.
 | 40 | `ambient` | while fresh |
 | 0 | `briefing` | never |
 
-Ranking: priority descending, then `origin` (`operator` before `fleet`), then `created` descending. Panes tied on priority and origin rotate; each shows for its `dwell_s` (default 20 s) before the next. Only the top group rotates; lower groups wait. Fallback ladder: no live pane → the briefing slot (below), skipped when it is absent or older than the household's `briefing.max_age_hours` → `status.html`, which the compositor writes with the reason.
+Ranking: priority descending, then `origin` (`operator` before `fleet`), then `created` descending, except among `ambient` panes, which keep a fixed order by id because each producer rewrites `created` on its own cadence (#86). Panes tied on priority and origin rotate; each shows for its `dwell_s` (default 20 s) before the next. Only the top group rotates; lower groups wait. Fallback ladder: no live pane → the briefing slot (below), skipped when it is absent or older than the household's `briefing.max_age_hours` → `status.html`, which the compositor writes with the reason.
 
 **The briefing slot** (`viewport/briefing/`, #76) holds what the fallback shows: `pane.html` (the 1280×720 pane contract), optionally `detail.html` (a desk edition, as for panes), and `manifest.json` (`schema` 1, `title`, `published`: when the brief itself was generated, RFC 3339, and `author`). The family-brief producer keeps it filled with the latest Family Brief whatever its age. The `family-today` pane leaves the bus once the brief is older than yesterday; the slot stays, saying how old it is. The compositor names `pane.html` in the pointer, titled from the manifest, and judges the age by `published` rather than the file time, because the producer rewrites the page every minute. Writers follow the bus rules: write-then-rename, and leave a slot another author owns alone. It replaced `http://pub.lan/brief/`, the morning brief, which stopped publishing on 2026-08-31.
 

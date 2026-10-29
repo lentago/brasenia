@@ -72,7 +72,12 @@ is governed, not in a pipeline. Each row links to the evidence in this checkout.
   [`producers/pipeline/`](producers/pipeline/), which shows drosera's change
   pipeline while a change is in flight; and
   [`producers/family-brief/`](producers/family-brief/), which turns the
-  morning Family Brief into a today-and-tomorrow pane.
+  morning Family Brief into a today-and-tomorrow pane and a this-week pane;
+  [`producers/home/`](producers/home/), which turns Home Assistant's states
+  into a home pane and a weather pane; and
+  [`producers/fleet/`](producers/fleet/), which shows the claytonia bullpen's
+  workers, queue, runs and agent PRs. These five are the resting panes the
+  Roku remote's Left/Right chooses the default from (ADR-0013, ADR-0014).
 - [`bin/pane`](bin/pane) — claim, renew, release and list panes on the
   viewport bus (stdlib Python 3.11+); tests with
   `python3 -m unittest discover -s bin/tests`.
@@ -90,7 +95,7 @@ Brasenia follows the fleet's separation of product from provisioning:
 |---|---|
 | LXC 118 guest definition | [`kalmia`](https://github.com/lentago/kalmia) `terraform/containers.tf` (CI-applied) |
 | Runtime stack (mediamtx, shooter/rotator/encoder scripts, systemd units) | [`kalmia`](https://github.com/lentago/kalmia) `roles/lunaria/` + `docs/lunaria.md` |
-| Brief publishing (Google Drive → `pub.lan`, the only credentialed leg) | [`kalmia`](https://github.com/lentago/kalmia) `roles/pub/` |
+| Brief publishing (Google Drive → `pub.lan`) and the home producer's Home Assistant token: pub holds the credentials ([ADR-0014](docs/adr/0014-home-and-fleet-feed-resting-panes.md)) | [`kalmia`](https://github.com/lentago/kalmia) `roles/pub/` |
 
 (kalmia's role, docs, and the container hostname still carry the `lunaria`
 name from before the rename — completing it through runtime is owned by

@@ -1,0 +1,279 @@
+[
+ {
+  "entity_id": "alarm_control_panel.house",
+  "state": "disarmed",
+  "attributes": {
+   "friendly_name": "House alarm",
+   "code_format": "number"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "alarm_control_panel.cameras",
+  "state": "armed_away",
+  "attributes": {
+   "friendly_name": "Cameras"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "person.alex",
+  "state": "home",
+  "attributes": {
+   "friendly_name": "Alex"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "person.sam",
+  "state": "not_home",
+  "attributes": {
+   "friendly_name": "Sam"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "person.robin",
+  "state": "Work",
+  "attributes": {
+   "friendly_name": "Robin"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "person.kiosk",
+  "state": "unknown",
+  "attributes": {
+   "friendly_name": "Kiosk"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "lock.front_door",
+  "state": "locked",
+  "attributes": {
+   "friendly_name": "Front door lock"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "lock.back_door",
+  "state": "unlocked",
+  "attributes": {
+   "friendly_name": "Back door lock"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "cover.garage_left",
+  "state": "closed",
+  "attributes": {
+   "friendly_name": "Garage left",
+   "device_class": "garage"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "cover.garage_right",
+  "state": "open",
+  "attributes": {
+   "friendly_name": "Garage right",
+   "device_class": "garage"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "cover.living_room_shade",
+  "state": "open",
+  "attributes": {
+   "friendly_name": "Living room shade",
+   "device_class": "shade"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.front_door",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Front door",
+   "device_class": "door"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.back_door",
+  "state": "on",
+  "attributes": {
+   "friendly_name": "Back door",
+   "device_class": "door"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.basement_door",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Basement door",
+   "device_class": "door"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.sliding_door",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Sliding door",
+   "device_class": "door"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.kitchen_window",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Kitchen window",
+   "device_class": "window"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.attic_hatch",
+  "state": "unavailable",
+  "attributes": {
+   "friendly_name": "Attic hatch",
+   "device_class": "opening"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.hall_motion",
+  "state": "on",
+  "attributes": {
+   "friendly_name": "Hall motion",
+   "device_class": "motion"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.water_heater_leak",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Water heater leak",
+   "device_class": "moisture"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "binary_sensor.washer_leak",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Washer leak",
+   "device_class": "moisture"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "climate.downstairs",
+  "state": "heat",
+  "attributes": {
+   "friendly_name": "Downstairs",
+   "current_temperature": 69.4,
+   "temperature": 69,
+   "hvac_action": "heating",
+   "current_humidity": 50,
+   "hvac_modes": [
+    "heat",
+    "cool",
+    "off"
+   ]
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "climate.upstairs",
+  "state": "heat",
+  "attributes": {
+   "friendly_name": "Upstairs",
+   "current_temperature": 67.5,
+   "temperature": 66,
+   "hvac_action": "idle",
+   "current_humidity": 52
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "climate.garage_heater",
+  "state": "off",
+  "attributes": {
+   "friendly_name": "Garage heater",
+   "current_temperature": 48,
+   "temperature": null
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "weather.home",
+  "state": "partlycloudy",
+  "attributes": {
+   "friendly_name": "Home",
+   "temperature": 44,
+   "dew_point": 40,
+   "temperature_unit": "°F",
+   "humidity": 85,
+   "cloud_coverage": 36.7,
+   "uv_index": 0,
+   "pressure": 30.39,
+   "pressure_unit": "inHg",
+   "wind_bearing": 178.6,
+   "wind_speed": 6.96,
+   "wind_speed_unit": "mph",
+   "visibility_unit": "mi",
+   "precipitation_unit": "in",
+   "attribution": "Weather forecast from met.no, delivered by the Norwegian Meteorological Institute."
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "sensor.outdoor_temperature",
+  "state": "44",
+  "attributes": {
+   "friendly_name": "Outdoor temperature",
+   "device_class": "temperature"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ },
+ {
+  "entity_id": "sun.sun",
+  "state": "below_horizon",
+  "attributes": {
+   "friendly_name": "Sun"
+  },
+  "last_changed": "2026-10-28T20:00:00+00:00",
+  "last_updated": "2026-10-28T20:00:00+00:00"
+ }
+]

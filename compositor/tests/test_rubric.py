@@ -387,5 +387,43 @@ class DefaultPane(unittest.TestCase):
         self.assertEqual(pointer["pane"], "today")
 
 
+class RestingOrder(unittest.TestCase):
+    """Resting panes keep a fixed order by id, whenever each was rewritten (#86)."""
+
+    def resting(self, stamps):
+        return [pane(pid, "ambient", origin="operator", dwell=60, created=T0 - timedelta(seconds=s))
+                for pid, s in stamps]
+
+    def test_resting_panes_rank_by_id_not_by_created(self):
+        for stamps in ([("weather", 0), ("home", 5), ("fleet", 9)],
+                       [("fleet", 0), ("weather", 3), ("home", 7)]):
+            panes = self.resting(stamps)
+            pointer, _ = run(panes)
+            ids = [r["id"] for r in rubric.explain(panes, T0, pointer)]
+            self.assertEqual(ids, ["fleet", "home", "weather"])
+
+    def test_rotation_order_survives_rewrites(self):
+        state, shown = {}, []
+        for t in range(0, 240, 30):
+            # each cycle, a different producer was the last to rewrite
+            order = [("fleet", t % 7), ("home", (t + 3) % 7), ("weather", (t + 5) % 7)]
+            pointer, state = decide(self.resting(order), T0 + timedelta(seconds=t), state)
+            shown.append(pointer["pane"])
+        self.assertEqual(shown, ["fleet", "fleet", "home", "home",
+                                 "weather", "weather", "fleet", "fleet"])
+
+    def test_the_default_still_comes_first(self):
+        panes = self.resting([("fleet", 0), ("home", 0), ("weather", 0)])
+        pointer, _ = run(panes, default_pane="weather")
+        ids = [r["id"] for r in rubric.explain(panes, T0, pointer, default_pane="weather")]
+        self.assertEqual(ids, ["weather", "fleet", "home"])
+
+    def test_other_classes_still_rank_newest_first(self):
+        panes = [pane("a-older", "attention", created=T0 - timedelta(minutes=2), ttl=240),
+                 pane("b-newer", "attention", created=T0 - timedelta(minutes=1), ttl=240)]
+        pointer, _ = run(panes)
+        self.assertEqual(pointer["pane"], "b-newer")
+
+
 if __name__ == "__main__":
     unittest.main()
