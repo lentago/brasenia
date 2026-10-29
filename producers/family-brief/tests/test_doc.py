@@ -19,7 +19,7 @@ class RenderDoc(unittest.TestCase):
         self.assertIn("<h1>Family Brief: Sunday, October 25</h1>", page)
         self.assertIn("Morning edition, 7:09 AM Eastern · 1 item today · 2 pickup gaps this week", page)
         self.assertIn("<h2>Sunday, October 25</h2>", page)
-        self.assertIn("<b>Coverage:</b>", page.replace(' style="color:#b06000"', ""))
+        self.assertIn('<b style="color:#b06000">Coverage:</b>', page)
         self.assertIn("No kid handoffs today.", page)
         self.assertIn("<b>10:30 - 11:30 AM</b> · ", page)
         self.assertIn("Brunch with a friend", page)
@@ -33,7 +33,7 @@ class RenderDoc(unittest.TestCase):
     def test_decisions_todos_and_the_rest_of_the_week(self):
         page = render_doc(fixture(), TZ)
         self.assertIn("<h2>Needs a decision</h2>", page)
-        self.assertIn("<b>Who does pickups Mon 10/26?</b>", page)
+        self.assertIn('<p style="margin: 12pt 0 2pt 0"><b>Who does pickups Mon 10/26?</b>', page)
         self.assertIn("Source: Jordan&#x27;s calendar", page)
         self.assertIn("<li><b>Buy</b> Plates for the class party.", page)
         self.assertIn("Due Fri 10/30", page)
@@ -65,6 +65,13 @@ class RenderDoc(unittest.TestCase):
         for heading in ("Needs a decision", "To do", "The rest of the week", "Coming up", "FYI", "Coverage"):
             self.assertNotIn(heading, page)
         self.assertIn("Nothing on the calendar.", page)
+
+    def test_every_paragraph_carries_its_spacing(self):
+        # Google Docs' import drops default paragraph spacing; inline margins survive it.
+        page = render_doc(fixture(), TZ)
+        self.assertEqual(page.count("<p>"), 0)
+        self.assertIn('<p style="margin: 0 0 6pt 0"><b>10:30 - 11:30 AM</b>', page)
+        self.assertIn('<p style="margin: 0 0 6pt 0; text-decoration: line-through"><b>5:00 - 6:00 PM</b>', page)
 
     def test_the_same_brief_renders_the_same_bytes(self):
         self.assertEqual(render_doc(fixture(), TZ), render_doc(fixture(), TZ))
