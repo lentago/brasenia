@@ -12,6 +12,12 @@ line to ``signals/rubric.jsonl``:
 its default. The latest valid action per setting wins. A value that does not
 validate is rejected (it shows in the history and changes nothing), so a bad
 line can never break the rubric.
+
+Besides the fixed settings in ``SPEC``, a ``link.<pane-id>`` setting is a
+standing slot (#97, ADR-0018): a web page kept on the bus as a resting link
+pane. Its value is a JSON object, ``{"title", "url"}`` plus any of the link
+pane display fields, and ``undo`` removes the slot. The links producer reads
+the validated slots back from ``viewport/rubric.json``.
 """
 
 import json
@@ -44,6 +50,39 @@ SPEC["default.pane"] = (
     "the resting panes take turns. Left/Right on the Roku remote sets it too.")
 
 
+LINK_PREFIX = "link."
+MAX_TITLE = 120
+
+
+def is_link(key):
+    """A standing-slot setting: ``link.`` and a valid pane id."""
+    return (isinstance(key, str) and key.startswith(LINK_PREFIX)
+            and bool(rubric.PANE_ID.match(key[len(LINK_PREFIX):])))
+
+
+def parse_link(text):
+    """A standing slot's value: ``{"title", "source"}`` from its JSON label."""
+    try:
+        data = json.loads(text) if isinstance(text, str) else None
+    except ValueError:
+        data = None
+    if not isinstance(data, dict):
+        raise ValueError("not a JSON object")
+    title = data.get("title")
+    if not isinstance(title, str) or not title.strip() or len(title) > MAX_TITLE:
+        raise ValueError("title must be 1-%d characters" % MAX_TITLE)
+    try:
+        source = rubric.parse_source({k: v for k, v in data.items() if k != "title"})
+    except rubric.Malformed as exc:
+        raise ValueError(str(exc))
+    return {"title": title.strip(), "source": source}
+
+
+def links(eff):
+    """The standing slots in effect, pane id -> ``{"title", "source"}``."""
+    return {k[len(LINK_PREFIX):]: v for k, v in sorted(eff.items()) if is_link(k)}
+
+
 def defaults():
     out = {"priority." + c: rubric.PRIORITY[c] for c in CLASSES}
     out["briefing.max_age_hours"] = None
@@ -54,6 +93,8 @@ def defaults():
 
 def parse_value(key, text):
     """The validated value of ``text`` for ``key``; ValueError with a reason."""
+    if is_link(key):
+        return parse_link(text)
     if key == "default.pane":
         if not isinstance(text, str) or not rubric.PANE_ID.match(text.strip()):
             raise ValueError("not a pane id: %r" % (text,))
@@ -91,7 +132,7 @@ def load(path):
         key, action = rec.get("id"), rec.get("action")
         entry = {"ts": rec.get("ts"), "key": key, "action": action, "value": None,
                  "client": rec.get("client"), "error": None}
-        if key not in SPEC:
+        if key not in SPEC and not is_link(key):
             entry["error"] = "unknown setting"
         elif action == "undo":
             overrides.pop(key, None)

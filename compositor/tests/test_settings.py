@@ -142,5 +142,61 @@ class DefaultPaneSetting(unittest.TestCase):
         self.assertIn('<option value="family-week" selected>family-week (not on the bus now)</option>', page)
 
 
+class StandingSlots(unittest.TestCase):
+    """#97: link.<pane-id> settings keep a web page on the wall."""
+
+    URL = "https://github.com/lentago/brasenia/pulls"
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir)
+        self.log = os.path.join(self.dir, "rubric.jsonl")
+
+    def label(self, **kw):
+        return json.dumps(dict({"title": "Open PRs", "url": self.URL}, **kw))
+
+    def test_parse_fills_the_source_defaults(self):
+        slot = settings.parse_value("link.prs", self.label(theme="light"))
+        self.assertEqual(slot, {"title": "Open PRs", "source": {
+            "url": self.URL, "theme": "light", "screens": 1, "viewport": [1280, 720], "refresh_s": 60}})
+
+    def test_bad_slots_are_refused(self):
+        for bad in ("not json", json.dumps(["x"]), json.dumps({"url": self.URL}),
+                    self.label(title=" "), self.label(title="x" * 121),
+                    self.label(url="ftp://x.test/"), self.label(url="https://u:p@x.test/"),
+                    self.label(screens=9)):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                settings.parse_value("link.prs", bad)
+
+    def test_only_valid_pane_ids_are_slots(self):
+        self.assertTrue(settings.is_link("link.prs"))
+        for key in ("link.", "link.Bad", "link.../x", "linkprs", "priority.focus", None):
+            self.assertFalse(settings.is_link(key), key)
+
+    def test_set_and_undo_through_the_log(self):
+        with open(self.log, "w") as f:
+            for rec in ({"id": "link.prs", "action": "set", "label": self.label()},
+                        {"id": "link.status", "action": "set", "label": self.label(title="Status")},
+                        {"id": "link.status", "action": "undo"},
+                        {"id": "link.Bad", "action": "set", "label": self.label()}):
+                f.write(json.dumps(rec) + "\n")
+        overrides, history = settings.load(self.log)
+        self.assertEqual(list(settings.links(settings.effective(overrides))), ["prs"])
+        self.assertEqual(history[0]["error"], "unknown setting")
+
+    def test_configurator_lists_slots_and_keeps_them_out_of_the_main_form(self):
+        overrides = {"link.prs": settings.parse_value("link.prs", self.label())}
+        page, _ = configure.render(settings.effective(overrides), overrides)
+        self.assertIn('data-id="link.prs">Remove</button>', page)
+        self.assertIn('<a href="%s">' % self.URL, page)
+        self.assertIn("Link panes are off", page)
+        current = re.search(r"const CURRENT = (\{.*?\}), DEFAULTS", page).group(1)
+        self.assertNotIn("link.prs", current)
+        self.assertIn(', OVERRIDDEN = [];', page)
+        page, _ = configure.render(settings.effective({}), {}, link_panes=True)
+        self.assertIn("No standing slots.", page)
+        self.assertIn("Link panes are on.", page)
+
+
 if __name__ == "__main__":
     unittest.main()

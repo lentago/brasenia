@@ -182,6 +182,21 @@ wait. It only orders the resting panes, so `focus`, `activity`, `live`,
 `attention` and `alert` panes still take over when they appear, and the
 default returns after them.
 
+**Standing slots** (`link.<pane-id>`, #97,
+[ADR-0018](adr/0018-standing-slots-are-household-settings.md)). The household
+can keep any web page on the wall as a resting pane, from the configurator's
+Standing slots section.
+- **The setting:** each slot is one setting whose value is a JSON object, the
+  slot's `title` plus a link pane's `source` fields. `set` adds or changes it
+  and `undo` removes it. The compositor validates it like a manifest `source`.
+- **The producer:** `producers/links` reads the validated slots from
+  `viewport/rubric.json` and keeps one `ambient` link pane per slot (author
+  `links-producer@pub`), renewed every 30 s, and takes it down when the slot
+  goes.
+- **On screen:** slots rest and rotate like the other resting panes; Left/Right
+  steps through them and can make one the default. They show only once link
+  panes are on.
+
 | Priority | Class | Default TTL |
 |---|---|---|
 | 100 | `alert` | 60 min |
@@ -246,7 +261,7 @@ Writers use write-then-rename for every file (`x.partial` → `x`) and write `ma
 - `origin` is `operator` or `fleet` (default `fleet`); it is the tie-break within a class.
 - `repo` (`owner/name`), `dwell_s` and `done_when` are optional. v1 ignores `done_when`.
 - `source` is optional and makes the pane a **link pane** ([ADR-0016](adr/0016-panes-carry-a-revision-and-may-link-a-web-page.md)): the screen shows a web page instead of `pane.html`. It is `{"url": "https://…", "theme": "dark", "screens": 1, "viewport": [1280, 720], "refresh_s": 60}`.
-  - `url` (http or https, with no user or password in it: the pointer is readable on the LAN) is required; the other fields have the defaults shown.
+  - `url` (http or https) is required; the other fields have the defaults shown. The pointer is readable on the LAN, so a `url` with a user or password, or with a query or fragment parameter that usually carries a secret (`token`, `signature`, `key`, …), is malformed. That check is a heuristic: a link pane's URL must be token-free.
   - `theme` is `dark` or `light`; `screens` is 1–4 bands of the page to show; `viewport` is the CSS size to lay the page out at (240–3840 each); `refresh_s` (at least 10) is how often to render it again.
   - Other keys are ignored. The compositor shows link panes only with `--link-panes`, which stays off until the renderer has its allowed-sites list and Chromium's sandbox ([kalmia#194](https://github.com/lentago/kalmia/issues/194)).
 - A pane is live when both files exist (a link pane needs only `manifest.json`), neither is a `.partial`, the manifest parses, and `created + ttl_minutes` is in the future.

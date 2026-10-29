@@ -11,7 +11,7 @@ import json
 import math
 import re
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 
 SCHEMA = 1
 
@@ -42,6 +42,12 @@ SOURCE_DEFAULTS = {"theme": "dark", "screens": 1, "viewport": [1280, 720],
 THEMES = ("dark", "light")
 VIEWPORT_RANGE = (240, 3840)   # CSS pixels, each of width and height
 MIN_REFRESH_S = 10
+# A link pane's URL ends up in files anyone on the LAN can read (current.json,
+# lineup.json, rubric.json, the signal log), so a URL whose query or fragment
+# names a parameter that usually carries a secret is refused. A heuristic: it
+# catches tokens, signatures and keys by name, not every secret there is.
+SECRET_PARAM = re.compile(r"token|secret|signature|passw|credential|api[-_]?key", re.I)
+SECRET_NAMES = {"key", "sig", "jwt", "session", "code", "pass", "pwd", "auth", "authorization"}
 LINK_PANES_OFF = ("link panes are off until the renderer can show web pages "
                   "safely (lentago/kalmia#194)")
 
@@ -105,6 +111,10 @@ def parse_source(source):
     if parts.username is not None or parts.password is not None:
         # The pointer and the line-up are readable by anyone on the LAN.
         raise Malformed("source.url carries credentials")
+    secrets = secret_params(parts)
+    if secrets:
+        raise Malformed("source.url looks like it carries a secret (%s); the pointer is "
+                        "readable on the LAN" % ", ".join(secrets))
     out = dict(SOURCE_DEFAULTS, url=url)
     for key in SOURCE_DEFAULTS:
         if key in source:
@@ -123,6 +133,16 @@ def parse_source(source):
         raise Malformed("source.refresh_s is not a number of seconds >= %d"
                         % MIN_REFRESH_S)
     return out
+
+
+def secret_params(parts):
+    """The names in a split URL's query and fragment that usually carry a secret."""
+    names = []
+    for part in (parts.query, parts.fragment):
+        for name, _ in parse_qsl(part, keep_blank_values=True):
+            if SECRET_PARAM.search(name) or name.lower() in SECRET_NAMES:
+                names.append(name)
+    return names
 
 
 def source_rev(source):

@@ -358,6 +358,21 @@ class Bus(unittest.TestCase):
         self.assertEqual(self.lineup()["items"], [])
         self.assertTrue(any("link panes are off" in l for l in self.lines))
 
+    def test_standing_slots_in_the_log_and_on_the_board(self):
+        label = json.dumps({"title": "Open PRs", "url": "https://github.com/pulls"})
+        self.signal({"ts": rubric.iso(T0), "id": "link.prs", "action": "set", "label": label,
+                     "client": "192.168.139.50"})
+        state = self.tick({})
+        self.assertIn("settings: link.prs=https://github.com/pulls", self.lines)
+        with open(self.p["board"], encoding="utf-8") as f:
+            page = f.read()
+        self.assertIn("Standing slot prs set to Open PRs (https://github.com/pulls)", page)
+        self.assertIn("Every setting is at its default. 1 standing slot.", page)
+        self.signal({"ts": rubric.iso(T0), "id": "link.prs", "action": "undo"})
+        self.tick(state, 5)
+        with open(self.p["board"], encoding="utf-8") as f:
+            self.assertIn("Standing slot prs removed", f.read())
+
     def test_the_link_panes_flag_turns_them_on(self):
         link = os.path.join(self.p["panes"], "pr-93")
         os.makedirs(link)

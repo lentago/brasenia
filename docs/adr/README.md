@@ -33,3 +33,4 @@ decision was made, not reconstructed.
 | [0015](0015-cap-the-roku-lag-by-rejoining.md) | Cap the Roku's lag by rejoining the stream; the playlist is 3 segments (amends 0009) | 2026-10-29 |
 | [0016](0016-panes-carry-a-revision-and-may-link-a-web-page.md) | Panes carry a content revision; a pane may link a web page (off until the renderer is ready) | 2026-10-29 |
 | [0017](0017-grafana-panes-rendered-on-pub.md) | Grafana dashboards are rendered on pub into ordinary panes with a Viewer token (amends 0014) | 2026-10-29 |
+| [0018](0018-standing-slots-are-household-settings.md) | Standing slots are household settings, kept on the bus by a producer | 2026-10-29 |

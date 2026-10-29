@@ -357,6 +357,27 @@ class LinkTests(PaneCase):
                     compositor_accepts = False
                 self.assertEqual(compositor_accepts, accepted)
 
+    def test_secret_bearing_urls_match_the_compositor(self):
+        cases = [("https://x.test/d?token=abc", False),
+                 ("https://s3.test/o?X-Amz-Signature=f00&X-Amz-Credential=a", False),
+                 ("https://x.test/cb#access_token=abc", False),
+                 ("https://x.test/s?sig=abc", False),
+                 ("https://github.com/pulls?q=is%3Apr+author%3Acpitzi", True),
+                 ("https://x.test/a#section-2", True)]
+        for url, accepted in cases:
+            with self.subTest(url=url):
+                try:
+                    pane.link_source(url)
+                    ours = True
+                except pane.Refused:
+                    ours = False
+                try:
+                    rubric.parse_source({"url": url})
+                    theirs = True
+                except rubric.Malformed:
+                    theirs = False
+                self.assertEqual((ours, theirs), (accepted, accepted))
+
     def test_ls_and_release_a_link_pane(self):
         self.link()
         code, out, _ = self.run_cli("ls")
