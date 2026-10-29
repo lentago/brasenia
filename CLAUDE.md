@@ -49,6 +49,11 @@ change goes.
 - **Never remove the retry handler** in `VideoScene.xml`. A bare `Video` node
   lands in `state=error` on any publisher restart and stays there forever;
   the observer + 3 s Timer retry is what makes the display unattended-safe.
+- **Never seek the live stream.** On LXC 118's 3-segment playlist, Roku clamps
+  a live seek to near the oldest segment, so a seek makes the lag worse. The
+  lag guard in `VideoScene.xml` rejoins instead. It relies on that short
+  playlist: on a longer one it would keep rejoining
+  ([ADR-0015](docs/adr/0015-cap-the-roku-lag-by-rejoining.md)).
 - **The remote peeks, and sets only the default resting pane**
   ([ADR-0012](docs/adr/0012-the-remote-peeks-it-never-decides.md),
   [ADR-0013](docs/adr/0013-the-remote-sets-the-default-resting-pane.md)).

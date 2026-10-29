@@ -30,3 +30,4 @@ decision was made, not reconstructed.
 | [0012](0012-the-remote-peeks-it-never-decides.md) | The Roku remote peeks; it never decides (amended by 0013) | 2026-10-28 |
 | [0013](0013-the-remote-sets-the-default-resting-pane.md) | The remote sets the household's default resting pane | 2026-10-28 |
 | [0014](0014-home-and-fleet-feed-resting-panes.md) | Home Assistant and the job queue feed resting panes; pub holds the token (amends 0008) | 2026-10-28 |
+| [0015](0015-cap-the-roku-lag-by-rejoining.md) | Cap the Roku's lag by rejoining the stream; the playlist is 3 segments (amends 0009) | 2026-10-29 |
