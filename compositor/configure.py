@@ -6,6 +6,10 @@ and on Save posts one pub-signals signal per change to ``/api/signals/rubric``:
 ``set`` with the new value in ``label``, or ``undo`` when a field is cleared
 or put back to its default. The compositor reads the log back, validates it
 and applies it (ADR-0011); this page never decides anything itself.
+
+Below them it lists the standing slots (``link.<pane-id>`` settings, #97,
+ADR-0018) with a Remove button each (``undo``), and a form that adds one
+(``set``, with the slot as a JSON object in ``label``).
 """
 
 import hashlib
@@ -37,6 +41,13 @@ input, select { width: 100%; box-sizing: border-box; padding: 6px 8px; border-ra
 button { padding: 8px 16px; border-radius: 8px; border: 0; font: inherit; font-weight: 600;
   cursor: pointer; background: #e0a81c; color: #1b1405; }
 button.secondary { background: #22332a; color: #d8e4dc; }
+table.slots { width: 100%; border-collapse: collapse; margin: 8px 0 4px; }
+table.slots td, table.slots th { text-align: left; padding: 6px 8px 6px 0; border-bottom: 1px solid #1f2e26;
+  vertical-align: top; overflow-wrap: anywhere; }
+table.slots button { padding: 4px 10px; }
+.slot-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin-top: 12px; }
+.slot-fields label { display: block; font-weight: 600; margin-bottom: 4px; }
+.slot-fields .wide { grid-column: 1 / -1; }
 #status { margin-top: 16px; white-space: pre-line; }
 @media (max-width: 520px) { .field { grid-template-columns: 1fr 100px; } }
 """
@@ -56,16 +67,17 @@ async function send(id, action, label) {
   if (!r.ok) throw new Error(id + ": " + r.status + " " + (await r.text()));
 }
 
-async function apply(changes) {
-  if (!changes.length) { status.textContent = "Nothing changed."; return; }
-  status.textContent = "Saving " + changes.length + " change(s)…";
+async function apply(changes, out) {
+  out = out || status;
+  if (!changes.length) { out.textContent = "Nothing changed."; return; }
+  out.textContent = "Saving " + changes.length + " change(s)…";
   try {
     for (const c of changes) await send(c.id, c.action, c.label);
-    status.textContent = "Saved. The compositor applies changes within a few seconds; " +
-                         "this page reloads to show what it applied.";
+    out.textContent = "Saved. The compositor applies changes within a few seconds; " +
+                      "this page reloads to show what it applied.";
     setTimeout(() => location.reload(), 7000);
   } catch (e) {
-    status.textContent = "Could not save: " + e.message;
+    out.textContent = "Could not save: " + e.message;
   }
 }
 
@@ -87,14 +99,39 @@ document.getElementById("form").addEventListener("submit", (ev) => {
 document.getElementById("reset").addEventListener("click", () => {
   apply(OVERRIDDEN.map((id) => ({id: id, action: "undo"})));
 });
+
+const slotStatus = document.getElementById("slot-status");
+for (const b of document.querySelectorAll("button.remove")) {
+  b.addEventListener("click", () => apply([{id: b.dataset.id, action: "undo"}], slotStatus));
+}
+document.getElementById("slot-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const v = (name) => document.getElementById("slot-" + name).value.trim();
+  const id = v("id");
+  if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(id)) {
+    slotStatus.textContent = "The pane id is lower-case letters, digits and dashes, starting with a letter or digit.";
+    return;
+  }
+  const label = JSON.stringify({title: v("title"), url: v("url"), theme: v("theme"),
+                                screens: Number(v("screens"))});
+  if (label.length > %(max_label)d) {
+    slotStatus.textContent = "Too long to save: shorten the title or the URL.";
+    return;
+  }
+  apply([{id: "link." + id, action: "set", label: label}], slotStatus);
+});
 """
 
 
-def render(eff, overrides, url_base="http://pub.lan", resting=()):
+MAX_LABEL = 500   # pub-signals' limit on a label
+
+
+def render(eff, overrides, url_base="http://pub.lan", resting=(), link_panes=False):
     """Return ``(html, key)``; the key changes only when the page's content does.
 
     ``resting`` lists the live ambient panes as ``(id, title)``, the choices
-    for the default resting pane."""
+    for the default resting pane. ``link_panes`` says whether the compositor
+    shows link panes, for the standing slots' note."""
     e = html.escape
     base = url_base.rstrip("/")
     defaults = settings.defaults()
@@ -112,11 +149,13 @@ def render(eff, overrides, url_base="http://pub.lan", resting=()):
                e("" if eff[key] is None else str(eff[key])),
                e("no limit" if default is None else str(default)),
                e(help_text), e("no limit" if default is None else str(default))))
+    fixed = {k: v for k, v in eff.items() if k in settings.SPEC}
     script = SCRIPT % {
         "endpoint": json.dumps(ENDPOINT),
-        "current": json.dumps(eff, sort_keys=True),
+        "current": json.dumps(fixed, sort_keys=True),
         "defaults": json.dumps(defaults, sort_keys=True),
-        "overridden": json.dumps(sorted(overrides)),
+        "overridden": json.dumps(sorted(k for k in overrides if k in settings.SPEC)),
+        "max_label": MAX_LABEL,
     }
     body = """<header><h1>brasenia rubric settings</h1>
 <p class="sub">Household overrides for how the viewport decides. Changes are logged and applied by the
@@ -128,12 +167,13 @@ Leave a field empty, or put its default back, to drop the override.</p></header>
 <button type="button" id="reset" class="secondary">Reset everything to defaults</button></div>
 </form>
 <div id="status" class="muted"></div>
+%(slots)s
 <h2>How this works</h2>
 <p class="muted">Each change is a line in <a href="%(base)s/signals/rubric.jsonl">signals/rubric.jsonl</a> on the
 share, recorded by pub-signals with the time and the address it came from. The compositor applies the latest
 valid line per setting and writes the result to <a href="%(base)s/viewport/rubric.json">viewport/rubric.json</a>.
 A value it rejects shows under "Recent changes" on the rubric board and changes nothing.</p>""" % {
-        "base": e(base), "fields": "\n".join(fields)}
+        "base": e(base), "fields": "\n".join(fields), "slots": _slots(eff, link_panes)}
     key = hashlib.sha1((body + script).encode("utf-8")).hexdigest()
     page = """<!doctype html>
 <!-- configure:%(key)s -->
@@ -166,6 +206,42 @@ def _pane_field(key, label, help_text, current, overridden, resting):
     return ('<div class="field%s"><label for="%s">%s</label><select id="%s" name="%s">%s</select>'
             '<div class="help">%s <span class="default">Default: none.</span></div></div>'
             % (" overridden" if overridden else "", e(key), e(label), e(key), e(key), options, e(help_text)))
+
+
+def _slots(eff, link_panes):
+    """The standing slots (#97): one row per slot with a Remove button, then
+    the form that adds one."""
+    e = html.escape
+    rows = []
+    for pane_id, slot in settings.links(eff).items():
+        src = slot["source"]
+        rows.append('<tr><td><code>%s</code></td><td>%s</td><td><a href="%s">%s</a><br>'
+                    '<span class="muted">%s · %d screen%s</span></td>'
+                    '<td><button type="button" class="secondary remove" data-id="%s">Remove</button></td></tr>'
+                    % (e(pane_id), e(slot["title"]), e(src["url"]), e(src["url"]), e(src["theme"]),
+                       src["screens"], "" if src["screens"] == 1 else "s",
+                       e(settings.LINK_PREFIX + pane_id)))
+    table = ('<table class="slots"><thead><tr><th>pane</th><th>title</th><th>page</th><th></th></tr></thead>'
+             '<tbody>%s</tbody></table>' % "".join(rows)) if rows else '<p class="muted">No standing slots.</p>'
+    state = ("Link panes are on." if link_panes else
+             "Link panes are off until the renderer can show web pages safely; a slot added now waits "
+             "on the rubric board as <em>off</em>.")
+    return """<h2>Standing slots</h2>
+<p class="muted">A standing slot keeps a web page on the wall as a resting pane, among the others: the
+remote's Left/Right steps through it, and it can be the default. Pages that need a login, such as Grafana,
+cannot be slots. %(state)s</p>
+%(table)s
+<form id="slot-form">
+<div class="slot-fields">
+<div><label for="slot-id">Pane id</label><input id="slot-id" required placeholder="pr-board" pattern="[a-z0-9][a-z0-9-]{0,62}"></div>
+<div><label for="slot-title">Title</label><input id="slot-title" required maxlength="%(max_title)d" placeholder="Open pull requests"></div>
+<div class="wide"><label for="slot-url">Page (http or https)</label><input id="slot-url" type="url" required placeholder="https://github.com/pulls"></div>
+<div><label for="slot-theme">Theme</label><select id="slot-theme"><option value="dark">dark</option><option value="light">light</option></select></div>
+<div><label for="slot-screens">Screens</label><select id="slot-screens"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+</div>
+<div class="buttons"><button type="submit">Add slot</button></div>
+</form>
+<div id="slot-status" class="muted"></div>""" % {"state": state, "table": table, "max_title": settings.MAX_TITLE}
 
 
 def key_of(page_text):

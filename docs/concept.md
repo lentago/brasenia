@@ -182,6 +182,21 @@ wait. It only orders the resting panes, so `focus`, `activity`, `live`,
 `attention` and `alert` panes still take over when they appear, and the
 default returns after them.
 
+**Standing slots** (`link.<pane-id>`, #97,
+[ADR-0018](adr/0018-standing-slots-are-household-settings.md)). The household
+can keep any web page on the wall as a resting pane, from the configurator's
+Standing slots section.
+- **The setting:** each slot is one setting whose value is a JSON object, the
+  slot's `title` plus a link pane's `source` fields. `set` adds or changes it
+  and `undo` removes it. The compositor validates it like a manifest `source`.
+- **The producer:** `producers/links` reads the validated slots from
+  `viewport/rubric.json` and keeps one `ambient` link pane per slot (author
+  `links-producer@pub`), renewed every 30 s, and takes it down when the slot
+  goes.
+- **On screen:** slots rest and rotate like the other resting panes; Left/Right
+  steps through them and can make one the default. They show only once link
+  panes are on.
+
 | Priority | Class | Default TTL |
 |---|---|---|
 | 100 | `alert` | 60 min |
