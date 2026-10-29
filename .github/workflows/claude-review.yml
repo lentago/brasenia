@@ -1,0 +1,123 @@
+# ============================================================================
+# Claude Code — Automated PR Review (advisory)
+# ============================================================================
+# Thin wrapper around lentago/shared-workflows/claude-review.yml, per
+# lentago/.github ADR-0013. This file is copied from repo-template's; only
+# the review_prompt differs per repo.
+#
+# - Runs when a PR is opened or marked ready for review, and again when it is
+#   labelled `re-review` (Haiku) or `review:sonnet` (Sonnet). It does NOT run on
+#   every push: it shares the fleet's Claude subscription with the bullpen.
+# - Advisory, never a required status check (shared-workflows ADR-0003). The
+#   gate is the arming rule: don't arm until a review has posted and every
+#   finding is triaged on the PR (shared-workflows CLAUDE.md, Auto-merge
+#   arming). A "could not complete" soft-fail comment is not a review —
+#   label `re-review`.
+# - After a labelled run, `clear-label` removes the label so adding it again
+#   triggers again.
+# - A PR that adds or changes THIS file is not reviewed by it: the Claude Code
+#   action skips unless the workflow is identical to the default branch's copy,
+#   and the reusable workflow (v1.5.0+) posts a "not a review" notice instead.
+#   Review such PRs locally and post the result as "Review (Haiku, local)"
+#   (ADR-0013 Decision 2).
+# - Dependabot PRs are skipped: Dependabot runs don't receive Actions secrets,
+#   so the required token would fail the call. Review a bump locally if it
+#   warrants one.
+# - Drafts are skipped (by the reusable workflow) and keep their trigger label
+#   until they are ready.
+# ============================================================================
+
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, labeled]
+
+jobs:
+  review:
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      github.event.pull_request.draft == false &&
+      (github.event.action != 'labeled' ||
+       github.event.label.name == 're-review' ||
+       github.event.label.name == 'review:sonnet')
+    # One review at a time per PR: a re-label during a running review queues
+    # behind it instead of posting a duplicate.
+    concurrency:
+      group: claude-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    uses: lentago/shared-workflows/.github/workflows/claude-review.yml@v1.5.0
+    secrets: inherit
+    with:
+      model: ${{ github.event.label.name == 'review:sonnet' && 'sonnet' || 'haiku' }}
+      review_prompt: |
+        This repository is lentago/brasenia, the Lentago Labs shared viewport:
+        a wall display whose content a rubric chooses. It holds the concept doc
+        (docs/concept.md), a BrightScript Roku channel (roku-app/), the
+        stdlib-Python compositor (compositor/), the `pane` bus CLI (bin/), pane
+        producers (producers/), and ADRs. There is no build step; the runtime on
+        LXC 118 is provisioned from the kalmia repo, not here. Focus your review
+        on:
+
+        - **Roku channel safety**: the state-observer + 3 s Timer retry handler
+          in VideoScene.xml must not be weakened or removed. The stream must
+          never be seeked (the lag guard rejoins instead). The scene, not the
+          Video node, holds focus, and Back must stay caught. The remote may
+          peek, and may set only `default.pane`; nothing in the app may pin a
+          pane over the urgent classes. A sideload-worthy change must bump
+          `build_version` in roku-app/manifest. A mediamtx stream URL needs
+          `?cookieCheck=1`.
+        - **Rubric and bus integrity**: the compositor is the only writer to
+          the screen. Pane-bus and settings writes must stay write-then-rename,
+          and the contracts in docs/concept.md (pane revision, link panes,
+          rubric v1, standing slots) must agree with the code and ADRs. Flag a
+          change that lets a producer or client decide what is shown.
+        - **Pane contract**: pane HTML is self-contained, 1280 px wide, a height
+          that is an exact multiple of 720 px (at most 2880), with nothing
+          straddling a 720 px band, a dark background, text of 20 px or more,
+          and the bottom-right ~220x50 px of each band kept clear for the clock
+          overlay. The contract lives in docs/concept.md; update it there.
+        - **Secrets and credentials**: ROKU_IP, ROKU_DEV_PASS, Home Assistant,
+          GitHub and Grafana tokens come from the environment only. None may be
+          committed, baked into scripts, or printed or logged by producers. The
+          runtime stays credential-free; pub holds the credentials. Check that
+          producers pace their requests by cost (unauthenticated GitHub 304s
+          still count against the rate limit).
+        - **Ownership split with kalmia**: services, units, mediamtx config and
+          container shape belong in kalmia (roles/lunaria/, terraform/), not
+          here. Flag runtime scripts forked into this repo. Do not flag
+          `lunaria` strings that refer to kalmia's role or hostname; kalmia#63
+          owns that rename.
+        - **Python, shell and docs quality**: Python is stdlib-only, 3.11+, with
+          tests in the unittest suites (compositor/, bin/tests, and each
+          producer). Scripts use `set -euo pipefail` and pass shellcheck.
+          Markdown is part of the product: README, concept.md and the ADRs must
+          not contradict each other, and a new decision needs an ADR.
+
+  clear-label:
+    needs: review
+    if: >-
+      always() && github.event.action == 'labeled' &&
+      github.event.pull_request.draft == false &&
+      (github.event.label.name == 're-review' || github.event.label.name == 'review:sonnet')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Remove the trigger label so it can be added again
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          LABEL: ${{ github.event.label.name }}
+        # REST, not `gh pr edit`: the GraphQL path can trip on PR project
+        # fields with GITHUB_TOKEN, and a label left behind would make the
+        # next re-add a no-op (no `labeled` event).
+        run: |
+          enc=$(jq -rn --arg l "$LABEL" '$l|@uri')
+          gh api --method DELETE "repos/$REPO/issues/$PR/labels/$enc" >/dev/null
