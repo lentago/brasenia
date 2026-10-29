@@ -1,6 +1,7 @@
 # ADR-0012: The Roku remote peeks; it never decides
 
-**Status:** Accepted (2026-10-28; #80)
+**Status:** Accepted (2026-10-28; #80). Amended by [ADR-0013](0013-the-remote-sets-the-default-resting-pane.md):
+Left/Right sets the household's default resting pane; Up/Down still only peeks.
 
 ## Context
 
