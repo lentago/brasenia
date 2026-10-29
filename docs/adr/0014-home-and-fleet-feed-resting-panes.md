@@ -2,7 +2,9 @@
 
 **Status:** Accepted (2026-10-28; #86). Amends
 [ADR-0008](0008-compositor-and-producers-on-pub.md): one producer, the home
-producer, holds a credential.
+producer, holds a credential. Amended by
+[ADR-0017](0017-grafana-panes-rendered-on-pub.md): the grafana producer holds
+a second, a Viewer token for Grafana Cloud.
 
 ## Context
 

@@ -78,6 +78,9 @@ is governed, not in a pipeline. Each row links to the evidence in this checkout.
   [`producers/fleet/`](producers/fleet/), which shows the claytonia bullpen's
   workers, queue, runs and agent PRs. These five are the resting panes the
   Roku remote's Left/Right chooses the default from (ADR-0013, ADR-0014).
+  [`producers/grafana/`](producers/grafana/) renders Grafana Cloud
+  dashboards into more resting panes, with a Viewer token pub holds
+  (ADR-0017).
 - [`bin/pane`](bin/pane) — claim, renew, release and list panes on the
   viewport bus (stdlib Python 3.11+); tests with
   `python3 -m unittest discover -s bin/tests`.
@@ -96,6 +99,7 @@ Brasenia follows the fleet's separation of product from provisioning:
 | LXC 118 guest definition | [`kalmia`](https://github.com/lentago/kalmia) `terraform/containers.tf` (CI-applied) |
 | Runtime stack (mediamtx, shooter/rotator/encoder scripts, systemd units) | [`kalmia`](https://github.com/lentago/kalmia) `roles/lunaria/` + `docs/lunaria.md` |
 | Brief publishing (Google Drive → `pub.lan`) and the home producer's Home Assistant token: pub holds the credentials ([ADR-0014](docs/adr/0014-home-and-fleet-feed-resting-panes.md)) | [`kalmia`](https://github.com/lentago/kalmia) `roles/pub/` |
+| The Grafana Cloud service account the grafana producer's token belongs to ([ADR-0017](docs/adr/0017-grafana-panes-rendered-on-pub.md)); the token itself is placed on pub, with kalmia's unit | [`drosera`](https://github.com/lentago/drosera) `terraform/` |
 
 (kalmia's role, docs, and the container hostname still carry the `lunaria`
 name from before the rename — completing it through runtime is owned by

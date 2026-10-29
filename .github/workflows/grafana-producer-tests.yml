@@ -1,0 +1,43 @@
+# ============================================================================
+# Grafana producer unit tests
+# ============================================================================
+# Runs the stdlib-only unit suite for producers/grafana. The suite drives
+# made-up dashboard slots through a fake Grafana that answers with generated
+# PNGs, so it needs no tokens and no network.
+#
+# Path-filtered to producers/grafana/** to stay cheap, so this must NOT be made a
+# required status check: a required check whose workflow never triggers on a
+# given PR is held "Expected" forever, deadlocking that PR. Leave it
+# informational.
+# ============================================================================
+
+name: Grafana Producer Tests
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+    paths:
+      - 'producers/grafana/**'
+      - '.github/workflows/grafana-producer-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.11 is the floor (pub runs Debian 12's 3.11); 3.12 is current.
+        python: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run unit tests (Python ${{ matrix.python }})
+        working-directory: producers/grafana
+        run: python3 -m unittest discover -s tests
