@@ -143,9 +143,14 @@ def _is_default(pane, default_pane):
 
 def _rank_key(default_pane=None):
     # priority desc, the household's default resting pane first within its
-    # rung, operator before fleet, created desc, id for determinism
+    # rung, operator before fleet, created desc, id for determinism. Resting
+    # (ambient) panes skip the created step and keep a fixed order by id
+    # (#86): each producer rewrites created on its own cadence, which would
+    # reshuffle their rotation and the remote's Left/Right order.
     return lambda pane: (-pane["priority"], 0 if _is_default(pane, default_pane) else 1,
-                         ORIGINS.index(pane["origin"]), -pane["created"].timestamp(), pane["id"])
+                         ORIGINS.index(pane["origin"]),
+                         0 if pane["class"] == "ambient" else -pane["created"].timestamp(),
+                         pane["id"])
 
 
 def _rotate(group, now, prev):

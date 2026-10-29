@@ -23,9 +23,10 @@ decision was made, not reconstructed.
 | [0005](0005-product-runtime-split-with-kalmia.md) | Product/runtime split with kalmia, enforced in both directions | 2026-07-20 |
 | [0006](0006-cast-web-receiver-second-client.md) | Chromecast web receiver as a second client; the compositor's output becomes a decision (superseded by 0010) | 2026-08-14 |
 | [0007](0007-live-rtmp-ingest-generic-path.md) | Generic RTMP ingest path; fallback-chain switching; `live` as rubric source type | 2026-08-16 |
-| [0008](0008-compositor-and-producers-on-pub.md) | The compositor and the producers run on pub; the display guest stays a client | 2026-10-07 |
+| [0008](0008-compositor-and-producers-on-pub.md) | The compositor and the producers run on pub; the display guest stays a client (amended by 0014) | 2026-10-07 |
 | [0009](0009-office-roku-4k-hevc-over-ffmpeg-hls.md) | The office Roku plays 4K HEVC from ffmpeg-written HLS; the play-room Roku is retired | 2026-10-28 |
 | [0010](0010-roku-is-the-client-platform.md) | Roku is the client platform; the Cast client is retired | 2026-10-28 |
 | [0011](0011-rubric-settings-on-the-share.md) | Rubric settings are household overrides on the share, written through pub-signals | 2026-10-28 |
 | [0012](0012-the-remote-peeks-it-never-decides.md) | The Roku remote peeks; it never decides (amended by 0013) | 2026-10-28 |
 | [0013](0013-the-remote-sets-the-default-resting-pane.md) | The remote sets the household's default resting pane | 2026-10-28 |
+| [0014](0014-home-and-fleet-feed-resting-panes.md) | Home Assistant and the job queue feed resting panes; pub holds the token (amends 0008) | 2026-10-28 |
