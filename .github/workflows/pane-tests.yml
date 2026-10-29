@@ -18,6 +18,8 @@ on:
     types: [opened, synchronize, ready_for_review, reopened]
     paths:
       - 'bin/**'
+      # bin/tests cross-checks link panes against the compositor's rules
+      - 'compositor/rubric.py'
       - '.github/workflows/pane-tests.yml'
 
 permissions:

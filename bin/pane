@@ -364,7 +364,8 @@ def build_parser():
     link = c.add_argument_group(
         "link pane", "show a web page instead of pane.html (ADR-0016); the "
         "compositor shows link panes only once they are turned on")
-    link.add_argument("--url", help="the page to show (http or https)")
+    link.add_argument("--url", help="the page to show (http or https); the whole URL, "
+                      "query string included, is readable on the LAN")
     link.add_argument("--theme", choices=THEMES, help="default: dark")
     link.add_argument("--screens", type=int, metavar="N",
                       help="720 px bands of the page to show, 1-4 (default 1)")
@@ -413,15 +414,19 @@ def whole(n):
 
 
 def main(argv=None, now=None):
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
     now = now or utc_now()
+    if args.command == "claim":   # usage errors (exit 2), before anything is read
+        link_opts = (args.theme, args.screens, args.viewport, args.refresh)
+        if args.url is None and any(v is not None for v in link_opts):
+            parser.error("--theme, --screens, --viewport and --refresh need --url")
+        if args.url is None and args.page is None:
+            parser.error("pass pane.html (or - for stdin), or --url for a link pane")
+        if args.url is not None and args.page is not None:
+            parser.error("a link pane has no page: pass --url or pane.html, not both")
     try:
         if args.command == "claim":
-            link_opts = (args.theme, args.screens, args.viewport, args.refresh)
-            if args.url is None and any(v is not None for v in link_opts):
-                raise Refused("--theme, --screens, --viewport and --refresh need --url")
-            if args.url is None and args.page is None:
-                raise Refused("pass pane.html (or - for stdin), or --url for a link pane")
             source = None if args.url is None else link_source(
                 args.url, args.theme, args.screens, args.viewport, whole(args.refresh))
             page = None if args.page is None else read_page(args.page)

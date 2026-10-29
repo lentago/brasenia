@@ -18,6 +18,11 @@ _spec = importlib.util.spec_from_loader("pane_cli", _loader)
 pane = importlib.util.module_from_spec(_spec)
 _loader.exec_module(pane)
 
+# The compositor's own rules, for the link-pane cross-check.
+import sys  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
+from compositor import rubric  # noqa: E402
+
 T0 = datetime(2026, 10, 7, 12, 0, 0, tzinfo=timezone.utc)
 PAGE = "<!doctype html><html><body><h1>look here</h1></body></html>\n"
 
@@ -302,9 +307,6 @@ class LinkTests(PaneCase):
             (["--url", self.URL, "--viewport", "100x720"], "--viewport"),
             (["--url", self.URL, "--viewport", "wide"], "--viewport"),
             (["--url", self.URL, "--refresh", "5"], "--refresh"),
-            (["--theme", "dark", self.page], "need --url"),
-            ([], "pass pane.html"),
-            (["--url", self.URL, self.page], "not both"),
         ]
         for extra, reason in cases:
             with self.subTest(extra=extra):
@@ -313,6 +315,64 @@ class LinkTests(PaneCase):
                 self.assertEqual(code, 1)
                 self.assertIn(reason, err)
                 self.assertFalse(os.path.exists(self.pane_dir("x")))
+
+    def test_usage_errors_exit_2(self):
+        for extra, reason in ((["--theme", "dark", self.page], "need --url"),
+                              ([], "pass pane.html"),
+                              (["--url", self.URL, self.page], "not both")):
+            with self.subTest(extra=extra):
+                err = io.StringIO()   # main() directly: run_cli's own buffer dies with SystemExit
+                with contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as cm:
+                    pane.main(["--bus", self.bus, "claim", "x", "--class", "attention",
+                               "--title", "t", "--author", "ann@a", *extra], now=T0)
+                self.assertEqual(cm.exception.code, 2)
+                self.assertIn(reason, err.getvalue())
+                self.assertFalse(os.path.exists(self.pane_dir("x")))
+
+    def test_boundaries_match_the_compositor(self):
+        # The rules are mirrored from compositor/rubric.py's parse_source: every
+        # case here must get the same verdict from both, so neither can drift.
+        ok = [{"viewport": "240x240"}, {"viewport": "3840x3840"}, {"screens": 1},
+              {"screens": 4}, {"refresh": 10}, {"theme": "light"}]
+        bad = [{"viewport": "239x720"}, {"viewport": "1280x3841"}, {"screens": 0},
+               {"screens": 5}, {"refresh": 9.5}]
+        for kw, accepted in [(k, True) for k in ok] + [(k, False) for k in bad]:
+            with self.subTest(kw=kw):
+                try:
+                    source = pane.link_source(self.URL, **kw)
+                except pane.Refused:
+                    source = None
+                self.assertEqual(source is not None, accepted)
+                # what the compositor would make of the same request
+                raw = {"url": self.URL}
+                for k, v in kw.items():
+                    if k == "viewport":
+                        raw["viewport"] = [int(n) for n in v.split("x")]
+                    else:
+                        raw[{"refresh": "refresh_s"}.get(k, k)] = v
+                try:
+                    rubric.parse_source(raw)
+                    compositor_accepts = True
+                except rubric.Malformed:
+                    compositor_accepts = False
+                self.assertEqual(compositor_accepts, accepted)
+
+    def test_ls_and_release_a_link_pane(self):
+        self.link()
+        code, out, _ = self.run_cli("ls")
+        row = next(l for l in out.splitlines() if l.startswith("pr-93"))
+        self.assertIn("attention", row)
+        self.assertTrue(row.endswith("2026-10-07T16:00:00Z"))
+        self.assertEqual(self.run_cli("release", "pr-93", "--author", "ann@a")[0], 0)
+        self.assertFalse(os.path.exists(self.pane_dir("pr-93")))
+
+    def test_ls_marks_a_string_source_malformed(self):
+        os.makedirs(self.pane_dir("odd"))
+        with open(os.path.join(self.pane_dir("odd"), "manifest.json"), "w") as f:
+            json.dump({"class": "attention", "title": "t", "created": pane.iso(T0),
+                       "ttl_minutes": 60, "author": "ann@a", "source": "https://x.test/"}, f)
+        rows = {l.split()[0]: l for l in self.run_cli("ls")[1].splitlines()}
+        self.assertTrue(rows["odd"].endswith("malformed"))
 
     def test_reclaiming_a_page_pane_as_a_link_drops_the_page(self):
         self.claim("pr-93")
