@@ -32,15 +32,21 @@ records why pub holds it. To make one:
    Long-lived access tokens → Create token**, name it `brasenia pub`, and copy
    it.
 3. Put it on pub without it touching a shell history or this chat, from your
-   own terminal:
+   own terminal. The prompt doesn't echo: paste the token and press Enter.
 
    ```sh
-   read -rs T && printf '%s' "$T" | ssh root@pve.local \
+   read -rsp 'Home Assistant token: ' T && echo && printf '%s' "$T" | ssh root@pve.local \
      "ssh pve4 'pct exec 114 -- sh -c \"umask 077; cat > /etc/brasenia/ha-token\"'" ; unset T
    ssh root@pve.local "ssh pve4 'pct exec 114 -- systemctl restart brasenia-home'"
    ```
 
 To revoke it, delete the token from that user's profile, or delete the user.
+
+**IPv4, on purpose.** For an `http://` URL whose host has an IPv4 address,
+the producer connects to that address and sends the original `Host` header
+(#88). On a dual-stack LAN the name also resolves to a global IPv6 address,
+which Home Assistant doesn't count as local, so a "local network only" user
+is refused there with HTTP 401.
 
 ## Try it
 

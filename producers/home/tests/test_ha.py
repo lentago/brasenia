@@ -2,7 +2,9 @@ import unittest
 
 from helpers import TOKEN, FakeHA
 
-from home_producer.ha import Client, HAError
+import socket
+
+from home_producer.ha import Client, HAError, prefer_ipv4
 
 URL = "http://ha.test:8123"
 
@@ -46,6 +48,40 @@ class ClientTest(unittest.TestCase):
     def test_forecast_for_another_entity_is_an_error(self):
         with self.assertRaisesRegex(HAError, "no daily forecast for weather.other"):
             Client(URL, TOKEN, FakeHA()).forecast("weather.other", "daily")
+
+
+
+class PreferIPv4(unittest.TestCase):
+
+    def resolver(self, *addresses):
+        calls = []
+
+        def resolve(host, port, family, kind):
+            calls.append((host, port, family))
+            return [(family, kind, 6, "", (a, port)) for a in addresses]
+        resolve.calls = calls
+        return resolve
+
+    def test_a_name_goes_over_its_ipv4_address_with_the_original_host(self):
+        resolve = self.resolver("192.168.139.172")
+        url, host = prefer_ipv4("http://homeassistant.lan:8123/api/states", resolve)
+        self.assertEqual((url, host), ("http://192.168.139.172:8123/api/states", "homeassistant.lan:8123"))
+        self.assertEqual(resolve.calls, [("homeassistant.lan", 8123, socket.AF_INET)])
+
+    def test_query_strings_and_default_ports_survive(self):
+        url, host = prefer_ipv4("http://ha.lan/api/services/weather/get_forecasts?return_response",
+                                self.resolver("10.0.0.5"))
+        self.assertEqual((url, host), ("http://10.0.0.5/api/services/weather/get_forecasts?return_response",
+                                       "ha.lan"))
+
+    def test_left_alone(self):
+        def no_ipv4(*args):
+            raise socket.gaierror("no A record")
+        for url, resolve in (("https://ha.example.com/api/", self.resolver("10.0.0.5")),
+                             ("http://192.168.139.172:8123/api/", self.resolver("10.0.0.5")),
+                             ("http://[2601:188::1]:8123/api/", self.resolver("10.0.0.5")),
+                             ("http://v6only.lan:8123/api/", no_ipv4)):
+            self.assertEqual(prefer_ipv4(url, resolve), (url, None))
 
 
 if __name__ == "__main__":
