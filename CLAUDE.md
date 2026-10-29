@@ -21,20 +21,6 @@ zipped and sideloaded as-is, and the concept doc is the design record. The
 `kalmia` — see the ownership table in the README before deciding where a
 change goes.
 
-## Artifacts / layout
-
-| Path | Purpose |
-|---|---|
-| `docs/concept.md` | Product concept: pane/rubric/compositor model, pane contract, rubric v0, phases |
-| `roku-app/manifest` | Channel identity; bump `build_version` on every sideload-worthy change |
-| `roku-app/components/VideoScene.xml` | The player scene — holds the auto-retry logic, the LXC 118 host (stream and peek), and the remote's peek (Up/Down, Back) |
-| `roku-app/components/LineupTask.xml` | Task that polls LXC 118's `/peek/index.json` for the remote's peek (no network I/O on the render thread) |
-| `roku-app/components/SignalTask.xml` | Task that POSTs the remote's default resting pane to pub's `/api/signals/rubric` |
-| `roku-app/source/main.brs` | Boilerplate SceneGraph entry point |
-| `compositor/` | Phase 2 compositor (stdlib Python 3.11+): `rubric.decide()` is the pure ranking function, `bus.py` the filesystem half; runs on pub, unit runtime in kalmia |
-| `bin/pane` | Claim/renew/release/ls a pane on the viewport bus (stdlib Python 3.11+); governance text in `docs/claiming-the-display.md` |
-| `scripts/deploy-roku.sh` | Zip (manifest at zip root — required) + sideload via dev installer |
-
 ## Conventions to respect
 
 - **Ownership split with kalmia.** Changes to the *running stack* (scripts,
@@ -45,6 +31,8 @@ change goes.
   container hostname keep the pre-rename `lunaria` name until kalmia#63
   lands — don't "fix" stray `lunaria` strings there from this repo; that
   issue owns the runtime rename per the fleet rename discipline.)
+- **Bump `build_version`** in `roku-app/manifest` on every sideload-worthy
+  change.
 - **Deploying the Roku app** needs `ROKU_IP` and `ROKU_DEV_PASS` in the
   environment. Never commit either; never bake them into the script. The
   office Roku is `192.168.139.21`; Chris keeps its dev password in
