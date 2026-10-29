@@ -1,0 +1,23 @@
+{
+  "slots": [
+    {
+      "pane": "grafana-infra",
+      "uid": "firewalla-infra-health",
+      "title": "Infrastructure health"
+    },
+    {
+      "pane": "grafana-network",
+      "uid": "firewalla-network-overview",
+      "title": "Network",
+      "size": [1920, 950],
+      "theme": "dark",
+      "refresh_s": 600,
+      "from": "now-24h",
+      "to": "now",
+      "vars": {"host": "pve4"},
+      "crop_px": 40,
+      "scale": 2,
+      "dwell_s": 45
+    }
+  ]
+}
