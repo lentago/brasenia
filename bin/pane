@@ -216,9 +216,16 @@ def describe_pane(pane_dir, now):
     except OSError:
         return "-", "-", "-", "partial"
     blank = ("-", "-", "-")
-    if ("pane.html" not in files or "manifest.json" not in files
-            or any(name.endswith(".partial") for name in files)):
+    if "manifest.json" not in files or any(name.endswith(".partial") for name in files):
         return blank + ("partial",)
+    if "pane.html" not in files:
+        # A link pane (a manifest `source`, ADR-0016) needs no pane.html.
+        try:
+            link = "source" in read_manifest(pane_dir)
+        except Refused:
+            link = False
+        if not link:
+            return blank + ("partial",)
     try:
         data = read_manifest(pane_dir)
         cls, author = data["class"], data["author"]

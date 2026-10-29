@@ -24,6 +24,11 @@ def main(argv=None):
     parser.add_argument("--tz", default="America/New_York",
                         help="time zone for the times on the status card and "
                              "the rubric board (default: %(default)s)")
+    parser.add_argument("--link-panes", action="store_true",
+                        help="show link panes, whose manifest names a web page "
+                             "(ADR-0016); leave off until the renderer has its "
+                             "allowed-sites list and Chromium's sandbox "
+                             "(lentago/kalmia#194)")
     parser.add_argument("--once", action="store_true",
                         help="evaluate once and exit")
     args = parser.parse_args(argv)
@@ -41,7 +46,7 @@ def main(argv=None):
     try:
         while True:
             state = bus.tick(args.webroot, args.url_base, state,
-                             datetime.now(timezone.utc), log, tz)
+                             datetime.now(timezone.utc), log, tz, args.link_panes)
             if args.once:
                 return 0
             time.sleep(args.interval)

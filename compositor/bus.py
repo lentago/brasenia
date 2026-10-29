@@ -7,6 +7,7 @@ write-then-rename. Pane directories and the configurator's signal log
 (``signals/rubric.jsonl``, ADR-0011) are read, never modified or deleted.
 """
 
+import hashlib
 import html
 import json
 import os
@@ -16,6 +17,10 @@ from . import board, configure, rubric, settings
 
 STATE_FILE = "compositor.json"
 BOARD_MAX_AGE_S = 60   # rewrite an unchanged board this often, so its clock stays honest
+
+# path -> (mtime_ns, size, rev): a page is re-read only when it was rewritten,
+# not on every tick over the share.
+_REV_CACHE = {}
 
 
 def paths(webroot):
@@ -61,6 +66,27 @@ def _read_manifest(path):
         return rubric.Malformed("manifest does not parse: %s" % exc)
 
 
+def page_rev(path):
+    """A page's revision (#96): the first 12 hex digits of the SHA-256 of its
+    bytes, or None when it cannot be read. Producers rewrite their pages on a
+    timer whether or not anything changed, so the file's time is no use."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        _REV_CACHE.pop(path, None)
+        return None
+    cached = _REV_CACHE.get(path)
+    if cached and cached[:2] == (st.st_mtime_ns, st.st_size):
+        return cached[2]
+    try:
+        with open(path, "rb") as f:
+            rev = hashlib.sha256(f.read()).hexdigest()[:12]
+    except OSError:
+        return None
+    _REV_CACHE[path] = (st.st_mtime_ns, st.st_size, rev)
+    return rev
+
+
 def scan(panes_dir):
     """Return the pane set ``rubric.decide`` expects, one entry per directory."""
     entries = []
@@ -76,10 +102,12 @@ def scan(panes_dir):
             files = set(os.listdir(pane_dir))
         except OSError:
             continue  # removed mid-scan: the writer relinquished
-        entry = {"id": name, "files": files, "manifest": None}
+        entry = {"id": name, "files": files, "manifest": None, "rev": None}
         if "manifest.json" in files:
             entry["manifest"] = _read_manifest(
                 os.path.join(pane_dir, "manifest.json"))
+        if "pane.html" in files:
+            entry["rev"] = page_rev(os.path.join(pane_dir, "pane.html"))
         entries.append(entry)
     return entries
 
@@ -152,11 +180,18 @@ def describe(pointer):
     return line
 
 
-def tick(webroot, url_base, state, now, log=print, tz=None):
+def _shown(pointer):
+    """What a pointer puts on screen, for the decision log: a new revision of
+    the same pane or a renewed expiry is not worth a line."""
+    return {k: v for k, v in pointer.items() if k not in ("decided_at", "expires_at", "rev")}
+
+
+def tick(webroot, url_base, state, now, log=print, tz=None, link_panes=False):
     """Scan, decide and publish once; return the next state. Times on the
     status card and the board are shown in ``tz`` (None: the host's zone).
+    Link panes are shown only with ``link_panes`` (ADR-0016).
 
-    ``current.json`` is rewritten only when the decision changes (or when the
+    ``current.json`` is rewritten only when the pointer changes (or when the
     file is missing); ``status.html`` is written just before a status
     pointer is published, so the pointer never names a missing page.
     """
@@ -172,14 +207,15 @@ def tick(webroot, url_base, state, now, log=print, tz=None):
     pointer, new_state = rubric.decide(
         entries, now, state, brief_present=brief_ok, url_base=url_base,
         priority=priority, default_dwell=dwell, briefing_title=brief["title"],
-        default_pane=default_pane)
+        default_pane=default_pane, link_panes=link_panes, brief_rev=brief["rev"])
 
     old_skipped = state.get("skipped") or {}
     for pane_id, reason in sorted(new_state["skipped"].items()):
         if old_skipped.get(pane_id) != reason:
             log("skipped: pane=%s (%s)" % (pane_id, reason))
 
-    changed = pointer is not state.get("pointer")
+    previous = state.get("pointer")
+    changed = pointer is not previous
     # The status page is recreated whenever the status pointer is active and
     # the file is missing, not only on a decision change: a deleted
     # status.html must never leave current.json naming an absent page.
@@ -187,18 +223,18 @@ def tick(webroot, url_base, state, now, log=print, tz=None):
         atomic_write(p["status"], render_status(pointer, tz))
     if changed or not os.path.exists(p["current"]):
         atomic_write(p["current"], json.dumps(pointer, indent=2) + "\n")
-        if changed:
+        if changed and (previous is None or _shown(pointer) != _shown(previous)):
             log(describe(pointer))
     if new_state != state:
         save_state(p["state"], new_state)
     write_settings(p["settings"], settings.document(eff, overrides, history), log)
-    rows = rubric.explain(entries, now, pointer, priority, dwell, default_pane)
+    rows = rubric.explain(entries, now, pointer, priority, dwell, default_pane, link_panes)
     resting = [(r["id"], r["title"]) for r in rows
                if r.get("class") == "ambient" and r["status"] in ("showing", "rotating", "outranked")]
     page, key = configure.render(eff, overrides, url_base, resting)
     _write_if_changed(p["configure"], page, key, configure.key_of)
     view = {"effective": eff, "overrides": overrides, "history": history,
-            "brief_ok": brief_ok, "brief_why": brief_why}
+            "brief_ok": brief_ok, "brief_why": brief_why, "link_panes": link_panes}
     write_board(p["board"], pointer, rows, brief, now, url_base, tz, view)
     _write_json_if_changed(p["lineup"], lineup(pointer, rows, brief, url_base, default_pane))
     return new_state
@@ -212,18 +248,21 @@ def lineup(pointer, rows, brief, url_base, default_pane=None):
     (the Roku remote's peek, ADR-0012). Live panes in rubric order, the one on
     screen marked, then the briefing slot when it exists and no live pane
     already carries the same brief. A client only looks; this changes nothing
-    the compositor decides."""
+    the compositor decides. Each item carries its ``rev``, and a link pane its
+    ``source``, so a client can tell when to render again (#96)."""
     base = url_base.rstrip("/")
     items = [{"id": r["id"], "title": r["title"], "class": r["class"],
               "priority": r["priority"], "showing": r["status"] == "showing",
               "default": r["id"] == default_pane and r["class"] == "ambient",
-              "url": "%s/viewport/panes/%s/pane.html" % (base, r["id"])}
+              "url": rubric.pane_url(r, base), "rev": r.get("rev"),
+              "source": r.get("source")}
              for r in rows if r["status"] in ("showing", "rotating", "outranked")]
     if brief["present"] and brief.get("pane") not in {i["id"] for i in items}:
         items.append({"id": BRIEFING_ID, "title": brief["title"], "class": "briefing",
                       "priority": rubric.PRIORITY["briefing"],
                       "showing": pointer.get("fallback") == "briefing", "default": False,
-                      "url": base + rubric.BRIEFING_PATH})
+                      "url": base + rubric.BRIEFING_PATH, "rev": brief.get("rev"),
+                      "source": None})
     return {"schema": 1, "decided_at": pointer["decided_at"], "items": items}
 
 
@@ -270,9 +309,10 @@ def _brief(page, manifest_path):
     """The briefing slot (``viewport/briefing/``, brasenia#76): whether its page
     exists, its title, and when the brief was published. The age comes from
     the manifest's ``published``, not the file: the producer rewrites the page
-    every minute whatever the brief's age."""
+    every minute whatever the brief's age. ``rev`` is the page's revision."""
     if not os.path.isfile(page):
-        return {"present": False, "mtime": None, "title": rubric.BRIEFING_TITLE, "pane": None}
+        return {"present": False, "mtime": None, "title": rubric.BRIEFING_TITLE, "pane": None,
+                "rev": None}
     manifest = _read_manifest(manifest_path)
     if not isinstance(manifest, dict):
         manifest = {}
@@ -284,7 +324,7 @@ def _brief(page, manifest_path):
     pane = manifest.get("pane")
     return {"present": True, "mtime": published,
             "title": title if isinstance(title, str) and title.strip() else rubric.BRIEFING_TITLE,
-            "pane": pane if isinstance(pane, str) else None}
+            "pane": pane if isinstance(pane, str) else None, "rev": page_rev(page)}
 
 
 def write_board(path, pointer, rows, brief, now, url_base, tz=None, view=None):
