@@ -3,6 +3,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -303,6 +304,25 @@ class Bus(unittest.TestCase):
         self.tick(state, 60)
         self.assertNotEqual(self.current()["rev"], first["rev"])
         self.assertEqual(self.current()["decided_at"], "2026-10-07T12:01:00Z")
+
+    def test_a_same_size_rewrite_within_a_second_is_not_missed(self):
+        self.write_pane("home", self.manifest("ambient"))
+        path = os.path.join(self.p["panes"], "home", "pane.html")
+        st = os.stat(path)
+        first = bus.page_rev(path)
+        with open(path, "w") as f:
+            f.write("<p>pan2</p>")                  # same size
+        os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns))   # same mtime
+        self.assertNotEqual(bus.page_rev(path), first)
+
+    def test_an_old_page_is_hashed_once(self):
+        self.write_pane("home", self.manifest("ambient"))
+        path = os.path.join(self.p["panes"], "home", "pane.html")
+        old = time.time() - 60
+        os.utime(path, (old, old))
+        first = bus.page_rev(path)
+        self.assertIn(path, bus._REV_CACHE)
+        self.assertEqual(bus.page_rev(path), first)
 
     def test_a_renewal_rewrites_expires_at_without_a_decision_line(self):
         self.write_pane("home", self.manifest("ambient"))

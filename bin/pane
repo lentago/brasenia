@@ -238,6 +238,9 @@ def describe_pane(pane_dir, now):
         origin = data.get("origin", "fleet")
         if origin not in ORIGINS:
             raise ValueError("bad origin")
+        source = data.get("source", {"url": ""})
+        if not (isinstance(source, dict) and isinstance(source.get("url"), str)):
+            raise ValueError("bad source")   # the compositor's full rules: rubric.parse_source
         expires = created + timedelta(minutes=ttl)
     except (Refused, KeyError, ValueError, OverflowError):
         return blank + ("malformed",)

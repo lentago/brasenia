@@ -246,7 +246,7 @@ Writers use write-then-rename for every file (`x.partial` → `x`) and write `ma
 - `origin` is `operator` or `fleet` (default `fleet`); it is the tie-break within a class.
 - `repo` (`owner/name`), `dwell_s` and `done_when` are optional. v1 ignores `done_when`.
 - `source` is optional and makes the pane a **link pane** ([ADR-0016](adr/0016-panes-carry-a-revision-and-may-link-a-web-page.md)): the screen shows a web page instead of `pane.html`. It is `{"url": "https://…", "theme": "dark", "screens": 1, "viewport": [1280, 720], "refresh_s": 60}`.
-  - `url` (http or https) is required; the other fields have the defaults shown.
+  - `url` (http or https, with no user or password in it: the pointer is readable on the LAN) is required; the other fields have the defaults shown.
   - `theme` is `dark` or `light`; `screens` is 1–4 bands of the page to show; `viewport` is the CSS size to lay the page out at (240–3840 each); `refresh_s` (at least 10) is how often to render it again.
   - Other keys are ignored. The compositor shows link panes only with `--link-panes`, which stays off until the renderer has its allowed-sites list and Chromium's sandbox ([kalmia#194](https://github.com/lentago/kalmia/issues/194)).
 - A pane is live when both files exist (a link pane needs only `manifest.json`), neither is a `.partial`, the manifest parses, and `created + ttl_minutes` is in the future.

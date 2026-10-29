@@ -8,6 +8,7 @@ implements are in ``docs/concept.md`` ("Rubric v1" and "Contracts v1").
 
 import hashlib
 import json
+import math
 import re
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
@@ -71,6 +72,12 @@ def _positive_number(value):
             and value > 0)
 
 
+def _finite_positive(value):
+    """A positive number that survives JSON: 1e309 parses as infinity, which
+    would reach current.json as the non-JSON token Infinity."""
+    return _positive_number(value) and math.isfinite(value)
+
+
 def _whole(value, low, high):
     return (isinstance(value, int) and not isinstance(value, bool)
             and low <= value <= high)
@@ -95,6 +102,9 @@ def parse_source(source):
         raise Malformed("source.url is not a URL")
     if parts.scheme not in ("http", "https") or not host:
         raise Malformed("source.url is not an http(s) URL")
+    if parts.username is not None or parts.password is not None:
+        # The pointer and the line-up are readable by anyone on the LAN.
+        raise Malformed("source.url carries credentials")
     out = dict(SOURCE_DEFAULTS, url=url)
     for key in SOURCE_DEFAULTS:
         if key in source:
@@ -109,7 +119,7 @@ def parse_source(source):
         raise Malformed("source.viewport is not [width, height] in CSS pixels "
                         "(%d-%d)" % VIEWPORT_RANGE)
     out["viewport"] = list(viewport)
-    if not _positive_number(out["refresh_s"]) or out["refresh_s"] < MIN_REFRESH_S:
+    if not _finite_positive(out["refresh_s"]) or out["refresh_s"] < MIN_REFRESH_S:
         raise Malformed("source.refresh_s is not a number of seconds >= %d"
                         % MIN_REFRESH_S)
     return out
@@ -174,7 +184,7 @@ def parse_manifest(pane_id, data, priority=None, default_dwell=None):
     if origin not in ORIGINS:
         raise Malformed("unknown origin %r" % (origin,))
     dwell = data.get("dwell_s", default_dwell)
-    if not _positive_number(dwell):
+    if not _finite_positive(dwell):
         raise Malformed("dwell_s is not a positive number")
     source = parse_source(data["source"]) if "source" in data else None
     return {

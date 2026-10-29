@@ -510,12 +510,20 @@ class LinkPanes(unittest.TestCase):
             ({"url": self.URL, "viewport": [100, 720]}, "source.viewport"),
             ({"url": self.URL, "viewport": [1280]}, "source.viewport"),
             ({"url": self.URL, "refresh_s": 5}, "source.refresh_s"),
+            ({"url": self.URL, "refresh_s": float("inf")}, "source.refresh_s"),
+            ({"url": "https://ann:hunter2@x.test/"}, "carries credentials"),
+            ({"url": "https://ann@x.test/"}, "carries credentials"),
         ]
         for source, reason in bad:
             with self.subTest(source=source):
                 pointer, state = run([self.link(source=source)], link_panes=True)
                 self.assertEqual(pointer["fallback"], "briefing")
                 self.assertIn(reason, state["skipped"]["pr-93"])
+
+    def test_an_infinite_dwell_is_malformed(self):
+        pointer, state = run([pane("a", dwell=float("inf")), pane("b")])
+        self.assertIn("dwell_s", state["skipped"]["a"])
+        self.assertEqual(pointer["pane"], "b")
 
     def test_an_old_style_pane_is_unchanged(self):
         pointer, _ = run([pane("focus-x")], link_panes=True)

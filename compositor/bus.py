@@ -11,6 +11,7 @@ import hashlib
 import html
 import json
 import os
+import time
 from datetime import datetime, timezone
 
 from . import board, configure, rubric, settings
@@ -18,9 +19,14 @@ from . import board, configure, rubric, settings
 STATE_FILE = "compositor.json"
 BOARD_MAX_AGE_S = 60   # rewrite an unchanged board this often, so its clock stays honest
 
-# path -> (mtime_ns, size, rev): a page is re-read only when it was rewritten,
-# not on every tick over the share.
+# path -> (identity, rev): a page is re-read only when it was rewritten, not
+# on every tick over the share. identity is (inode, mtime, ctime, size), and
+# writers replace pages by rename, so a rewrite almost always changes it. The
+# exception is a rewrite inside the file-time granularity of the one hashed, so
+# (as git does for its index) a hash taken within REV_RACY_S of the file's
+# mtime is not trusted and the page is hashed again on the next tick.
 _REV_CACHE = {}
+REV_RACY_S = 2
 
 
 def paths(webroot):
@@ -75,15 +81,19 @@ def page_rev(path):
     except OSError:
         _REV_CACHE.pop(path, None)
         return None
+    identity = (st.st_ino, st.st_mtime_ns, st.st_ctime_ns, st.st_size)
     cached = _REV_CACHE.get(path)
-    if cached and cached[:2] == (st.st_mtime_ns, st.st_size):
-        return cached[2]
+    if cached and cached[0] == identity:
+        return cached[1]
     try:
         with open(path, "rb") as f:
             rev = hashlib.sha256(f.read()).hexdigest()[:12]
     except OSError:
         return None
-    _REV_CACHE[path] = (st.st_mtime_ns, st.st_size, rev)
+    if time.time() - st.st_mtime_ns / 1e9 >= REV_RACY_S:
+        _REV_CACHE[path] = (identity, rev)
+    else:
+        _REV_CACHE.pop(path, None)
     return rev
 
 
