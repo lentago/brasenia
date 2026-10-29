@@ -415,7 +415,14 @@ def whole(n):
 
 def main(argv=None, now=None):
     parser = build_parser()
-    args = parser.parse_args(argv)
+    # Python before 3.12 leaves an optional positional (the page) that follows
+    # options unmatched; take it from the leftovers instead.
+    args, extra = parser.parse_known_args(argv)
+    if extra and args.command == "claim" and args.page is None and len(extra) == 1 \
+            and (extra[0] == "-" or not extra[0].startswith("-")):
+        args.page, extra = extra[0], []
+    if extra:
+        parser.error("unrecognized arguments: %s" % " ".join(extra))
     now = now or utc_now()
     if args.command == "claim":   # usage errors (exit 2), before anything is read
         link_opts = (args.theme, args.screens, args.viewport, args.refresh)
