@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="SignalTask" extends="Task">
+  <interface>
+    <field id="url" type="string" />
+    <field id="body" type="string" />
+    <field id="status" type="integer" value="0" />
+  </interface>
+  <script type="text/brightscript">
+    <![CDATA[
+    sub init()
+        m.top.functionName = "send"
+    end sub
+
+    ' POST one JSON signal (the remote's default resting pane) to pub's
+    ' pub-signals endpoint, then report the HTTP status (-1: no answer in 5 s).
+    sub send()
+        port = CreateObject("roMessagePort")
+        http = CreateObject("roUrlTransfer")
+        http.SetMessagePort(port)
+        http.SetUrl(m.top.url)
+        http.AddHeader("Content-Type", "application/json")
+        code = -1
+        if http.AsyncPostFromString(m.top.body)
+            msg = wait(5000, port)
+            if type(msg) = "roUrlEvent"
+                code = msg.GetResponseCode()
+            else
+                http.AsyncCancel()
+            end if
+        end if
+        m.top.status = code
+    end sub
+    ]]>
+  </script>
+</component>

@@ -78,7 +78,8 @@ Three nouns:
       │    4. ffmpeg (image2pipe → HEVC 5 fps + AAC) → HLS on tmpfs → :8080
       │    ▼
       │  Roku dev channel (roku-app/ in this repo — auto-retry Video node;
-      │  remote Up/Down peeks through lineup.json images, ADR-0012)
+      │  remote Up/Down peeks through lineup.json images, ADR-0012;
+      │  Left/Right sets the default resting pane, ADR-0013)
       │       → office Roku Streaming Stick Plus, 4K display
       │
       └─ (Cast adapter — ADR-0006 — retired 2026-10-28; Roku is the client

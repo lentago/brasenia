@@ -7,6 +7,11 @@
         return "http://192.168.139.19:8080"
     end function
 
+    ' pub serves the settings endpoint the remote's Left/Right writes to.
+    function pub() as String
+        return "http://pub.lan"
+    end function
+
     sub init()
         m.video = m.top.findNode("player")
         m.video.observeField("state", "onVideoState")
@@ -24,6 +29,10 @@
         m.idleTimer.observeField("fire", "closePeek")
         m.items = []
         m.index = -1
+        m.mode = ""          ' "", "peek" (Up/Down) or "default" (Left/Right)
+        m.pending = invalid  ' a default resting pane chosen but not yet saved
+        m.postTimer = m.top.findNode("postTimer")
+        m.postTimer.observeField("fire", "postDefault")
         m.lineup = m.top.findNode("lineup")
         m.lineup.observeField("content", "onLineup")
         m.lineup.url = host() + "/peek/index.json"
@@ -66,10 +75,17 @@
         else if key = "down" then
             stepPeek(1)
             return true
+        else if key = "left" then
+            chooseDefault(-1)
+            return true
+        else if key = "right" then
+            chooseDefault(1)
+            return true
         else if key = "back" then
-            ' Back closes a peek and otherwise does nothing, so a stray press
-            ' can't exit the channel and leave the screen on the Roku home
-            ' screen. (Home still leaves; Roku apps can't catch it.)
+            ' Back closes a peek (dropping a default not yet saved) and
+            ' otherwise does nothing, so a stray press can't exit the channel
+            ' and leave the screen on the Roku home screen. (Home still leaves;
+            ' Roku apps can't catch it.)
             closePeek()
             return true
         end if
@@ -86,10 +102,13 @@
         m.items = doc.items
         if current = invalid then return
         m.index = findItem(current)
+        ' A refresh is not a press: the idle countdown carries on.
         if m.index < 0 then
             closePeek()
+        else if m.mode = "default" then
+            showImage(m.items[m.index])
         else
-            showItem()   ' a refresh is not a press: the idle countdown carries on
+            showItem()
         end if
     end sub
 
@@ -120,15 +139,86 @@
         m.index = m.index + delta
         if m.index < 0 then m.index = n - 1
         if m.index >= n then m.index = 0
+        m.mode = "peek"
         showItem()
         restartIdle()
     end sub
 
-    sub showItem()
+    ' Left/Right on the main view picks the household's default resting pane
+    ' (#83, ADR-0013): it cycles the line-up's ambient items, starting from
+    ' the one on screen (or, while something urgent is up, the first, which
+    ' is the current default). The choice is saved to the rubric's settings
+    ' a moment after the last press; urgent panes still take over.
+    sub chooseDefault(delta as Integer)
+        resting = []
+        for i = 0 to m.items.Count() - 1
+            if m.items[i]["class"] = "ambient" then resting.Push(i)
+        end for
+        n = resting.Count()
+        if n = 0 then
+            m.peek.visible = false
+            showCaption("No resting panes to choose from yet")
+            restartIdle()
+            return
+        end if
+        if m.mode <> "default" then
+            m.choice = 0
+            for k = 0 to n - 1
+                item = m.items[resting[k]]
+                if item.showing <> invalid and item.showing = true then m.choice = k
+            end for
+            if n > 1 then m.choice = m.choice + delta   ' the first press moves off the current one
+        else
+            m.choice = m.choice + delta
+        end if
+        if m.choice < 0 then m.choice = n - 1
+        if m.choice >= n then m.choice = 0
+        m.mode = "default"
+        m.index = resting[m.choice]
         item = m.items[m.index]
+        showImage(item)
+        position = m.choice + 1
+        m.choiceText = "Left/Right   Default: " + item.title + "   " + position.ToStr() + " of " + n.ToStr()
+        if n = 1 then
+            showCaption(m.choiceText + "  ·  the only resting pane          Back: live view")
+        else
+            m.pending = item.id
+            showCaption(m.choiceText + "  ·  saving…          Back: cancel")
+            m.postTimer.control = "start"
+        end if
+        restartIdle()
+    end sub
+
+    ' The pause after the last Left/Right is over: save the choice.
+    sub postDefault()
+        if m.pending = invalid then return
+        m.signal = CreateObject("roSGNode", "SignalTask")
+        m.signal.observeField("status", "onSaved")
+        m.signal.url = pub() + "/api/signals/rubric"
+        m.signal.body = FormatJson({id: "default.pane", action: "set", label: m.pending})
+        m.pending = invalid
+        m.signal.control = "run"
+    end sub
+
+    sub onSaved()
+        if m.mode <> "default" then return
+        code = m.signal.status
+        if code = 200 then
+            showCaption(m.choiceText + "  ·  saved, the screen follows shortly          Back: live view")
+        else
+            showCaption(m.choiceText + "  ·  not saved (" + code.ToStr() + ")          Back: live view")
+        end if
+    end sub
+
+    sub showImage(item as Object)
         uri = host() + item.image
         if m.peek.uri <> uri then m.peek.uri = uri
         m.peek.visible = true
+    end sub
+
+    sub showItem()
+        item = m.items[m.index]
+        showImage(item)
         position = m.index + 1
         text = "Up/Down   " + position.ToStr() + " of " + m.items.Count().ToStr() + "  ·  " + item.title
         if item.showing <> invalid and item.showing = true then text = text + "  ·  on screen now"
@@ -148,6 +238,9 @@
 
     sub closePeek()
         m.idleTimer.control = "stop"
+        m.postTimer.control = "stop"
+        m.pending = invalid
+        m.mode = ""
         m.peek.visible = false
         m.bar.visible = false
         m.index = -1
@@ -162,6 +255,7 @@
     </Rectangle>
     <Timer id="retryTimer" duration="3" repeat="false" />
     <Timer id="idleTimer" duration="60" repeat="false" />
+    <Timer id="postTimer" duration="1.5" repeat="false" />
     <LineupTask id="lineup" />
   </children>
 </component>

@@ -29,6 +29,7 @@ change goes.
 | `roku-app/manifest` | Channel identity; bump `build_version` on every sideload-worthy change |
 | `roku-app/components/VideoScene.xml` | The player scene — holds the auto-retry logic, the LXC 118 host (stream and peek), and the remote's peek (Up/Down, Back) |
 | `roku-app/components/LineupTask.xml` | Task that polls LXC 118's `/peek/index.json` for the remote's peek (no network I/O on the render thread) |
+| `roku-app/components/SignalTask.xml` | Task that POSTs the remote's default resting pane to pub's `/api/signals/rubric` |
 | `roku-app/source/main.brs` | Boilerplate SceneGraph entry point |
 | `compositor/` | Phase 2 compositor (stdlib Python 3.11+): `rubric.decide()` is the pure ranking function, `bus.py` the filesystem half; runs on pub, unit runtime in kalmia |
 | `bin/pane` | Claim/renew/release/ls a pane on the viewport bus (stdlib Python 3.11+); governance text in `docs/claiming-the-display.md` |
@@ -60,9 +61,12 @@ change goes.
 - **Never remove the retry handler** in `VideoScene.xml`. A bare `Video` node
   lands in `state=error` on any publisher restart and stays there forever;
   the observer + 3 s Timer retry is what makes the display unattended-safe.
-- **The remote peeks; it never decides** ([ADR-0012](docs/adr/0012-the-remote-peeks-it-never-decides.md)).
-  Up/Down overlays pre-rendered pane images; nothing the app does may change
-  the stream or the compositor's decision. The scene, not the Video node,
+- **The remote peeks, and sets only the default resting pane**
+  ([ADR-0012](docs/adr/0012-the-remote-peeks-it-never-decides.md),
+  [ADR-0013](docs/adr/0013-the-remote-sets-the-default-resting-pane.md)).
+  Up/Down overlays pre-rendered pane images and changes nothing; Left/Right
+  writes one rubric setting, `default.pane`, among the `ambient` panes, through
+  pub-signals. Nothing in the app may pin a pane over the urgent classes. The scene, not the Video node,
   holds focus (a focused Video does trick play on a live stream), and Back is
   caught (closes a peek, never exits the channel). A Timer restarts with
   `control = "start"` alone; "stop" then "start" in one callback left it
