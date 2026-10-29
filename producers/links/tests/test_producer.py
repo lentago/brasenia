@@ -85,6 +85,31 @@ class Cycle(unittest.TestCase):
         self.assertEqual(self.manifest("fleet"), {"author": "fleet-producer@pub"})
         self.assertEqual(len([l for l in logs.output if "belongs to ann@a" in l]), 1)
 
+    def test_a_slot_takes_its_pane_once_the_other_author_lets_go(self):
+        self.foreign("prs")
+        self.settings({"prs": {"title": "Open PRs", "source": SOURCE}})
+        self.p.cycle()
+        shutil.rmtree(os.path.join(self.viewport, "panes", "prs"))
+        self.p.cycle()
+        self.assertEqual(self.manifest("prs")["author"], "links-producer@pub")
+
+    def test_a_write_cut_off_before_the_rename_does_not_wedge_the_slot(self):
+        d = os.path.join(self.viewport, "panes", "prs")
+        os.makedirs(d)
+        with open(os.path.join(d, "manifest.json.partial"), "w") as f:
+            json.dump({"author": "links-producer@pub"}, f)
+        self.settings({"prs": {"title": "Open PRs", "source": SOURCE}})
+        self.p.cycle()
+        self.assertEqual(self.manifest("prs")["title"], "Open PRs")
+        self.settings({})
+        self.p.cycle()
+        self.assertIsNone(self.pane("prs"))
+
+    def test_a_bad_pane_id_is_never_a_path(self):
+        self.settings({"../escape": {"title": "x", "source": SOURCE}, "Bad": {"title": "x", "source": SOURCE}})
+        self.p.cycle()
+        self.assertEqual(os.listdir(os.path.join(self.viewport, "panes")), [])
+
     def test_unreadable_settings_change_nothing(self):
         self.settings({"prs": {"title": "Open PRs", "source": SOURCE}})
         self.p.cycle()

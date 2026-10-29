@@ -299,9 +299,13 @@ def _settings(view, now, tz, url_base):
         rows.append('<tr class="%s"><td>%s</td><td>%s</td><td>%s</td></tr>'
                     % ("overridden" if key in overrides else "", e(label), e(show(key, eff[key])),
                        e(show(key, defaults[key]))))
-    out = ['<p class="muted">%s <a href="%s/viewport/configure.html">Change them</a>.</p>'
-           % ("%d override%s in force." % (len(overrides), "" if len(overrides) == 1 else "s")
-              if overrides else "Every setting is at its default.", e(url_base)),
+    fixed = [k for k in overrides if k in settings.SPEC]   # standing slots are not overrides
+    slots = len(settings.links(eff))
+    out = ['<p class="muted">%s%s <a href="%s/viewport/configure.html">Change them</a>.</p>'
+           % ("%d override%s in force." % (len(fixed), "" if len(fixed) == 1 else "s")
+              if fixed else "Every setting is at its default.",
+              " %d standing slot%s." % (slots, "" if slots == 1 else "s") if slots else "",
+              e(url_base)),
            '<div class="scroll"><table><thead><tr><th>setting</th><th>now</th><th>default</th>'
            '</tr></thead><tbody>%s</tbody></table></div>' % "".join(rows)]
     if view["history"]:

@@ -1,5 +1,8 @@
 # links producer (standing slots → link panes)
 
+*Written with Claude Code (Anthropic), like the rest of this repository: see
+the [README](../../README.md).*
+
 **What you're about to do:** run a small stdlib-only Python process (3.11+)
 that reads the household's standing slots from `viewport/rubric.json` and
 keeps one link pane on the viewport bus for each, at

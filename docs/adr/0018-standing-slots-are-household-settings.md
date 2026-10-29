@@ -51,9 +51,23 @@ settings.
 - **The producer needs its own unit on pub**, which comes from kalmia, like
   the other producers.
 - **Anyone on the LAN can add a slot**, the same trust as the rest of the
-  configurator. What a slot can show is bounded by the renderer's
-  allowed-sites list and Chromium's sandbox on LXC 118 (lentago/kalmia#194),
-  not by the configurator.
+  configurator. Adding one only writes a setting and, through the producer, a
+  manifest. What reaches the screen is decided by three later gates, each
+  independent of the others:
+  1. **The compositor** points at link panes only with `--link-panes`.
+     Without it they wait on the board as `off`.
+  2. **The renderer on LXC 118** renders a site other than pub.lan only while
+     Chromium runs sandboxed and the host is in `lunaria_allowed_sites`
+     (lentago/kalmia#201, #205). A refused page is shown as a notice.
+  3. **The URL itself** must carry no credentials. The compositor refuses a
+     user or password, and query or fragment parameters that usually carry a
+     secret (`token`, `signature`, `key`, …), because the slot's URL is
+     published in files anyone on the LAN can read. That is a heuristic, so a
+     slot's URL must be token-free by rule.
+
+  The producer does not check the compositor's flag. Writing a manifest is
+  harmless, and keeping the producer ignorant of the flag keeps the two
+  independent.
 
 ## Alternatives considered
 

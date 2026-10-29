@@ -164,7 +164,8 @@ Leave a field empty, or put its default back, to drop the override.</p></header>
 <form id="form">
 %(fields)s
 <div class="buttons"><button type="submit">Save</button>
-<button type="button" id="reset" class="secondary">Reset everything to defaults</button></div>
+<button type="button" id="reset" class="secondary">Reset every setting to its default</button></div>
+<p class="muted">Resetting leaves the standing slots below; remove those one by one.</p>
 </form>
 <div id="status" class="muted"></div>
 %(slots)s

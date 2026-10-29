@@ -513,6 +513,8 @@ class LinkPanes(unittest.TestCase):
             ({"url": self.URL, "refresh_s": float("inf")}, "source.refresh_s"),
             ({"url": "https://ann:hunter2@x.test/"}, "carries credentials"),
             ({"url": "https://ann@x.test/"}, "carries credentials"),
+            ({"url": "https://x.test/d?token=abc"}, "carries a secret (token)"),
+            ({"url": "https://x.test/cb#access_token=abc"}, "carries a secret (access_token)"),
         ]
         for source, reason in bad:
             with self.subTest(source=source):
