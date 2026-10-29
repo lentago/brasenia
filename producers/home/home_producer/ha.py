@@ -4,10 +4,18 @@ The token is sent as a bearer header and never logged or rendered. Home
 Assistant has no read-only role, so the producer keeps to two read calls:
 ``GET /api/states`` and ``weather.get_forecasts``, a service that only
 answers (``?return_response``) and changes nothing.
+
+Requests to an ``http://`` URL go over IPv4 when the host has an IPv4
+address (#88). A Home Assistant user marked "Can only log in from the local
+network" gets HTTP 401 over a global IPv6 address, which Home Assistant
+doesn't count as local, and a dual-stack LAN name resolves to one first.
 """
 
+import ipaddress
 import json
+import socket
 import urllib.error
+import urllib.parse
 import urllib.request
 
 TIMEOUT_S = 15
@@ -17,8 +25,36 @@ class HAError(Exception):
     """Any Home Assistant failure: network, HTTP status, or an unexpected body."""
 
 
+def prefer_ipv4(url, resolve=socket.getaddrinfo):
+    """``(url, host)``: an ``http://`` URL with its host swapped for its IPv4 address.
+
+    ``host`` is the original ``Host`` header value, or None when the URL is
+    unchanged: an IP literal, ``https`` (the certificate names the host), or
+    a host with no IPv4 address.
+    """
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme != "http" or not parts.hostname:
+        return url, None
+    try:
+        ipaddress.ip_address(parts.hostname)
+        return url, None
+    except ValueError:
+        pass
+    try:
+        found = resolve(parts.hostname, parts.port or 80, socket.AF_INET, socket.SOCK_STREAM)
+    except OSError:
+        return url, None
+    if not found:
+        return url, None
+    netloc = found[0][4][0] + (":%d" % parts.port if parts.port else "")
+    return urllib.parse.urlunsplit(parts._replace(netloc=netloc)), parts.netloc
+
+
 def urllib_transport(method, url, headers, body=None, timeout=TIMEOUT_S):
     """Send one request; return ``(status, body bytes)``. Raises OSError on network failure."""
+    url, host = prefer_ipv4(url)
+    if host:
+        headers = dict(headers, Host=host)
     req = urllib.request.Request(url, data=body, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
