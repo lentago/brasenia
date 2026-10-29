@@ -33,6 +33,10 @@ change goes.
   issue owns the runtime rename per the fleet rename discipline.)
 - **Bump `build_version`** in `roku-app/manifest` on every sideload-worthy
   change.
+- **The home-screen poster is generated, not drawn here.**
+  `roku-app/images/roku-poster-{fhd,hd}.png` come from `lentago/.github`
+  `brand/` (`"roku": true` in `fleet.json`, rasterized by `render.sh`). Change
+  them there and copy them in, the same way as `assets/banner.svg`.
 - **Deploying the Roku app** needs `ROKU_IP` and `ROKU_DEV_PASS` in the
   environment. Never commit either; never bake them into the script. The
   office Roku is `192.168.139.21`; Chris keeps its dev password in
