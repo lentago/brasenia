@@ -34,6 +34,9 @@ from .render import _colours, _people, _text
 
 FLAGS = {"gap": "coverage gap", "crunch": "crunch day"}
 INK, MUTED, AMBER, FAINT = "#202124", "#5f6368", "#b06000", "#80868b"
+# Google Docs' import drops the browser's default paragraph spacing but keeps
+# inline margins, so every paragraph says how much room it wants.
+ITEM, LEAD, TITLE, TIGHT = "0 0 6pt 0", "0 0 8pt 0", "12pt 0 2pt 0", "0 0 2pt 0"
 
 
 def render_doc(doc, tz):
@@ -51,12 +54,12 @@ def render_doc(doc, tz):
     lead = " · ".join(x for x in (_text(doc.get("edition")) or _generated(doc, tz),
                                   _text(doc.get("status_line"))) if x)
     if lead:
-        parts.append(_p(lead, MUTED))
+        parts.append(_p(lead, MUTED, LEAD))
 
     parts.append('<h2>%s</h2>' % e(_heading(day, flags)))
     coverage = _text(today.get("coverage"))
     if coverage:
-        parts.append('<p><b style="color:%s">Coverage:</b> %s</p>' % (AMBER, e(coverage)))
+        parts.append('<p style="margin: %s"><b style="color:%s">Coverage:</b> %s</p>' % (LEAD, AMBER, e(coverage)))
     parts.append(_items(_dicts(today.get("items")), colours))
 
     decisions = _dicts(doc.get("decisions"))
@@ -64,12 +67,12 @@ def render_doc(doc, tz):
         parts.append('<h2>Needs a decision</h2>')
         for d in decisions:
             when = _dates(d.get("dates"))
-            parts.append('<p><b>%s</b>%s</p>' % (e(_text(d.get("title"))),
-                                                 _span(" · " + when, MUTED) if when else ""))
+            parts.append('<p style="margin: %s"><b>%s</b>%s</p>' % (
+                TITLE, e(_text(d.get("title"))), _span(" · " + when, MUTED) if when else ""))
             if _text(d.get("detail")):
-                parts.append('<p>%s</p>' % e(_text(d["detail"])))
+                parts.append('<p style="margin: %s">%s</p>' % (TIGHT, e(_text(d["detail"]))))
             if _text(d.get("source")):
-                parts.append(_p("Source: " + _text(d["source"]), FAINT))
+                parts.append(_p("Source: " + _text(d["source"]), FAINT, TIGHT))
 
     todos = _dicts(doc.get("todos"))
     if todos:
@@ -104,7 +107,7 @@ def render_doc(doc, tz):
         parts.append('<h2>FYI</h2><ul>%s</ul>' % "".join('<li>%s</li>' % e(f) for f in fyi))
 
     footer = " ".join(x for x in (_text(doc.get("footer")), _generated(doc, tz)) if x)
-    parts.append(_p(footer, FAINT))
+    parts.append(_p(footer, FAINT, TITLE))
     return ('<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
             '<title>Family Brief</title></head>\n<body style="font-family: Arial, sans-serif; color: %s">\n%s\n'
             '</body></html>\n' % (INK, "\n".join(parts)))
@@ -113,7 +116,7 @@ def render_doc(doc, tz):
 def _items(items, colours):
     """One paragraph per item: the time in bold, who in their colour, what, where, what to bring."""
     if not items:
-        return _p("Nothing on the calendar.", FAINT)
+        return _p("Nothing on the calendar.", FAINT, ITEM)
     e = html.escape
     out = []
     for item in items:
@@ -125,8 +128,9 @@ def _items(items, colours):
             rest += ' <b style="color:%s">(unconfirmed)</b>' % AMBER
         if _text(item.get("bring")):
             rest += _span(" · Bring: " + _text(item["bring"]), MUTED)
-        style = ' style="text-decoration: line-through"' if item.get("cancelled") is True else ""
-        out.append('<p%s><b>%s</b> · %s%s</p>' % (style, e(time), _who(item, colours), rest))
+        strike = "; text-decoration: line-through" if item.get("cancelled") is True else ""
+        out.append('<p style="margin: %s%s"><b>%s</b> · %s%s</p>' % (ITEM, strike, e(time),
+                                                                     _who(item, colours), rest))
     return "\n".join(out)
 
 
@@ -165,8 +169,8 @@ def _darken(colour, factor=0.62):
     return "#%02x%02x%02x" % (int(r * factor), int(g * factor), int(b * factor))
 
 
-def _p(text, colour):
-    return '<p style="color:%s">%s</p>' % (colour, html.escape(text))
+def _p(text, colour, margin):
+    return '<p style="margin: %s; color:%s">%s</p>' % (margin, colour, html.escape(text))
 
 
 def _span(text, colour):
