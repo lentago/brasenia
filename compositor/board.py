@@ -175,8 +175,10 @@ def _ladder(pointer, rows, brief, now, tz, view):
     prio_map = settings.priorities(view["effective"])
     for cls in sorted(settings.CLASSES, key=lambda c: (-prio_map[c], c)):
         prio = prio_map[cls]
-        chips = "".join('<span class="chip %s">%s</span>' % (r["status"], e(r["id"]))
-                        for r in live if r["class"] == cls)
+        default = view["effective"].get("default.pane")
+        chips = "".join('<span class="chip %s">%s%s</span>' % (
+            r["status"], e(r["id"]), " · default" if r["id"] == default and cls == "ambient" else "")
+            for r in live if r["class"] == cls)
         active = " active" if pointer.get("class") == cls and not pointer.get("fallback") else ""
         was = ('<span class="ovr">default %d</span>' % rubric.PRIORITY[cls]
                if "priority." + cls in view["overrides"] else "")
@@ -285,12 +287,15 @@ def _settings(view, now, tz, url_base):
     e = html.escape
     eff, overrides = view["effective"], view["overrides"]
     defaults = settings.defaults()
-    show = lambda v: "no limit" if v is None else str(v)
+    def show(key, v):
+        if v is None:
+            return "none (they take turns)" if key == "default.pane" else "no limit"
+        return str(v)
     rows = []
     for key, (_, _, label, _) in settings.SPEC.items():
         rows.append('<tr class="%s"><td>%s</td><td>%s</td><td>%s</td></tr>'
-                    % ("overridden" if key in overrides else "", e(label), e(show(eff[key])),
-                       e(show(defaults[key]))))
+                    % ("overridden" if key in overrides else "", e(label), e(show(key, eff[key])),
+                       e(show(key, defaults[key]))))
     out = ['<p class="muted">%s <a href="%s/viewport/configure.html">Change them</a>.</p>'
            % ("%d override%s in force." % (len(overrides), "" if len(overrides) == 1 else "s")
               if overrides else "Every setting is at its default.", e(url_base)),

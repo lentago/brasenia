@@ -168,9 +168,11 @@ def tick(webroot, url_base, state, now, log=print, tz=None):
     priority, dwell = settings.priorities(eff), eff["rotation.dwell_s"]
     brief = _brief(p["briefing"], p["briefing_manifest"])
     brief_ok, brief_why = settings.brief_usable(brief, eff, now)
+    default_pane = eff["default.pane"]
     pointer, new_state = rubric.decide(
         entries, now, state, brief_present=brief_ok, url_base=url_base,
-        priority=priority, default_dwell=dwell, briefing_title=brief["title"])
+        priority=priority, default_dwell=dwell, briefing_title=brief["title"],
+        default_pane=default_pane)
 
     old_skipped = state.get("skipped") or {}
     for pane_id, reason in sorted(new_state["skipped"].items()):
@@ -190,20 +192,22 @@ def tick(webroot, url_base, state, now, log=print, tz=None):
     if new_state != state:
         save_state(p["state"], new_state)
     write_settings(p["settings"], settings.document(eff, overrides, history), log)
-    page, key = configure.render(eff, overrides, url_base)
+    rows = rubric.explain(entries, now, pointer, priority, dwell, default_pane)
+    resting = [(r["id"], r["title"]) for r in rows
+               if r.get("class") == "ambient" and r["status"] in ("showing", "rotating", "outranked")]
+    page, key = configure.render(eff, overrides, url_base, resting)
     _write_if_changed(p["configure"], page, key, configure.key_of)
     view = {"effective": eff, "overrides": overrides, "history": history,
             "brief_ok": brief_ok, "brief_why": brief_why}
-    rows = rubric.explain(entries, now, pointer, priority, dwell)
     write_board(p["board"], pointer, rows, brief, now, url_base, tz, view)
-    _write_json_if_changed(p["lineup"], lineup(pointer, rows, brief, url_base))
+    _write_json_if_changed(p["lineup"], lineup(pointer, rows, brief, url_base, default_pane))
     return new_state
 
 
 BRIEFING_ID = "_briefing"   # not a valid pane id, so it can never collide with one
 
 
-def lineup(pointer, rows, brief, url_base):
+def lineup(pointer, rows, brief, url_base, default_pane=None):
     """The body of ``viewport/lineup.json``: what a client may step through
     (the Roku remote's peek, ADR-0012). Live panes in rubric order, the one on
     screen marked, then the briefing slot when it exists and no live pane
@@ -212,12 +216,13 @@ def lineup(pointer, rows, brief, url_base):
     base = url_base.rstrip("/")
     items = [{"id": r["id"], "title": r["title"], "class": r["class"],
               "priority": r["priority"], "showing": r["status"] == "showing",
+              "default": r["id"] == default_pane and r["class"] == "ambient",
               "url": "%s/viewport/panes/%s/pane.html" % (base, r["id"])}
              for r in rows if r["status"] in ("showing", "rotating", "outranked")]
     if brief["present"] and brief.get("pane") not in {i["id"] for i in items}:
         items.append({"id": BRIEFING_ID, "title": brief["title"], "class": "briefing",
                       "priority": rubric.PRIORITY["briefing"],
-                      "showing": pointer.get("fallback") == "briefing",
+                      "showing": pointer.get("fallback") == "briefing", "default": False,
                       "url": base + rubric.BRIEFING_PATH})
     return {"schema": 1, "decided_at": pointer["decided_at"], "items": items}
 

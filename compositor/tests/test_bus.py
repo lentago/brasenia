@@ -268,5 +268,25 @@ class Bus(unittest.TestCase):
         self.assertEqual(self.lineup()["items"], [])
 
 
+    def test_a_default_resting_pane_set_from_the_remote(self):
+        self.write_pane("family-today", self.manifest("ambient", title="Today", dwell_s=60))
+        self.write_pane("family-week", self.manifest("ambient", title="Week", dwell_s=60,
+                                                     created=rubric.iso(T0 - timedelta(minutes=1))))
+        state = self.tick({})
+        self.assertEqual(self.current()["rotation"]["of"], 2)
+        self.signal({"ts": rubric.iso(T0), "id": "default.pane", "action": "set",
+                     "label": "family-week", "client": "192.168.139.21"})
+        state = self.tick(state, 5)
+        self.assertEqual((self.current()["pane"], self.current()["rotation"]), ("family-week", None))
+        self.assertEqual([(i["id"], i["default"]) for i in self.lineup()["items"]],
+                         [("family-week", True), ("family-today", False)])
+        with open(self.p["board"], encoding="utf-8") as f:
+            board_page = f.read()
+        self.assertIn('<span class="chip showing">family-week · default</span>', board_page)
+        self.assertIn("Default resting pane set to family-week · from 192.168.139.21", board_page)
+        with open(self.p["configure"], encoding="utf-8") as f:
+            self.assertIn('<option value="family-week" selected>Week</option>', f.read())
+
+
 if __name__ == "__main__":
     unittest.main()
