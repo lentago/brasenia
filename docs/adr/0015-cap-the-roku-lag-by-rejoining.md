@@ -1,6 +1,6 @@
 # ADR-0015: Cap the Roku's lag by rejoining the stream
 
-**Status:** Accepted (2026-10-29; #95, lentago/kalmia#193). Amends
+**Status:** Accepted (2026-10-29; #95, #100, lentago/kalmia#197). Amends
 [ADR-0009](0009-office-roku-4k-hevc-over-ffmpeg-hls.md): the playlist is 3
 segments long, not 7.
 
@@ -11,10 +11,13 @@ encoder. Three samples 20 s apart found the same lag each time. That is more
 than the rest of the pipeline put together: the compositor and the shooter
 take 5–9 s from a decision to a new frame. The samples compared the segment
 the Roku reported playing (ECP `query/media-player`) with the newest segment
-in `index.m3u8`.
+in `index.m3u8`. The samples are recorded in
+[#95](https://github.com/lentago/brasenia/issues/95).
 
 Tests on the device the same day, pausing the encoder (`SIGSTOP`) to mimic a
-stall, found two causes:
+stall, found two causes (results recorded in
+[#100](https://github.com/lentago/brasenia/pull/100) and
+[lentago/kalmia#197](https://github.com/lentago/kalmia/pull/197)):
 
 - **Join depth.** On the 7-segment playlist (14 s), a fresh join landed
   anywhere from 4 to 14 s behind.
@@ -27,12 +30,12 @@ Seeking back to the live edge did not work. Roku's guidance is to seek a
 live stream to 999999 and let the player clip it to the live edge with "a
 robust buffer"; Roku also asks apps to stay at least 30 s from the edge. On
 a 14 s playlist, both a seek to 999999 and a seek to `duration - 6` landed
-near the oldest segment, about 18–20 s behind, so every seek made the lag
-worse.
+near the oldest segment, about 18–20 s behind, so both tested seeks made the
+lag worse.
 
 ## Decision
 
-- **LXC 118's playlist is 3 segments (6 s) long** (kalmia#193). That is the
+- **LXC 118's playlist is 3 segments (6 s) long** (kalmia#197). That is the
   HLS minimum of three target durations. A fresh join then lands 4–6 s
   behind the newest segment.
 - **The app checks its lag every 15 s and rejoins when it drifts.** The lag
