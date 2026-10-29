@@ -25,12 +25,9 @@ change goes.
 
 - **Ownership split with kalmia.** Changes to the *running stack* (scripts,
   units, mediamtx config, container shape) belong in `kalmia`
-  (`roles/lunaria/`, `terraform/containers.tf`), which CI-applies on merge.
+  (`roles/brasenia/`, `terraform/containers.tf`), which CI-applies on merge.
   Changes to the *concept, Roku app, or future compositor design* belong here.
-  Don't fork the runtime scripts into this repo. (kalmia's role and the
-  container hostname keep the pre-rename `lunaria` name until kalmia#63
-  lands — don't "fix" stray `lunaria` strings there from this repo; that
-  issue owns the runtime rename per the fleet rename discipline.)
+  Don't fork the runtime scripts into this repo.
 - **Bump `build_version`** in `roku-app/manifest` on every sideload-worthy
   change.
 - **The home-screen poster is generated, not drawn here.**
@@ -45,7 +42,7 @@ change goes.
   Roku must be in dev mode and powered on.
 - **The stream URL is baked into `VideoScene.xml`** (`host()`):
   `http://192.168.139.19:8080/master.m3u8`, the 4K HEVC stream from kalmia's
-  `lunaria-hls-serve` ([ADR-0009](docs/adr/0009-office-roku-4k-hevc-over-ffmpeg-hls.md));
+  `brasenia-hls-serve` ([ADR-0009](docs/adr/0009-office-roku-4k-hevc-over-ffmpeg-hls.md));
   the remote's peek images come from the same host's `/peek/`.
   A mediamtx URL (the RTMP `live` path) would instead need the
   `?cookieCheck=1` suffix — mediamtx ≥1.19 302-redirects without it and
@@ -83,7 +80,7 @@ change goes.
 ## When in doubt
 
 - Operational runbook (rebuild flow, service layout on LXC 118): `kalmia`
-  `docs/lunaria.md`.
+  `docs/brasenia.md`.
 - Original validation evidence (latency measurements, soak test, recovery
   transcript): `~/roku-hls-test/NOTES.md` on Chris's ThinkPad — historical
   artifact, not source of truth.

@@ -17,7 +17,8 @@ shipping `pane.html`
 ([ADR-0016](../../docs/adr/0016-panes-carry-a-revision-and-may-link-a-web-page.md)).
 
 **Time:** a minute against a temp directory. Running it for real on pub is
-kalmia's `brasenia-links.service`.
+kalmia's `brasenia-links.service`
+([lentago/kalmia#203](https://github.com/lentago/kalmia/pull/203)).
 
 ## What it does each cycle (every 30 s)
 

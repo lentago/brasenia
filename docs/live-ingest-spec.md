@@ -7,7 +7,8 @@ acceptable latency, and the display switches automatically between `live` and
 `VideoScene.xml` from `board` to `live`.
 
 **Receiving agent:** Claude Code, running on a Linux host on the same routable
-network as the viewport LXC (`lunaria`, LXC 118 on pve4) and the Roku TV.
+network as the viewport LXC (`lunaria` when this was written; `brasenia` since
+kalmia#63, LXC 118 on pve4) and the Roku TV.
 
 **Success criteria (overall):**
 
