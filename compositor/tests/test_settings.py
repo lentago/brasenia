@@ -121,5 +121,26 @@ class Configure(unittest.TestCase):
         self.assertNotEqual(a, c)
 
 
+
+class DefaultPaneSetting(unittest.TestCase):
+
+    def test_parse(self):
+        self.assertEqual(settings.parse_value("default.pane", " family-week "), "family-week")
+        for bad in ("", "Family Week", "../x", None):
+            with self.assertRaises(ValueError):
+                settings.parse_value("default.pane", bad)
+        self.assertIsNone(settings.defaults()["default.pane"])
+
+    def test_configurator_offers_the_resting_panes(self):
+        eff = settings.effective({"default.pane": "family-week"})
+        page, _ = configure.render(eff, {"default.pane": "family-week"},
+                                   resting=[("family-today", "Family: today"), ("family-week", "Family: this week")])
+        self.assertIn('<select id="default.pane" name="default.pane">', page)
+        self.assertIn('<option value="family-week" selected>Family: this week</option>', page)
+        self.assertIn('<option value="">None: the resting panes take turns</option>', page)
+        page, _ = configure.render(eff, {"default.pane": "family-week"}, resting=[("family-today", "T")])
+        self.assertIn('<option value="family-week" selected>family-week (not on the bus now)</option>', page)
+
+
 if __name__ == "__main__":
     unittest.main()

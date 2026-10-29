@@ -26,6 +26,16 @@ lands it on 3840×2160 at an effective 2x. The compositor never reads it; a
 client shows it by pinning to its URL, or by preferring it whenever the
 pointer names this pane (the office Roku does the latter).
 
+**This week:** a second resting pane, `panes/family-week/`, shows the brief's
+seven days from today, one row per day. Each row has the day, any coverage
+flag the brief raised for it (a gap or a crunch, in amber), how many
+decisions and to-dos land on it, and its items. `pane.html` is the wall's
+1280×720 cut, with each day's items on two lines; `detail.html` is the desk
+edition, with times and up to six items a day. Both family panes are
+`ambient`, so they share the resting rung, and their manifests set
+`dwell_s: 60`: with no default resting pane they take turns slowly, and the
+household can hold one from the Roku remote's Left/Right or the configurator.
+
 **The briefing slot:** each cycle that loads a brief also writes
 `viewport/briefing/{pane.html,detail.html,manifest.json}`, the compositor's
 fallback when nothing on the bus is live. Unlike the pane, the slot is written

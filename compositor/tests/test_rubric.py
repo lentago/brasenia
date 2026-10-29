@@ -356,5 +356,36 @@ class Explain(unittest.TestCase):
         self.assertEqual(ids, ["high", "low", "z-dead"])
 
 
+
+class DefaultPane(unittest.TestCase):
+
+    def test_the_default_resting_pane_wins_its_rung_and_holds(self):
+        panes = [pane("today", "ambient", dwell=60), pane("week", "ambient", dwell=60,
+                                                          created=T0 - timedelta(minutes=1))]
+        pointer, _ = run(panes)
+        self.assertEqual((pointer["pane"], pointer["rotation"]["of"]), ("today", 2))
+        pointer, state = run(panes, default_pane="week")
+        self.assertEqual(pointer["pane"], "week")
+        self.assertIsNone(pointer["rotation"])
+        rows = {r["id"]: r for r in rubric.explain(panes, T0, pointer, default_pane="week")}
+        self.assertEqual(rows["today"]["status"], "outranked")
+        self.assertIn("default resting pane", rows["today"]["reason"])
+
+    def test_urgent_panes_still_win_over_the_default(self):
+        panes = [pane("week", "ambient"), pane("pr", "focus")]
+        pointer, _ = run(panes, default_pane="week")
+        self.assertEqual(pointer["pane"], "pr")
+
+    def test_only_an_ambient_pane_can_be_the_default(self):
+        panes = [pane("a", "focus"), pane("b", "focus", created=T0 - timedelta(minutes=1))]
+        pointer, _ = run(panes, default_pane="b")
+        self.assertEqual(pointer["rotation"]["of"], 2)   # still taking turns
+
+    def test_an_absent_default_changes_nothing(self):
+        panes = [pane("today", "ambient")]
+        pointer, _ = run(panes, default_pane="gone")
+        self.assertEqual(pointer["pane"], "today")
+
+
 if __name__ == "__main__":
     unittest.main()

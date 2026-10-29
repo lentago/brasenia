@@ -36,17 +36,28 @@ SPEC["rotation.dwell_s"] = (
     5, 600, "Rotation: default seconds per pane",
     "How long each tied pane shows before the next, for panes whose manifest "
     "sets no dwell_s.")
+# Not a number: a pane id (lo/hi unused). Set from the Roku remote's
+# Left/Right as well as from configure.html (#83).
+SPEC["default.pane"] = (
+    None, None, "Default resting pane",
+    "The resting (ambient) pane shown when nothing more urgent is up. Unset, "
+    "the resting panes take turns. Left/Right on the Roku remote sets it too.")
 
 
 def defaults():
     out = {"priority." + c: rubric.PRIORITY[c] for c in CLASSES}
     out["briefing.max_age_hours"] = None
     out["rotation.dwell_s"] = rubric.DEFAULT_DWELL_S
+    out["default.pane"] = None
     return out
 
 
 def parse_value(key, text):
     """The validated value of ``text`` for ``key``; ValueError with a reason."""
+    if key == "default.pane":
+        if not isinstance(text, str) or not rubric.PANE_ID.match(text.strip()):
+            raise ValueError("not a pane id: %r" % (text,))
+        return text.strip()
     lo, hi = SPEC[key][:2]
     if not isinstance(text, str) or not text.strip().lstrip("-").isdigit():
         raise ValueError("not a whole number: %r" % (text,))

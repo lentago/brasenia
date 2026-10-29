@@ -25,13 +25,13 @@ h1 { margin: 0; font-size: 28px; color: #e0a81c; }
 h2 { margin: 28px 0 10px; font-size: 19px; color: #e8efe9; }
 .sub, .muted, .help { color: #8fa89a; }
 a { color: #9fd3b4; }
-.field { display: grid; grid-template-columns: 1fr 140px; gap: 4px 16px;
+.field { display: grid; grid-template-columns: 1fr 260px; gap: 4px 16px;
   padding: 12px 0; border-bottom: 1px solid #1f2e26; align-items: center; }
 .field label { font-weight: 600; }
 .field .help { grid-column: 1 / -1; font-size: 14px; }
 .field .default { font-size: 14px; color: #8fa89a; }
 .field.overridden label::after { content: " · overridden"; color: #e0a81c; font-weight: 500; }
-input { width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px;
+input, select { width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px;
   border: 1px solid #2c4436; background: #15211b; color: #e8efe9; font: inherit; }
 .buttons { margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap; }
 button { padding: 8px 16px; border-radius: 8px; border: 0; font: inherit; font-weight: 600;
@@ -90,14 +90,20 @@ document.getElementById("reset").addEventListener("click", () => {
 """
 
 
-def render(eff, overrides, url_base="http://pub.lan"):
-    """Return ``(html, key)``; the key changes only when the page's content does."""
+def render(eff, overrides, url_base="http://pub.lan", resting=()):
+    """Return ``(html, key)``; the key changes only when the page's content does.
+
+    ``resting`` lists the live ambient panes as ``(id, title)``, the choices
+    for the default resting pane."""
     e = html.escape
     base = url_base.rstrip("/")
     defaults = settings.defaults()
     fields = []
     for key, (lo, hi, label, help_text) in settings.SPEC.items():
         default = defaults[key]
+        if key == "default.pane":
+            fields.append(_pane_field(key, label, help_text, eff[key], key in overrides, resting))
+            continue
         fields.append(
             '<div class="field%s"><label for="%s">%s</label>'
             '<input id="%s" name="%s" type="number" min="%d" max="%d" step="1" value="%s" placeholder="%s">'
@@ -147,6 +153,19 @@ A value it rejects shows under "Recent changes" on the rubric board and changes 
 </html>
 """ % {"key": key, "css": CSS, "body": body, "script": script}
     return page, key
+
+
+def _pane_field(key, label, help_text, current, overridden, resting):
+    """A <select> of the live resting panes; an unset value means they take turns."""
+    e = html.escape
+    choices = [("", "None: the resting panes take turns")] + list(resting)
+    if current and current not in {pid for pid, _ in resting}:
+        choices.append((current, "%s (not on the bus now)" % current))
+    options = "".join('<option value="%s"%s>%s</option>' % (
+        e(pid), " selected" if (pid or None) == current else "", e(title)) for pid, title in choices)
+    return ('<div class="field%s"><label for="%s">%s</label><select id="%s" name="%s">%s</select>'
+            '<div class="help">%s <span class="default">Default: none.</span></div></div>'
+            % (" overridden" if overridden else "", e(key), e(label), e(key), e(key), options, e(help_text)))
 
 
 def key_of(page_text):

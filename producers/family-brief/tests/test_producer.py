@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from helpers import Clock, fixture, with_date
-from family_brief_producer.producer import AUTHOR, PANE_ID, Producer
+from family_brief_producer.producer import AUTHOR, DWELL_S, PANE_ID, WEEK_ID, Producer
 
 
 class ProducerTests(unittest.TestCase):
@@ -102,3 +102,21 @@ class ProducerTests(unittest.TestCase):
         # The pane is unaffected.
         self.assertTrue(os.path.exists(os.path.join(self.pane_dir, "pane.html")))
 
+
+    def test_both_resting_panes_are_written_with_a_slow_dwell(self):
+        self.producer.cycle()
+        week = os.path.join(self.webroot, "viewport", "panes", WEEK_ID)
+        self.assertEqual(sorted(os.listdir(week)), ["detail.html", "manifest.json", "pane.html"])
+        for d in (self.pane_dir, week):
+            with open(os.path.join(d, "manifest.json"), encoding="utf-8") as fh:
+                m = json.load(fh)
+            self.assertEqual((m["class"], m["dwell_s"], m["author"]), ("ambient", DWELL_S, AUTHOR))
+        with open(os.path.join(week, "pane.html"), encoding="utf-8") as fh:
+            self.assertIn("<h1>This week", fh.read())
+
+    def test_a_stale_brief_removes_both_resting_panes(self):
+        self.producer.cycle()
+        self.doc = with_date(self.doc, "2026-10-23")
+        self.producer.cycle()
+        self.assertFalse(os.path.exists(os.path.join(self.webroot, "viewport", "panes", WEEK_ID)))
+        self.assertFalse(os.path.exists(self.pane_dir))

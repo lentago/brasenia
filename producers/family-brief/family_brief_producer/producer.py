@@ -25,6 +25,7 @@ from zoneinfo import ZoneInfo
 from .document import DocumentError, is_fresh, load, parse_ts, urllib_fetch
 from .detail import render_detail
 from .render import render
+from .week import render_week, render_week_detail
 
 PANE_ID = "family-today"
 PANE_CLASS = "ambient"
@@ -32,6 +33,11 @@ TTL_MINUTES = 30
 AUTHOR = "family-brief-producer@pub"
 ORIGIN = "operator"
 TITLE = "Family: today and tomorrow"
+WEEK_ID = "family-week"
+WEEK_TITLE = "Family: this week"
+# Both are resting panes; with no household default they share the rung and
+# take turns, slowly (#83).
+DWELL_S = 60
 BRIEFING_TITLE = "Family Brief"
 DEFAULT_SOURCE = "http://pub.lan/family-brief/latest.json"
 DEFAULT_TZ = "America/New_York"
@@ -51,12 +57,16 @@ def write_atomic(path, text):
 UNKNOWN = object()
 
 
+# (pane id, title, wall renderer, desk renderer)
+PANES = (
+    (PANE_ID, TITLE, render, render_detail),
+    (WEEK_ID, WEEK_TITLE, render_week, render_week_detail),
+)
+
+
 class Producer:
     def __init__(self, webroot, source=DEFAULT_SOURCE, tz=DEFAULT_TZ, fetch=urllib_fetch, clock=None):
-        self.pane_dir = os.path.join(webroot, "viewport", "panes", PANE_ID)
-        self.page_path = os.path.join(self.pane_dir, "pane.html")
-        self.detail_path = os.path.join(self.pane_dir, "detail.html")
-        self.manifest_path = os.path.join(self.pane_dir, "manifest.json")
+        self.panes_dir = os.path.join(webroot, "viewport", "panes")
         self.briefing_dir = os.path.join(webroot, "viewport", "briefing")
         self.source = source
         self.tz = ZoneInfo(tz)
@@ -73,28 +83,37 @@ class Producer:
             log.info("family brief %s; leaving the pane to its TTL", err)
             return
         self._briefing(doc, today, now)
-        manifest = self._manifest()
+        fresh = is_fresh(doc, today)
+        for pane_id, title, page, detail in PANES:
+            self._pane(pane_id, title, page, detail, doc, today, now, fresh)
+
+    def _pane(self, pane_id, title, page, detail, doc, today, now, fresh):
+        """Write (or, once the brief is stale, remove) one of this producer's panes."""
+        pane_dir = os.path.join(self.panes_dir, pane_id)
+        manifest_path = os.path.join(pane_dir, "manifest.json")
+        manifest = _read_manifest(manifest_path, "panes/%s/manifest.json" % pane_id)
         if manifest is UNKNOWN:
             return
         if manifest is not None and manifest.get("author") != AUTHOR:
-            log.warning("panes/%s belongs to %r; leaving it alone", PANE_ID, manifest.get("author"))
+            log.warning("panes/%s belongs to %r; leaving it alone", pane_id, manifest.get("author"))
             return
-        if not is_fresh(doc, today):
-            self._remove("brief of %s is older than yesterday" % doc["date"])
+        if not fresh:
+            self._remove(pane_dir, pane_id, "brief of %s is older than yesterday" % doc["date"])
             return
-        os.makedirs(self.pane_dir, exist_ok=True)
-        write_atomic(self.page_path, render(doc, today, now, self.tz))
-        write_atomic(self.detail_path, render_detail(doc, today, now, self.tz))
-        write_atomic(self.manifest_path, json.dumps({
+        os.makedirs(pane_dir, exist_ok=True)
+        write_atomic(os.path.join(pane_dir, "pane.html"), page(doc, today, now, self.tz))
+        write_atomic(os.path.join(pane_dir, "detail.html"), detail(doc, today, now, self.tz))
+        write_atomic(manifest_path, json.dumps({
             "schema": 1,
             "class": PANE_CLASS,
-            "title": TITLE,
+            "title": title,
             "created": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "ttl_minutes": TTL_MINUTES,
             "author": AUTHOR,
             "origin": ORIGIN,
+            "dwell_s": DWELL_S,
         }, indent=2, ensure_ascii=False) + "\n")
-        log.info("%s: brief of %s rendered for %s", PANE_ID, doc["date"], today.isoformat())
+        log.info("%s: brief of %s rendered for %s", pane_id, doc["date"], today.isoformat())
 
     def _briefing(self, doc, today, now):
         """Render the brief into the briefing slot, whatever its age."""
@@ -119,15 +138,10 @@ class Producer:
             "pane": PANE_ID,
         }, indent=2, ensure_ascii=False) + "\n")
 
-    def _manifest(self):
-        """Our pane's manifest; None when absent; UNKNOWN when it cannot be read or parsed."""
-        return _read_manifest(self.manifest_path, "panes/%s/manifest.json" % PANE_ID)
-
-    def _remove(self, why):
-        if os.path.isdir(self.pane_dir):
-            log.info("removing panes/%s (%s)", PANE_ID, why)
-            shutil.rmtree(self.pane_dir, ignore_errors=True)
-
+    def _remove(self, pane_dir, pane_id, why):
+        if os.path.isdir(pane_dir):
+            log.info("removing panes/%s (%s)", pane_id, why)
+            shutil.rmtree(pane_dir, ignore_errors=True)
 
 def _read_manifest(path, name):
     """A manifest dict; None when absent; UNKNOWN when it cannot be read or parsed."""

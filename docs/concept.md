@@ -162,6 +162,15 @@ and applies within seconds, and the effective values are in
 `viewport/rubric.json`
 ([ADR-0011](adr/0011-rubric-settings-on-the-share.md)).
 
+**The default resting pane** (`default.pane`, #83). Several `ambient` panes
+(the Family Brief's today and week, more to come) share the resting rung and
+take turns, each for its `dwell_s`. The household can name one as the
+default, from the configurator's dropdown or with Left/Right on the Roku
+remote: when it is live it ranks first in its rung and holds, and the others
+wait. It only orders the resting panes, so `focus`, `activity`, `live`,
+`attention` and `alert` panes still take over when they appear, and the
+default returns after them.
+
 | Priority | Class | Default TTL |
 |---|---|---|
 | 100 | `alert` | 60 min |
@@ -250,7 +259,7 @@ Writers use write-then-rename for every file (`x.partial` → `x`) and write `ma
 
 ### lineup.json (what a client may step through)
 
-`{"schema": 1, "decided_at", "items": [...]}`, rewritten when it changes. `items` are the live panes in rubric order, then the briefing slot (id `_briefing`, not a valid pane id) when it exists and no live pane is the one its manifest names in `pane`. Each item has `id`, `title`, `class`, `priority`, `url` (the pane's `pane.html`) and `showing` (true for the one the pointer names). It exists for the Roku remote's peek (#80): a client may let a person look at another item, but nothing it does changes the decision. The remote peeks; it never decides.
+`{"schema": 1, "decided_at", "items": [...]}`, rewritten when it changes. `items` are the live panes in rubric order, then the briefing slot (id `_briefing`, not a valid pane id) when it exists and no live pane is the one its manifest names in `pane`. Each item has `id`, `title`, `class`, `priority`, `url` (the pane's `pane.html`), `showing` (true for the one the pointer names) and `default` (true for the household's default resting pane). It exists for the Roku remote: Up/Down peeks at an item without changing anything (#80), and Left/Right sets `default.pane` among the `ambient` items, through the same logged settings channel as the configurator (#83).
 
 ### Beacon (the focus input)
 

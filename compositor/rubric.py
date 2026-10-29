@@ -136,10 +136,16 @@ def _candidate(entry, now, priority=None, default_dwell=None):
     return pane, None
 
 
-def _rank_key(pane):
-    # priority desc, operator before fleet, created desc, id for determinism
-    return (-pane["priority"], ORIGINS.index(pane["origin"]),
-            -pane["created"].timestamp(), pane["id"])
+def _is_default(pane, default_pane):
+    """The household's default resting pane (#83): only an ambient pane qualifies."""
+    return default_pane is not None and pane["id"] == default_pane and pane["class"] == "ambient"
+
+
+def _rank_key(default_pane=None):
+    # priority desc, the household's default resting pane first within its
+    # rung, operator before fleet, created desc, id for determinism
+    return lambda pane: (-pane["priority"], 0 if _is_default(pane, default_pane) else 1,
+                         ORIGINS.index(pane["origin"]), -pane["created"].timestamp(), pane["id"])
 
 
 def _rotate(group, now, prev):
@@ -194,7 +200,8 @@ def _same(a, b):
 
 
 def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
-           priority=None, default_dwell=None, briefing_title=BRIEFING_TITLE):
+           priority=None, default_dwell=None, briefing_title=BRIEFING_TITLE,
+           default_pane=None):
     """Rank the bus and return ``(pointer, state)``.
 
     ``panes`` is a list of scanned pane directories, each a dict with ``id``
@@ -206,7 +213,9 @@ def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
     ``priority`` and ``default_dwell`` override ``PRIORITY`` and
     ``DEFAULT_DWELL_S`` (see ``parse_manifest``). With nothing live and
     ``brief_present``, the pointer names the briefing slot (``BRIEFING_PATH``),
-    titled ``briefing_title``.
+    titled ``briefing_title``. ``default_pane`` is the household's default
+    resting pane: when it is live and ``ambient`` it ranks first in its rung
+    and holds rather than taking turns.
 
     State keys: ``pointer`` (the last decision, so an unchanged decision keeps
     its ``decided_at``), ``rotation`` (the top group's rotation cursor) and
@@ -223,10 +232,13 @@ def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
 
     rotation_state = None
     if live:
-        live.sort(key=_rank_key)
+        live.sort(key=_rank_key(default_pane))
         top = live[0]
-        group = [p for p in live if p["priority"] == top["priority"]
-                 and p["origin"] == top["origin"]]
+        if _is_default(top, default_pane):
+            group = [top]   # the default holds; the other resting panes wait
+        else:
+            group = [p for p in live if p["priority"] == top["priority"]
+                     and p["origin"] == top["origin"]]
         index, rotation_state = _rotate(group, now, state.get("rotation"))
         win = group[index]
         pointer = _pointer(
@@ -260,7 +272,7 @@ STATUSES = ("showing", "rotating", "outranked", "expired", "writing",
             "malformed", "invalid")
 
 
-def explain(panes, now, pointer, priority=None, default_dwell=None):
+def explain(panes, now, pointer, priority=None, default_dwell=None, default_pane=None):
     """Say what happened to every scanned pane directory under ``pointer``.
 
     Returns one dict per entry, live panes first in rank order: the parsed
@@ -297,13 +309,15 @@ def explain(panes, now, pointer, priority=None, default_dwell=None):
             continue
         live.append(pane)
 
-    live.sort(key=_rank_key)
+    live.sort(key=_rank_key(default_pane))
     shown = pointer.get("pane")
     win = next((p for p in live if p["id"] == shown), None)
     rows = []
     for p in live:
         if p is win:
             status, reason = "showing", None
+        elif win is not None and _is_default(win, default_pane) and p["priority"] == win["priority"]:
+            status, reason = "outranked", "%s is the household's default resting pane" % win["id"]
         elif win is not None and (p["priority"], p["origin"]) == (win["priority"], win["origin"]):
             status, reason = "rotating", "takes turns with %s every %ss" % (win["id"], p["dwell_s"])
         else:
