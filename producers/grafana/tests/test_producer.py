@@ -2,7 +2,10 @@ import json
 import os
 import shutil
 import tempfile
+import http.client
 import unittest
+from datetime import timedelta
+from unittest import mock
 
 from helpers import SLOTS, STACK, TOKEN, Clock, FakeGrafana
 
@@ -45,7 +48,7 @@ class ProducerTest(unittest.TestCase):
     def test_no_token_writes_nothing_and_says_so_once(self):
         p = self.make()
         with self.assertLogs(producer.log, "WARNING") as logs:
-            p.cycle()
+            self.assertEqual(p.cycle(), 2)      # --once reads this as failure
             p.cycle()
         self.assertEqual(len(logs.output), 1)
         self.assertIn("no Grafana token", logs.output[0])
@@ -138,6 +141,84 @@ class ProducerTest(unittest.TestCase):
         self.assertEqual(producer.ttl_minutes(60), 10)
         self.assertEqual(producer.ttl_minutes(300), 15)
         self.assertEqual(producer.ttl_minutes(610), 31)
+
+    def test_a_token_with_whitespace_inside_is_rejected_without_being_echoed(self):
+        secret = "sekrit-part1\nsekrit-part2"
+        self.seed_token(secret)
+        p = self.make()
+        with self.assertLogs(producer.log, "WARNING") as logs:
+            self.assertEqual(p.cycle(), 2)
+        self.assertEqual(self.fake.calls, [])
+        self.assertNotIn("sekrit", "\n".join(logs.output))
+
+    def test_a_transport_error_that_carries_the_token_is_never_logged(self):
+        # urllib raises ValueError("Invalid header value b'Bearer …'") for such a header.
+        def transport(url, headers, timeout=None):
+            raise ValueError("Invalid header value %r" % headers["Authorization"].encode())
+
+        self.seed_token()
+        p = Producer(self.webroot, self.token_file, STACK, self.slots, transport=transport,
+                     clock=self.clock)
+        with self.assertLogs(producer.log, "INFO") as logs:
+            self.assertEqual(p.cycle(), 2)
+        self.assertNotIn(TOKEN, "\n".join(logs.output))
+        self.assertIn("ValueError", "\n".join(logs.output))
+        self.assertEqual(set(p.failures), {"grafana-infra", "grafana-network"})
+
+    def test_any_failure_of_one_slot_backs_it_off_and_leaves_the_others_alone(self):
+        self.seed_token()
+        for error in (http.client.IncompleteRead(b"x"), http.client.BadStatusLine("x"),
+                      RuntimeError("boom"), TimeoutError("slow")):
+            with self.subTest(error=type(error).__name__):
+                calls = []
+
+                def transport(url, headers, timeout=None, error=error, calls=calls):
+                    calls.append(url)
+                    if "firewalla-infra-health" in url:
+                        raise error
+                    return self.fake(url, headers, timeout)
+
+                p = Producer(self.webroot, self.token_file, STACK, self.slots, transport=transport,
+                             clock=self.clock)
+                self.assertEqual(p.cycle(), 1)
+                self.assertEqual(len(calls), 2)                     # the other slot still rendered
+                self.assertIsNotNone(self.pane("grafana-network"))
+                self.assertEqual(p.failures, {"grafana-infra": 1})
+                self.assertEqual(p.next_at["grafana-infra"], self.clock() + timedelta(seconds=300))
+                self.assertEqual(p.cycle(), 0)                      # not retried at --interval
+
+    def test_a_write_error_backs_the_slot_off_and_spares_the_others(self):
+        self.seed_token()
+        p = self.make()
+        real = producer.write_atomic
+
+        def flaky(path, data):
+            if "grafana-infra" in path:
+                raise PermissionError("denied")
+            real(path, data)
+
+        with mock.patch.object(producer, "write_atomic", flaky), \
+                self.assertLogs(producer.log, "INFO") as logs:
+            self.assertEqual(p.cycle(), 1)
+        self.assertIn("could not write", logs.output[0])
+        self.assertIsNotNone(self.pane("grafana-network"))
+        self.assertEqual(p.failures, {"grafana-infra": 1})
+        self.assertEqual(p.next_at["grafana-infra"], self.clock() + timedelta(seconds=300))
+
+    def test_429_retry_after_pauses_every_slot(self):
+        self.seed_token()
+        p = self.make()
+        self.fake.status, self.fake.headers = 429, {"Retry-After": "900"}
+        self.assertEqual(p.cycle(), 1)
+        self.assertEqual(len(self.fake.calls), 1)                   # the second slot was not tried
+        self.fake.status = 200
+        self.clock.advance(899)
+        self.assertEqual(p.cycle(), 0)
+        self.assertEqual(len(self.fake.calls), 1)
+        self.clock.advance(1)
+        self.assertEqual(p.cycle(), 0)                              # both due and fine again
+        self.assertEqual(len(self.fake.calls), 3)
+        self.assertIsNotNone(self.pane("grafana-network"))
 
 
 if __name__ == "__main__":

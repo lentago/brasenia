@@ -8,7 +8,7 @@ a resting pane (``ambient``) beside Home, Weather and Fleet.
 Renders are one at a time, each slot every ``refresh_s`` (ADR-0017). A failed
 render changes nothing and backs off: the next try waits ``refresh_s``, then
 twice that, up to BACKOFF_MAX_S, and never sooner than a 429's
-``Retry-After``. A pane is renewed only by a good render, and its TTL covers
+``Retry-After``, which pauses every slot (the limit is the stack's). A pane is renewed only by a good render, and its TTL covers
 three refreshes, so one or two failures keep the last image (stamped with its
 time) and a dead token or stack takes the pane off the bus.
 """
@@ -17,6 +17,7 @@ import json
 import logging
 import math
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -29,6 +30,8 @@ ORIGIN = "operator"
 TTL_MIN_MINUTES = 10
 BACKOFF_MAX_S = 3600
 DEFAULT_TZ = "America/New_York"
+
+BAD_TOKEN = re.compile(r"[\s\x00-\x1f\x7f-\x9f]")    # whitespace inside, or control characters
 
 log = logging.getLogger(__name__)
 
@@ -56,39 +59,57 @@ class Producer:
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.next_at = {}         # pane -> when its slot is next due
         self.failures = {}        # pane -> consecutive failed renders
+        self.pause_until = None   # a 429's Retry-After: no slot renders before this
         self._no_token = False
 
     def cycle(self):
-        """Render every slot that is due; return how many renders failed."""
+        """Render every slot that is due; return how many failed (all due, with no usable token).
+
+        One slot's failure, of any kind, never keeps the others from rendering.
+        """
         due = [s for s in self.slots if s.pane not in self.next_at or self.next_at[s.pane] <= self.clock()]
-        if not due:
+        if not due or self._paused():
             return 0
         token = self._token()
         if token is None:
-            return 0
+            return len(due)
         client = Client(self.grafana_url, token, self.transport)
         failed = 0
         for slot in due:
+            if self._paused():
+                break           # still due; the next cycle after the pause tries it
             if not self._render(client, slot):
                 failed += 1
         return failed
+
+    def _paused(self):
+        return self.pause_until is not None and self.clock() < self.pause_until
+
+    def _fail(self, slot, now, what, retry_after=None):
+        fails = self.failures.get(slot.pane, 0) + 1
+        self.failures[slot.pane] = fails
+        wait = min(BACKOFF_MAX_S, slot.refresh_s * 2 ** (fails - 1))
+        if retry_after is not None:
+            wait = max(wait, retry_after)
+            self.pause_until = max(self.pause_until or now, now + timedelta(seconds=retry_after))
+        self.next_at[slot.pane] = now + timedelta(seconds=wait)
+        log.info("grafana %s for %s (%s); trying again in %d s", what, slot.pane, slot.uid, wait)
+        return False
 
     def _render(self, client, slot):
         now = self.clock()
         try:
             png = client.render(slot, now.astimezone(self.tz))
         except GrafanaError as err:
-            fails = self.failures.get(slot.pane, 0) + 1
-            self.failures[slot.pane] = fails
-            wait = min(BACKOFF_MAX_S, slot.refresh_s * 2 ** (fails - 1))
-            if err.retry_after is not None:
-                wait = max(wait, err.retry_after)
-            self.next_at[slot.pane] = now + timedelta(seconds=wait)
-            log.info("grafana %s for %s (%s); trying again in %d s", err, slot.pane, slot.uid, wait)
-            return False
+            return self._fail(slot, now, err, err.retry_after)
+        except Exception as err:    # the message is not logged: it might carry header values
+            return self._fail(slot, now, "failed (%s)" % type(err).__name__)
+        try:
+            self._write(slot, png, now)
+        except Exception as err:    # a full disk, a permission: back off like a failed render
+            return self._fail(slot, now, "could not write the pane (%s)" % err)
         self.failures.pop(slot.pane, None)
         self.next_at[slot.pane] = now + timedelta(seconds=slot.refresh_s)
-        self._write(slot, png, now)
         return True
 
     def _token(self):
@@ -102,6 +123,12 @@ class Producer:
             if not self._no_token:
                 log.warning("no Grafana token at %s; writing nothing until there is one",
                             self.token_file)
+                self._no_token = True
+            return None
+        if BAD_TOKEN.search(token):
+            if not self._no_token:      # never the value: it is a credential
+                log.warning("the Grafana token at %s has whitespace or control characters in it; "
+                            "writing nothing until it is fixed", self.token_file)
                 self._no_token = True
             return None
         self._no_token = False

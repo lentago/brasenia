@@ -5,8 +5,8 @@ One 1280×720 band (the pane contract). The dashboard sits in FRAME, the
 sits bottom-left at y=670..696 and stops 356 px short of the right edge, so
 the bottom-right clock corner stays empty. The PNG is inlined as a data: URI,
 so the page is self-contained and its content revision (ADR-0016, a hash of
-pane.html) moves exactly when the image does. Grafana's own footer is in the
-``crop_px`` strip rendered below the dashboard, which the frame cuts off.
+pane.html) moves with every good render: the footer's "as of" time is in it. Grafana's
+own footer is in the ``crop_px`` strip rendered below the dashboard, which the frame cuts off.
 """
 
 import base64

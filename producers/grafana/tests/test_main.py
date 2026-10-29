@@ -62,6 +62,12 @@ class MainTest(unittest.TestCase):
                                     "--slots", SLOTS, "--token-file", "/x", "--once")
         self.assertEqual(code, 1)
 
+    def test_once_exits_1_when_the_token_is_missing(self):
+        code, _ = self.run_main("--webroot", self.root, "--grafana-url", "https://grafana.test",
+                                "--slots", SLOTS, "--token-file", os.path.join(self.root, "none"),
+                                "--once")
+        self.assertEqual(code, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

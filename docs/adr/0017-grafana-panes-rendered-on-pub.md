@@ -27,7 +27,10 @@ Grafana's "Powered by" footer, which sits in the clock's corner.
   dashboard UID, a layout size, a theme and a refresh cadence. The pane holds
   `dashboard.png` and a `pane.html` that frames it, with the PNG inlined as a
   `data:` URI. The page is then self-contained as the pane contract asks, and
-  its `rev` (a hash of `pane.html`) moves exactly when the image does.
+  its `rev` (a hash of `pane.html`) moves with every good render: the page
+  carries the render's "as of" time, so an identical image rendered a minute
+  later is still a new `rev`. That is the intended cadence, one decision per
+  refresh, and a live dashboard's image changes each time anyway.
   `dashboard.png` is a rendition beside it, which the compositor ignores. The
   panes are `ambient`, so they join the resting rung beside Home, Weather and
   Fleet.
@@ -52,9 +55,13 @@ Grafana's "Powered by" footer, which sits in the clock's corner.
 - **Each slot renders every 300 s by default, never more often than every
   60 s, and renders run one at a time.** A failure waits `refresh_s`, then
   doubles up to an hour, and never less than a 429's `Retry-After`. A pane's
-  TTL covers three refreshes (at least 10 minutes), so a failed render or two
-  keep the last image, stamped "as of" its time, and a dead token takes the
-  pane off the bus.
+  TTL covers three refreshes (at least 10 minutes), and runs from the last
+  good render. At the default 300 s, one failed render keeps the last image,
+  stamped "as of" its time (the retry comes at 600 s, before the 900 s TTL);
+  a second leaves the pane off the bus for about five minutes, until the
+  retry at 1200 s; and a dead token takes it off for good. A 429's
+  `Retry-After` pauses every slot, not only the one that got it, because the
+  limit is the stack's.
 
   Grafana publishes no requests-per-minute limit for the render API, in
   Grafana Cloud or elsewhere. What it documents is concurrency and cost:
@@ -108,6 +115,11 @@ Grafana's "Powered by" footer, which sits in the clock's corner.
   be small on the wall. A slot's `size` sets the layout size, and the pane
   scales it to fit, so a dashboard can be laid out at 1920 wide and shown at
   1232.
+- **`dashboard.png` is fetchable.** The pane directory sits under pub's web
+  root, where directory browsing is on, so anyone on the LAN can fetch the
+  rendered infrastructure dashboards, as they can any pane. It is not a
+  credential, and the token is never on the share, but the dashboards' content
+  is as visible as the wall itself.
 - **Rendering depends on the internet.** When Grafana Cloud is unreachable,
   the panes go stale and then leave the bus; the rest of the wall is
   unaffected.

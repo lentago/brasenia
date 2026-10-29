@@ -1,5 +1,8 @@
 # grafana producer (Grafana Cloud dashboards → panes)
 
+> **Authorship:** co-written with [Claude](https://claude.ai) (Anthropic), who
+> wrote the code and prose; the maintainer directs and reviews the work.
+
 **What you're about to do:** run a small stdlib-only Python process (3.11+)
 that asks the Grafana Cloud stack's render API for a PNG of each configured
 dashboard and keeps one resting pane per dashboard on the viewport bus:
@@ -115,19 +118,26 @@ default 30), `--once` (render every slot once; exit 1 if any failed), `--now`.
 Every `--interval` seconds it checks for slots that are due. For each, one at
 a time:
 
-1. Reads the token file. With none, it logs once and writes nothing.
+1. Reads the token file. With none, or one with whitespace or control
+   characters inside it, it logs once (never the value) and writes nothing;
+   `--once` then exits 1.
 2. `GET <stack>/render/d/<uid>?width=…&height=<height + crop_px>&theme=…&kiosk=1&tz=UTC-04:00&…`
    with the token as a bearer header. Redirects aren't followed: Grafana
    answers a missing or rejected token with a redirect to its login page.
 3. On a PNG, writes `dashboard.png`, then `pane.html` with the PNG inlined
-   as a `data:` URI (so the page is self-contained, and its content revision
-   moves exactly when the image does, ADR-0016), then `manifest.json`. The
+   as a `data:` URI (so the page is self-contained; its content revision, ADR-0016, moves
+   with every good render, since the page carries the render's "as of" time), then `manifest.json`. The
    slot is next due in `refresh_s`.
 4. On a failure (network, a rejected token, HTTP 429 or 5xx, a body that
    isn't a PNG), changes nothing. The slot waits `refresh_s`, then twice
    that after each further failure, up to an hour, and never less than a
-   429's `Retry-After`. The pane keeps its last image, stamped with its time,
-   until its TTL; a dead token or stack takes it off the bus.
+   429's `Retry-After`, which pauses every slot (the limit is the stack's).
+   Any failure counts, a write error included, and one slot's never keeps
+   another from rendering. The pane keeps its last image, stamped with its
+   time, until its TTL, which runs from the last good render: at 300 s one
+   failure keeps it (the retry comes at 600 s, before the 900 s TTL), a second
+   leaves it off the bus for about five minutes until the retry at 1200 s. A
+   dead token or stack takes it off the bus.
 
 Files are written `x.partial` then renamed, `manifest.json` last. A pane
 directory with another author's manifest is left alone. A slot removed from

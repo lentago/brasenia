@@ -75,8 +75,8 @@ def main(argv=None):
         failed = False
         try:
             failed = producer.cycle() > 0
-        except Exception:  # keep the loop alive; the journal gets the trace
-            logging.exception("cycle failed")
+        except Exception as err:  # keep the loop alive; no trace or message, which could carry the token
+            logging.error("cycle failed (%s)", type(err).__name__)
             failed = True
         if args.once:
             return 1 if failed else 0

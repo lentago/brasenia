@@ -1,3 +1,5 @@
+import http.server
+import threading
 import unittest
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
@@ -89,6 +91,90 @@ class ClientTest(unittest.TestCase):
     def test_png_size(self):
         self.assertEqual(grafana.png_size(make_png(7, 3)), (7, 3))
         self.assertIsNone(grafana.png_size(b"<html>"))
+
+
+class _Handler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def do_GET(self):
+        path = self.path.split("?")[0]
+        if path == "/render/d/redirect":
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+        elif path == "/login":
+            body = b"<html>login</html>"
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            self.server.login_hits += 1
+        elif path == "/render/d/slow":
+            self.server.release.wait(5)
+        elif path == "/render/d/limited":
+            self.send_response(429)
+            self.send_header("Retry-After", "42")
+            self.send_header("Content-Length", "2")
+            self.end_headers()
+            self.wfile.write(b"{}")
+        elif path == "/render/d/denied":
+            self.send_response(401)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+        else:
+            body = make_png(4, 4)
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+
+class RealTransportTest(unittest.TestCase):
+    """The urllib transport against a local http.server: no mock at the Client seam."""
+
+    def setUp(self):
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
+        self.server.login_hits = 0
+        self.server.release = threading.Event()
+        self.base = "http://127.0.0.1:%d" % self.server.server_port
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+        self.addCleanup(self.server.release.set)
+        self.now = datetime(2026, 10, 29, 0, 40, tzinfo=timezone.utc).astimezone(NY)
+
+    def render(self, uid, token=TOKEN, transport=grafana.urllib_transport):
+        return Client(self.base, token, transport).render(slot(uid=uid), self.now)
+
+    def test_a_png_comes_back(self):
+        self.assertEqual(grafana.png_size(self.render("ok")), (4, 4))
+
+    def test_a_redirect_to_the_login_is_an_error_and_is_not_followed(self):
+        with self.assertRaisesRegex(GrafanaError, "redirected to a login"):
+            self.render("redirect")
+        self.assertEqual(self.server.login_hits, 0)
+
+    def test_http_errors_map_to_grafana_errors(self):
+        with self.assertRaisesRegex(GrafanaError, "rejected the token"):
+            self.render("denied")
+        with self.assertRaises(GrafanaError) as cm:
+            self.render("limited")
+        self.assertEqual(cm.exception.retry_after, 42)
+
+    def test_a_server_that_never_answers_times_out(self):
+        def short(url, headers, timeout=None):
+            return grafana.urllib_transport(url, headers, timeout=0.3)
+
+        with self.assertRaisesRegex(GrafanaError, "unreachable"):
+            self.render("slow", transport=short)
+
+    def test_a_token_with_a_newline_never_reaches_the_error(self):
+        secret = "sekrit-a\nsekrit-b"
+        with self.assertRaises(GrafanaError) as cm:
+            self.render("ok", token=secret)
+        self.assertNotIn("sekrit", str(cm.exception))
+        self.assertIsNone(cm.exception.__cause__)
 
 
 if __name__ == "__main__":

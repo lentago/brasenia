@@ -104,7 +104,10 @@ class Client:
             status, resp_headers, body = self.transport(render_url(self.base, slot, local_now),
                                                         headers)
         except OSError as err:
-            raise GrafanaError("unreachable (%s)" % err) from None
+            raise GrafanaError("unreachable (%s)" % str(err).replace(self.token, "***")) from None
+        except Exception as err:    # e.g. ValueError("Invalid header value b'Bearer …'"), HTTPException
+            # Never echo the message: urllib puts header values, the token, in some.
+            raise GrafanaError("failed in the transport (%s)" % type(err).__name__) from None
         if status in (401, 403):
             raise GrafanaError("rejected the token (HTTP %d)" % status)
         if status in (301, 302, 303, 307, 308):
