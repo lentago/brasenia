@@ -119,7 +119,8 @@ default 1280x720) and `--refresh SEC` (render it again this often, at
 least 10, default 60) set how it is shown. The URL must be http or https,
 with no user or password in it. The whole URL, query string included, ends up
 in files anyone on the LAN can read, so never put a token or a signed link in
-it. Pages that need a login, such as Grafana, are not link panes; pub renders
+it. `pane` and the compositor refuse the common ones (`token=`, `signature=`,
+`key=` and the like), but that is a safety net, not a guarantee. Pages that need a login, such as Grafana, are not link panes; pub renders
 those itself.
 
 Link panes stay **off** until the renderer on LXC 118 can show outside sites

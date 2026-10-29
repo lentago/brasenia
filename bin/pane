@@ -47,6 +47,10 @@ THEMES = ("dark", "light")
 VIEWPORT = re.compile(r"(\d+)x(\d+)\Z")
 VIEWPORT_RANGE = (240, 3840)   # CSS pixels, each of width and height
 MIN_REFRESH_S = 10
+# Mirrors compositor/rubric.py: query or fragment parameters that usually carry
+# a secret, refused because a link pane's URL is readable on the LAN.
+SECRET_PARAM = re.compile(r"token|secret|signature|passw|credential|api[-_]?key", re.I)
+SECRET_NAMES = {"key", "sig", "jwt", "session", "code", "pass", "pwd", "auth", "authorization"}
 
 
 class Refused(Exception):
@@ -105,7 +109,7 @@ def link_source(url, theme=None, screens=None, viewport=None, refresh=None):
     """The manifest ``source`` of a link pane (ADR-0016): a web page shown
     instead of pane.html. Mirrors the compositor's rules (rubric.parse_source)
     so a bad claim is refused here rather than skipped there."""
-    from urllib.parse import urlsplit
+    from urllib.parse import parse_qsl, urlsplit
     if len(url) > 2048 or any(c.isspace() for c in url):
         raise Refused("--url is not a URL")
     try:
@@ -118,6 +122,12 @@ def link_source(url, theme=None, screens=None, viewport=None, refresh=None):
     if parts.username is not None or parts.password is not None:
         raise Refused("--url must not carry a user or password: the pointer "
                       "is readable on the LAN")
+    secrets = [name for part in (parts.query, parts.fragment)
+               for name, _ in parse_qsl(part, keep_blank_values=True)
+               if SECRET_PARAM.search(name) or name.lower() in SECRET_NAMES]
+    if secrets:
+        raise Refused("--url looks like it carries a secret (%s): the pointer is "
+                      "readable on the LAN" % ", ".join(secrets))
     source = {"url": url}
     if theme is not None:
         source["theme"] = theme

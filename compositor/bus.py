@@ -241,7 +241,7 @@ def tick(webroot, url_base, state, now, log=print, tz=None, link_panes=False):
     rows = rubric.explain(entries, now, pointer, priority, dwell, default_pane, link_panes)
     resting = [(r["id"], r["title"]) for r in rows
                if r.get("class") == "ambient" and r["status"] in ("showing", "rotating", "outranked")]
-    page, key = configure.render(eff, overrides, url_base, resting)
+    page, key = configure.render(eff, overrides, url_base, resting, link_panes)
     _write_if_changed(p["configure"], page, key, configure.key_of)
     view = {"effective": eff, "overrides": overrides, "history": history,
             "brief_ok": brief_ok, "brief_why": brief_why, "link_panes": link_panes}
@@ -301,7 +301,8 @@ def write_settings(path, doc, log=print):
     atomic_write(path, text)
     if old is None and not doc["overrides"]:
         return  # first write, nothing overridden: nothing worth a log line
-    log("settings: %s" % (", ".join("%s=%s" % kv for kv in sorted(doc["overrides"].items()))
+    log("settings: %s" % (", ".join("%s=%s" % (k, v["source"]["url"] if settings.is_link(k) else v)
+                                    for k, v in sorted(doc["overrides"].items()))
                           or "all defaults"))
 
 
