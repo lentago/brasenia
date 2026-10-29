@@ -20,6 +20,11 @@ screen; Roku is the client platform and the Cast client is retired
 ([ADR-0009](adr/0009-office-roku-4k-hevc-over-ffmpeg-hls.md),
 [ADR-0010](adr/0010-roku-is-the-client-platform.md)).*
 
+*Amended 2026-10-29: the pointer and the line-up carry each pane's content
+revision, and a pane may be a link to a web page
+([ADR-0016](adr/0016-panes-carry-a-revision-and-may-link-a-web-page.md),
+[#96](https://github.com/lentago/brasenia/issues/96)).*
+
 Brasenia (watershield) carpets New England ponds with small floating leaves —
 little panes resting on the water's surface. **brasenia** is the shared window
 into what the Claudes working our estate (everything we run, on-prem and in the
@@ -136,6 +141,10 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
   stand alone — nothing straddles a boundary. Dark background, ≥20px body
   text, 24px safe margins, bottom-right ~220×50px of each band kept clear
   (clock overlay is composited there).
+- A link pane (a manifest `source`, ADR-0016) has no `pane.html`. Its page is
+  someone else's and cannot be held to this contract. The client lays it out
+  at `source.viewport`, shows `source.screens` bands of it, and asks for
+  `source.theme`; the clock still covers the bottom-right corner.
 - Sizes are CSS pixels. A client may render a pane at an integer scale (the
   office Roku renders at 3×, 3840×2160 device pixels), and the clock and its
   clear corner scale with it, so design for 1280×720 CSS pixels only.
@@ -236,7 +245,11 @@ Writers use write-then-rename for every file (`x.partial` → `x`) and write `ma
 - `class` is one of `alert`, `attention`, `live`, `activity`, `focus`, `ambient`, `briefing`. `title`, `created` (RFC 3339, UTC), `ttl_minutes`, `author` are required.
 - `origin` is `operator` or `fleet` (default `fleet`); it is the tie-break within a class.
 - `repo` (`owner/name`), `dwell_s` and `done_when` are optional. v1 ignores `done_when`.
-- A pane is live when both files exist, neither is a `.partial`, the manifest parses, and `created + ttl_minutes` is in the future.
+- `source` is optional and makes the pane a **link pane** ([ADR-0016](adr/0016-panes-carry-a-revision-and-may-link-a-web-page.md)): the screen shows a web page instead of `pane.html`. It is `{"url": "https://…", "theme": "dark", "screens": 1, "viewport": [1280, 720], "refresh_s": 60}`.
+  - `url` (http or https, with no user or password in it: the pointer is readable on the LAN) is required; the other fields have the defaults shown.
+  - `theme` is `dark` or `light`; `screens` is 1–4 bands of the page to show; `viewport` is the CSS size to lay the page out at (240–3840 each); `refresh_s` (at least 10) is how often to render it again.
+  - Other keys are ignored. The compositor shows link panes only with `--link-panes`, which stays off until the renderer has its allowed-sites list and Chromium's sandbox ([kalmia#194](https://github.com/lentago/kalmia/issues/194)).
+- A pane is live when both files exist (a link pane needs only `manifest.json`), neither is a `.partial`, the manifest parses, and `created + ttl_minutes` is in the future.
 
 ### current.json (the pointer)
 
@@ -251,17 +264,21 @@ Writers use write-then-rename for every file (`x.partial` → `x`) and write `ma
   "title": "brasenia — open pull requests",
   "expires_at": "2026-10-07T12:10:00Z",
   "fallback": null,
-  "rotation": {"index": 0, "of": 2, "dwell_s": 20}
+  "rotation": {"index": 0, "of": 2, "dwell_s": 20},
+  "rev": "8dddf601435e",
+  "source": null
 }
 ```
 
 - `pane` is null and `fallback` is `"briefing"` or `"status"` when nothing on the bus won. `expires_at` is null for the briefing. `rotation` is null when there is a single winner.
-- The compositor re-evaluates every 5 s and rewrites the file only when the decision changes (so `decided_at` is the time of the last change).
-- Clients poll every 5 s, navigate only when `url` changes, and show their own status card when the pointer has been unreadable for 30 s.
+- `rev` is the shown page's revision: the first 12 hex digits of the SHA-256 of its `pane.html`, or of a link pane's validated `source`. It is null for the status card.
+- `source` is the link pane's validated `source`, defaults filled in, and `url` is then its page; `source` is null for every other pane.
+- The compositor re-evaluates every second (pub runs `--interval 1`, kalmia#193). It rewrites the file when the pointer changes. A new pane, fallback, rotation step or `rev` is a new decision and moves `decided_at`. A renewal that only moves `expires_at` rewrites the file but keeps `decided_at` ([ADR-0016](adr/0016-panes-carry-a-revision-and-may-link-a-web-page.md)).
+- Clients poll every few seconds (the Roku adapter every second), render again when `decided_at` changes, and show their own status card when the pointer has been unreadable for 30 s.
 
 ### lineup.json (what a client may step through)
 
-`{"schema": 1, "decided_at", "items": [...]}`, rewritten when it changes. `items` are the live panes in rubric order, then the briefing slot (id `_briefing`, not a valid pane id) when it exists and no live pane is the one its manifest names in `pane`. Each item has `id`, `title`, `class`, `priority`, `url` (the pane's `pane.html`), `showing` (true for the one the pointer names) and `default` (true for the household's default resting pane). It exists for the Roku remote: Up/Down peeks at an item without changing anything (#80), and Left/Right sets `default.pane` among the `ambient` items, through the same logged settings channel as the configurator (#83).
+`{"schema": 1, "decided_at", "items": [...]}`, rewritten when it changes. `items` are the live panes in rubric order, then the briefing slot (id `_briefing`, not a valid pane id) when it exists and no live pane is the one its manifest names in `pane`. Each item has `id`, `title`, `class`, `priority`, `url` (the pane's `pane.html`, or a link pane's page), `showing` (true for the one the pointer names), `default` (true for the household's default resting pane), `rev` and `source` (as in the pointer). It exists for the Roku remote: Up/Down peeks at an item without changing anything (#80), and Left/Right sets `default.pane` among the `ambient` items, through the same logged settings channel as the configurator (#83).
 
 ### Beacon (the focus input)
 
@@ -378,8 +395,11 @@ usable by every session. The canonical text is
 
 1. Rotation vs. splitting: with 2+ live high-priority panes, rotate the full
    screen (v0) or explore band-level composition (mix panes per band)?
-2. Pane render cadence: compositor re-shoots the winner every N minutes —
-   is 5 min fresh enough for `activity` panes, or should manifests declare it?
+2. ~~Pane render cadence: compositor re-shoots the winner every N minutes —
+   is 5 min fresh enough for `activity` panes, or should manifests declare it?~~
+   **Answered (2026-10-29, ADR-0016):** a pane is rendered again when its
+   `rev` changes, and a link pane, which has no file to hash, declares
+   `refresh_s`.
 3. Should the TV audio channel ever carry anything (TTS alert chime on
    `alert` panes)? The stream already has an AAC track of silence.
 4. Grafana pane: keep the `/render` API approach (no browser needed) as a

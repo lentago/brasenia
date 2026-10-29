@@ -94,6 +94,8 @@ class Ranking(unittest.TestCase):
             "expires_at": "2026-10-07T12:10:00Z",
             "fallback": None,
             "rotation": None,
+            "rev": None,
+            "source": None,
         })
 
     def test_url_base_is_used_without_double_slash(self):
@@ -423,6 +425,110 @@ class RestingOrder(unittest.TestCase):
                  pane("b-newer", "attention", created=T0 - timedelta(minutes=1), ttl=240)]
         pointer, _ = run(panes)
         self.assertEqual(pointer["pane"], "b-newer")
+
+
+class Revision(unittest.TestCase):
+    """#96: the pointer carries the shown pane's content revision, so new
+    content is a new decision and a renewal is not."""
+
+    def rev_pane(self, rev, created=T0):
+        p = pane("home", "ambient", created=created)
+        p["rev"] = rev
+        return p
+
+    def test_the_pointer_carries_the_rev(self):
+        pointer, _ = run([self.rev_pane("abc123")])
+        self.assertEqual(pointer["rev"], "abc123")
+
+    def test_new_content_is_a_new_decision(self):
+        first, state = run([self.rev_pane("aaa")])
+        later, _ = run([self.rev_pane("bbb")], now=T0 + timedelta(seconds=30), state=state)
+        self.assertEqual(later["decided_at"], "2026-10-07T12:00:30Z")
+        self.assertEqual(later["rev"], "bbb")
+
+    def test_a_renewal_keeps_decided_at_but_moves_expires_at(self):
+        first, state = run([self.rev_pane("aaa")])
+        renewed = self.rev_pane("aaa", created=T0 + timedelta(minutes=1))
+        later, _ = run([renewed], now=T0 + timedelta(minutes=1), state=state)
+        self.assertEqual(later["decided_at"], first["decided_at"])
+        self.assertEqual(later["expires_at"], "2026-10-07T12:11:00Z")
+
+    def test_the_briefing_carries_its_rev(self):
+        pointer, _ = run([], brief_rev="b71ef")
+        self.assertEqual((pointer["fallback"], pointer["rev"]), ("briefing", "b71ef"))
+
+
+class LinkPanes(unittest.TestCase):
+    """#96, ADR-0016: a pane whose manifest names a web page."""
+
+    URL = "https://github.com/lentago/brasenia/pull/93"
+
+    def link(self, pane_id="pr-93", source=None, cls="attention", **kw):
+        return pane(pane_id, cls, files=("manifest.json",),
+                    source=source if source is not None else {"url": self.URL}, **kw)
+
+    def test_shown_when_link_panes_are_on(self):
+        pointer, _ = run([self.link()], link_panes=True)
+        self.assertEqual(pointer["pane"], "pr-93")
+        self.assertEqual(pointer["url"], self.URL)
+        self.assertEqual(pointer["source"], {"url": self.URL, "theme": "dark", "screens": 1,
+                                             "viewport": [1280, 720], "refresh_s": 60})
+        self.assertEqual(pointer["rev"], rubric.source_rev(pointer["source"]))
+
+    def test_skipped_with_a_reason_while_off(self):
+        pointer, state = run([self.link(), pane("calm", "ambient")])
+        self.assertEqual(pointer["pane"], "calm")
+        self.assertEqual(state["skipped"], {"pr-93": rubric.LINK_PANES_OFF})
+        row = rubric.explain([self.link()], T0, pointer)[0]
+        self.assertEqual((row["status"], row["reason"]), ("off", rubric.LINK_PANES_OFF))
+
+    def test_a_file_pane_still_needs_pane_html(self):
+        pointer, _ = run([pane("half", files=("manifest.json",))], link_panes=True)
+        self.assertEqual(pointer["fallback"], "briefing")
+
+    def test_settings_are_kept_and_unknown_keys_dropped(self):
+        source = {"url": self.URL, "theme": "light", "screens": 2,
+                  "viewport": [1920, 1080], "refresh_s": 300, "zoom": 2}
+        pointer, _ = run([self.link(source=source)], link_panes=True)
+        self.assertEqual(pointer["source"], {"url": self.URL, "theme": "light", "screens": 2,
+                                             "viewport": [1920, 1080], "refresh_s": 300})
+
+    def test_a_new_source_is_a_new_revision(self):
+        a = rubric.parse_source({"url": self.URL})
+        b = rubric.parse_source({"url": self.URL, "theme": "light"})
+        self.assertNotEqual(rubric.source_rev(a), rubric.source_rev(b))
+
+    def test_bad_sources_are_malformed(self):
+        bad = [
+            ("not-a-dict", "source is not a JSON object"),
+            ({"url": "file:///etc/passwd"}, "not an http(s) URL"),
+            ({"url": "https://"}, "not an http(s) URL"),
+            ({"url": "https://x.test/a b"}, "is not a URL"),
+            ({"url": self.URL, "theme": "sepia"}, "source.theme"),
+            ({"url": self.URL, "screens": 5}, "source.screens"),
+            ({"url": self.URL, "screens": True}, "source.screens"),
+            ({"url": self.URL, "viewport": [100, 720]}, "source.viewport"),
+            ({"url": self.URL, "viewport": [1280]}, "source.viewport"),
+            ({"url": self.URL, "refresh_s": 5}, "source.refresh_s"),
+            ({"url": self.URL, "refresh_s": float("inf")}, "source.refresh_s"),
+            ({"url": "https://ann:hunter2@x.test/"}, "carries credentials"),
+            ({"url": "https://ann@x.test/"}, "carries credentials"),
+        ]
+        for source, reason in bad:
+            with self.subTest(source=source):
+                pointer, state = run([self.link(source=source)], link_panes=True)
+                self.assertEqual(pointer["fallback"], "briefing")
+                self.assertIn(reason, state["skipped"]["pr-93"])
+
+    def test_an_infinite_dwell_is_malformed(self):
+        pointer, state = run([pane("a", dwell=float("inf")), pane("b")])
+        self.assertIn("dwell_s", state["skipped"]["a"])
+        self.assertEqual(pointer["pane"], "b")
+
+    def test_an_old_style_pane_is_unchanged(self):
+        pointer, _ = run([pane("focus-x")], link_panes=True)
+        self.assertEqual(pointer["url"], "http://pub.lan/viewport/panes/focus-x/pane.html")
+        self.assertIsNone(pointer["source"])
 
 
 if __name__ == "__main__":

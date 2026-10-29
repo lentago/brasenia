@@ -309,6 +309,21 @@ class LsTests(PaneCase):
                   "w") as f:
             json.dump({"class": "focus", "title": "t", "created": pane.iso(T0),
                        "ttl_minutes": 1, "author": "a", "origin": None}, f)
+        os.makedirs(self.pane_dir("link"))
+        with open(os.path.join(self.pane_dir("link"), "manifest.json"),
+                  "w") as f:
+            json.dump({"class": "attention", "title": "t", "created": pane.iso(T0),
+                       "ttl_minutes": 60, "author": "cat@c",
+                       "source": {"url": "https://example.test/pr/1"}}, f)
+        os.makedirs(self.pane_dir("nullsrc"))
+        with open(os.path.join(self.pane_dir("nullsrc"), "manifest.json"),
+                  "w") as f:
+            json.dump({"class": "attention", "title": "t", "created": pane.iso(T0),
+                       "ttl_minutes": 60, "author": "dan@d", "source": None}, f)
+        os.makedirs(self.pane_dir("lonely"))
+        with open(os.path.join(self.pane_dir("lonely"), "manifest.json"),
+                  "w") as f:
+            f.write("{")
         with open(os.path.join(self.bus, "current.json"), "w") as f:
             json.dump({"pane": "live-one", "class": "attention",
                        "url": "http://pub.lan/viewport/panes/live-one/"
@@ -327,6 +342,10 @@ class LsTests(PaneCase):
         self.assertTrue(rows["junk"].endswith("malformed"))
         self.assertTrue(rows["badfield"].endswith("malformed"))
         self.assertTrue(rows["badorigin"].endswith("malformed"))
+        self.assertIn("cat@c", rows["link"])       # a link pane needs no pane.html
+        self.assertTrue(rows["link"].endswith("2026-10-07T13:00:00Z"))
+        self.assertTrue(rows["lonely"].endswith("partial"))
+        self.assertTrue(rows["nullsrc"].endswith("malformed"))
         self.assertIn("current: live-one (attention)", out)
 
     def test_fallback_pointer(self):

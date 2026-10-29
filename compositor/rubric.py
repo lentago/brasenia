@@ -6,8 +6,12 @@ pointer (the ``current.json`` body) plus the next state. The contracts it
 implements are in ``docs/concept.md`` ("Rubric v1" and "Contracts v1").
 """
 
+import hashlib
+import json
+import math
 import re
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlsplit
 
 SCHEMA = 1
 
@@ -30,6 +34,16 @@ DEFAULT_DWELL_S = 20
 
 PANE_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}\Z")
 REQUIRED = ("class", "title", "created", "ttl_minutes", "author")
+
+# A link pane (#96, ADR-0016) names a web page in its manifest's `source`
+# instead of shipping pane.html. These are the source fields and their defaults.
+SOURCE_DEFAULTS = {"theme": "dark", "screens": 1, "viewport": [1280, 720],
+                   "refresh_s": 60}
+THEMES = ("dark", "light")
+VIEWPORT_RANGE = (240, 3840)   # CSS pixels, each of width and height
+MIN_REFRESH_S = 10
+LINK_PANES_OFF = ("link panes are off until the renderer can show web pages "
+                  "safely (lentago/kalmia#194)")
 
 
 class Malformed(ValueError):
@@ -56,6 +70,80 @@ def parse_time(text):
 def _positive_number(value):
     return (isinstance(value, (int, float)) and not isinstance(value, bool)
             and value > 0)
+
+
+def _finite_positive(value):
+    """A positive number that survives JSON: 1e309 parses as infinity, which
+    would reach current.json as the non-JSON token Infinity."""
+    return _positive_number(value) and math.isfinite(value)
+
+
+def _whole(value, low, high):
+    return (isinstance(value, int) and not isinstance(value, bool)
+            and low <= value <= high)
+
+
+def parse_source(source):
+    """Validate a link pane's ``source`` and return it with defaults filled in.
+
+    Keys beyond the contract's are dropped, so a newer writer's extra field
+    does not make an older compositor skip the pane. Raises ``Malformed``.
+    """
+    if not isinstance(source, dict):
+        raise Malformed("source is not a JSON object")
+    url = source.get("url")
+    if (not isinstance(url, str) or len(url) > 2048
+            or any(c.isspace() for c in url)):
+        raise Malformed("source.url is not a URL")
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+    except ValueError:
+        raise Malformed("source.url is not a URL")
+    if parts.scheme not in ("http", "https") or not host:
+        raise Malformed("source.url is not an http(s) URL")
+    if parts.username is not None or parts.password is not None:
+        # The pointer and the line-up are readable by anyone on the LAN.
+        raise Malformed("source.url carries credentials")
+    out = dict(SOURCE_DEFAULTS, url=url)
+    for key in SOURCE_DEFAULTS:
+        if key in source:
+            out[key] = source[key]
+    if out["theme"] not in THEMES:
+        raise Malformed("source.theme is not one of %s" % ", ".join(THEMES))
+    if not _whole(out["screens"], 1, 4):
+        raise Malformed("source.screens is not 1-4")
+    viewport = out["viewport"]
+    if not (isinstance(viewport, list) and len(viewport) == 2
+            and all(_whole(v, *VIEWPORT_RANGE) for v in viewport)):
+        raise Malformed("source.viewport is not [width, height] in CSS pixels "
+                        "(%d-%d)" % VIEWPORT_RANGE)
+    out["viewport"] = list(viewport)
+    if not _finite_positive(out["refresh_s"]) or out["refresh_s"] < MIN_REFRESH_S:
+        raise Malformed("source.refresh_s is not a number of seconds >= %d"
+                        % MIN_REFRESH_S)
+    return out
+
+
+def source_rev(source):
+    """A link pane's revision: a hash of its validated source, so changing the
+    page or how it is shown counts as new content."""
+    text = json.dumps(source, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+
+
+def _is_link(data):
+    return isinstance(data, dict) and "source" in data
+
+
+def _being_written(entry):
+    """A pane directory without its final files is a write in progress (only
+    the final names count: x.partial is still being written). A link pane
+    needs only its manifest; any other pane also needs pane.html."""
+    files = entry["files"]
+    if "manifest.json" not in files:
+        return True
+    return "pane.html" not in files and not _is_link(entry.get("manifest"))
 
 
 def parse_manifest(pane_id, data, priority=None, default_dwell=None):
@@ -96,8 +184,9 @@ def parse_manifest(pane_id, data, priority=None, default_dwell=None):
     if origin not in ORIGINS:
         raise Malformed("unknown origin %r" % (origin,))
     dwell = data.get("dwell_s", default_dwell)
-    if not _positive_number(dwell):
+    if not _finite_positive(dwell):
         raise Malformed("dwell_s is not a positive number")
+    source = parse_source(data["source"]) if "source" in data else None
     return {
         "id": pane_id,
         "class": cls,
@@ -107,32 +196,43 @@ def parse_manifest(pane_id, data, priority=None, default_dwell=None):
         "expires": expires,
         "origin": origin,
         "dwell_s": dwell,
+        "source": source,
     }
 
 
-def _candidate(entry, now, priority=None, default_dwell=None):
+def _parse_entry(entry, priority, default_dwell):
+    """Parse a scanned pane directory whose files are in place, adding its
+    revision: ``rev`` from the scan (a hash of pane.html), or for a link pane
+    the hash of its source. Raises ``Malformed``."""
+    data = entry.get("manifest")
+    if isinstance(data, Malformed):
+        raise data
+    pane = parse_manifest(entry["id"], data, priority, default_dwell)
+    pane["rev"] = (source_rev(pane["source"]) if pane["source"] is not None
+                   else entry.get("rev"))
+    return pane
+
+
+def _candidate(entry, now, priority=None, default_dwell=None, link_panes=False):
     """Return ``(pane, skip_reason)`` for one scanned pane directory.
 
     ``pane`` is the parsed pane when it is live. ``skip_reason`` is set only
-    for problems worth a log line (a bad id or a malformed manifest); a pane
-    that is still being written or has expired is simply not live.
+    for problems worth a log line (a bad id, a malformed manifest, or a link
+    pane while link panes are off); a pane that is still being written or has
+    expired is simply not live.
     """
-    pane_id = entry["id"]
-    if not PANE_ID.match(pane_id):
+    if not PANE_ID.match(entry["id"]):
         return None, "invalid pane id"
-    files = entry["files"]
-    # Only the final names count: x.partial is a write in progress.
-    if "pane.html" not in files or "manifest.json" not in files:
+    if _being_written(entry):
         return None, None
-    data = entry.get("manifest")
-    if isinstance(data, Malformed):
-        return None, str(data)
     try:
-        pane = parse_manifest(pane_id, data, priority, default_dwell)
+        pane = _parse_entry(entry, priority, default_dwell)
     except Malformed as exc:
         return None, str(exc)
     if pane["expires"] <= now:
         return None, None
+    if pane["source"] is not None and not link_panes:
+        return None, LINK_PANES_OFF
     return pane, None
 
 
@@ -191,22 +291,27 @@ def _pointer(now, url_base, **fields):
         "expires_at": None,
         "fallback": None,
         "rotation": None,
+        "rev": None,
+        "source": None,
     }
     pointer.update(fields)
     return pointer
 
 
 def _same(a, b):
-    """Two pointers carry the same decision when all but ``decided_at`` match."""
+    """Two pointers carry the same decision when all but ``decided_at`` and
+    ``expires_at`` match: a producer renewing its pane moves the expiry
+    without changing what is shown (#96)."""
     if a is None or b is None:
         return False
-    strip = lambda p: {k: v for k, v in p.items() if k != "decided_at"}
+    strip = lambda p: {k: v for k, v in p.items()
+                       if k not in ("decided_at", "expires_at")}
     return strip(a) == strip(b)
 
 
 def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
            priority=None, default_dwell=None, briefing_title=BRIEFING_TITLE,
-           default_pane=None):
+           default_pane=None, link_panes=False, brief_rev=None):
     """Rank the bus and return ``(pointer, state)``.
 
     ``panes`` is a list of scanned pane directories, each a dict with ``id``
@@ -220,7 +325,12 @@ def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
     ``brief_present``, the pointer names the briefing slot (``BRIEFING_PATH``),
     titled ``briefing_title``. ``default_pane`` is the household's default
     resting pane: when it is live and ``ambient`` it ranks first in its rung
-    and holds rather than taking turns.
+    and holds rather than taking turns. Link panes (a manifest ``source``)
+    are skipped unless ``link_panes``. ``brief_rev`` is the briefing page's
+    revision, carried in the pointer when the briefing is shown.
+
+    The pointer's ``rev`` is the shown pane's revision, so a change of content
+    is a new decision; a renewal that only moves ``expires_at`` is not (#96).
 
     State keys: ``pointer`` (the last decision, so an unchanged decision keeps
     its ``decided_at``), ``rotation`` (the top group's rotation cursor) and
@@ -229,7 +339,7 @@ def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
     url_base = url_base.rstrip("/")
     live, skipped = [], {}
     for entry in panes:
-        pane, reason = _candidate(entry, now, priority, default_dwell)
+        pane, reason = _candidate(entry, now, priority, default_dwell, link_panes)
         if pane is not None:
             live.append(pane)
         elif reason is not None:
@@ -246,19 +356,22 @@ def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
                      and p["origin"] == top["origin"]]
         index, rotation_state = _rotate(group, now, state.get("rotation"))
         win = group[index]
+        source = win["source"]
         pointer = _pointer(
             now, url_base,
             pane=win["id"],
-            url="%s/viewport/panes/%s/pane.html" % (url_base, win["id"]),
+            url=pane_url(win, url_base),
             title=win["title"],
             expires_at=iso(win["expires"]),
             rotation=None if rotation_state is None else {
                 "index": index, "of": len(group), "dwell_s": win["dwell_s"]},
+            rev=win["rev"],
+            source=None if source is None else dict(source),
             **{"class": win["class"], "priority": win["priority"]})
     elif brief_present:
         pointer = _pointer(
             now, url_base, url=url_base + BRIEFING_PATH, title=briefing_title,
-            fallback="briefing", **{"class": "briefing", "priority": 0})
+            fallback="briefing", rev=brief_rev, **{"class": "briefing", "priority": 0})
     else:
         pointer = _pointer(
             now, url_base, url=url_base + "/viewport/status.html",
@@ -267,26 +380,38 @@ def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
 
     previous = state.get("pointer")
     if _same(pointer, previous):
-        pointer = previous
+        # Same decision: keep its decided_at, and its object when nothing at
+        # all changed, but carry a renewed expires_at.
+        pointer = (previous if pointer["expires_at"] == previous.get("expires_at")
+                   else dict(pointer, decided_at=previous["decided_at"]))
     return pointer, {"pointer": pointer, "rotation": rotation_state,
                      "skipped": skipped}
 
 
+def pane_url(pane, url_base):
+    """What a client shows for a pane: its source page for a link pane,
+    otherwise its pane.html on the bus."""
+    if pane.get("source") is not None:
+        return pane["source"]["url"]
+    return "%s/viewport/panes/%s/pane.html" % (url_base.rstrip("/"), pane["id"])
+
+
 # explain() statuses, in the order the board lists them.
-STATUSES = ("showing", "rotating", "outranked", "expired", "writing",
+STATUSES = ("showing", "rotating", "outranked", "off", "expired", "writing",
             "malformed", "invalid")
 
 
-def explain(panes, now, pointer, priority=None, default_dwell=None, default_pane=None):
+def explain(panes, now, pointer, priority=None, default_dwell=None, default_pane=None,
+            link_panes=False):
     """Say what happened to every scanned pane directory under ``pointer``.
 
     Returns one dict per entry, live panes first in rank order: the parsed
     fields (``class``, ``priority``, ``title``, ``origin``, ``created``,
-    ``expires``, ``dwell_s``; absent when the manifest did not parse), plus
-    ``id``, ``status`` (one of ``STATUSES``) and ``reason`` (a short phrase,
-    or None). ``pointer`` is the decision ``decide`` returned for the same
-    ``panes``, ``now``, ``priority`` and ``default_dwell``; this function only
-    explains it.
+    ``expires``, ``dwell_s``, ``source``, ``rev``; absent when the manifest
+    did not parse), plus ``id``, ``status`` (one of ``STATUSES``) and
+    ``reason`` (a short phrase, or None). ``pointer`` is the decision
+    ``decide`` returned for the same ``panes``, ``now``, ``priority``,
+    ``default_dwell`` and ``link_panes``; this function only explains it.
     """
     live, rest = [], []
     for entry in panes:
@@ -294,23 +419,23 @@ def explain(panes, now, pointer, priority=None, default_dwell=None, default_pane
         if not PANE_ID.match(pane_id):
             rest.append({"id": pane_id, "status": "invalid", "reason": "invalid pane id"})
             continue
-        files = entry["files"]
-        if "pane.html" not in files or "manifest.json" not in files:
+        if _being_written(entry):
+            files = entry["files"]
             missing = [n for n in ("pane.html", "manifest.json") if n not in files]
             rest.append({"id": pane_id, "status": "writing",
                          "reason": "no " + " or ".join(missing) + " yet"})
             continue
-        data = entry.get("manifest")
         try:
-            if isinstance(data, Malformed):
-                raise data
-            pane = parse_manifest(pane_id, data, priority, default_dwell)
+            pane = _parse_entry(entry, priority, default_dwell)
         except Malformed as exc:
             rest.append({"id": pane_id, "status": "malformed", "reason": str(exc)})
             continue
         if pane["expires"] <= now:
             rest.append(dict(pane, status="expired",
                              reason="expired at " + iso(pane["expires"])))
+            continue
+        if pane["source"] is not None and not link_panes:
+            rest.append(dict(pane, status="off", reason=LINK_PANES_OFF))
             continue
         live.append(pane)
 

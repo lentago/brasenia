@@ -61,7 +61,7 @@ td.id { font-family: ui-monospace, "DejaVu Sans Mono", monospace; font-size: 14p
   font-weight: 600; background: #22332a; white-space: nowrap; }
 .badge.showing { background: #e0a81c; color: #1b1405; }
 .badge.rotating { background: #3a3317; color: #f0d28a; }
-.badge.expired, .badge.writing { background: #1f2e26; color: #8fa89a; }
+.badge.expired, .badge.writing, .badge.off { background: #1f2e26; color: #8fa89a; }
 .badge.malformed, .badge.invalid { background: #4a1f1f; color: #f3b1a8; }
 ul.rules { margin: 0; padding-left: 20px; }
 ul.rules li { margin: 4px 0; }
@@ -232,6 +232,8 @@ def _bus_table(rows, now, tz):
 def _rules(view):
     dwell = view["effective"]["rotation.dwell_s"]
     limit = view["effective"]["briefing.max_age_hours"]
+    link_rule = ("Link panes are on." if view.get("link_panes") else
+                 "Link panes are off until the renderer can show web pages safely.")
     if limit is None:
         brief_rule = "the briefing in <code>viewport/briefing/</code> is shown if it exists, however old it is"
     elif limit == 0:
@@ -245,7 +247,8 @@ def _rules(view):
 <li>Panes that tie on rung and origin with the winner take turns, each for its <code>dwell_s</code> (%d s unless the manifest says otherwise).</li>
 <li>With nothing live, %s; otherwise the status card.</li>
 <li>A pane directory without both <code>pane.html</code> and <code>manifest.json</code> is still being written, and a bad manifest is skipped; neither can blank the screen.</li>
-</ul>""" % (dwell, brief_rule)
+<li>A pane whose manifest has a <code>source</code> is a link pane: the screen shows that web page and needs no <code>pane.html</code>. %s</li>
+</ul>""" % (dwell, brief_rule, link_rule)
 
 
 def _brief_age(brief, now, tz):

@@ -3,6 +3,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 import unittest
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -286,6 +287,86 @@ class Bus(unittest.TestCase):
         self.assertIn("Default resting pane set to family-week · from 192.168.139.21", board_page)
         with open(self.p["configure"], encoding="utf-8") as f:
             self.assertIn('<option value="family-week" selected>Week</option>', f.read())
+
+    def write_page(self, pane_id, text):
+        with open(os.path.join(self.p["panes"], pane_id, "pane.html"), "w") as f:
+            f.write(text)
+
+    def test_rev_follows_the_content_not_the_file_time(self):
+        self.write_pane("home", self.manifest("ambient"))
+        state = self.tick({})
+        first = self.current()
+        self.assertEqual(len(first["rev"]), 12)
+        self.write_page("home", "<p>pane</p>")      # rewritten, same bytes
+        state = self.tick(state, 30)
+        self.assertEqual(self.current(), first)
+        self.write_page("home", "<p>new</p>")
+        self.tick(state, 60)
+        self.assertNotEqual(self.current()["rev"], first["rev"])
+        self.assertEqual(self.current()["decided_at"], "2026-10-07T12:01:00Z")
+
+    def test_a_same_size_rewrite_within_a_second_is_not_missed(self):
+        self.write_pane("home", self.manifest("ambient"))
+        path = os.path.join(self.p["panes"], "home", "pane.html")
+        st = os.stat(path)
+        first = bus.page_rev(path)
+        with open(path, "w") as f:
+            f.write("<p>pan2</p>")                  # same size
+        os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns))   # same mtime
+        self.assertNotEqual(bus.page_rev(path), first)
+
+    def test_an_old_page_is_hashed_once(self):
+        self.write_pane("home", self.manifest("ambient"))
+        path = os.path.join(self.p["panes"], "home", "pane.html")
+        old = time.time() - 60
+        os.utime(path, (old, old))
+        first = bus.page_rev(path)
+        self.assertIn(path, bus._REV_CACHE)
+        self.assertEqual(bus.page_rev(path), first)
+
+    def test_a_renewal_rewrites_expires_at_without_a_decision_line(self):
+        self.write_pane("home", self.manifest("ambient"))
+        state = self.tick({})
+        self.lines.clear()
+        self.write_pane("home", self.manifest("ambient", created=rubric.iso(T0 + timedelta(minutes=1))))
+        self.tick(state, 60)
+        self.assertEqual(self.current()["decided_at"], "2026-10-07T12:00:00Z")
+        self.assertEqual(self.current()["expires_at"], "2026-10-07T12:11:00Z")
+        self.assertEqual([l for l in self.lines if l.startswith("decision:")], [])
+
+    def test_lineup_items_carry_rev_and_source(self):
+        self.write_pane("home", self.manifest("ambient"))
+        link = os.path.join(self.p["panes"], "pr-93")
+        os.makedirs(link)
+        with open(os.path.join(link, "manifest.json"), "w") as f:
+            json.dump(self.manifest("attention", source={"url": "https://example.test/pr/93"}), f)
+        bus.tick(self.webroot, "http://pub.lan", {}, T0, self.lines.append, link_panes=True)
+        items = {i["id"]: i for i in self.lineup()["items"]}
+        self.assertEqual(items["pr-93"]["url"], "https://example.test/pr/93")
+        self.assertEqual(items["pr-93"]["source"]["theme"], "dark")
+        self.assertEqual(len(items["home"]["rev"]), 12)
+        self.assertIsNone(items["home"]["source"])
+        self.assertEqual(self.current()["pane"], "pr-93")
+
+    def test_link_panes_are_off_by_default(self):
+        link = os.path.join(self.p["panes"], "pr-93")
+        os.makedirs(link)
+        with open(os.path.join(link, "manifest.json"), "w") as f:
+            json.dump(self.manifest("attention", source={"url": "https://example.test/pr/93"}), f)
+        self.tick({})
+        self.assertEqual(self.current()["fallback"], "status")
+        self.assertEqual(self.lineup()["items"], [])
+        self.assertTrue(any("link panes are off" in l for l in self.lines))
+
+    def test_the_link_panes_flag_turns_them_on(self):
+        link = os.path.join(self.p["panes"], "pr-93")
+        os.makedirs(link)
+        with open(os.path.join(link, "manifest.json"), "w") as f:
+            # main() runs at the real clock, so the pane must be live now
+            json.dump(self.manifest("attention", created=rubric.iso(datetime.now(timezone.utc)),
+                                    source={"url": "https://example.test/pr/93"}), f)
+        self.assertEqual(main(["--webroot", self.webroot, "--once", "--link-panes"]), 0)
+        self.assertEqual(self.current()["url"], "https://example.test/pr/93")
 
 
 if __name__ == "__main__":
