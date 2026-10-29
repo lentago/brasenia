@@ -126,3 +126,30 @@ An item is `{time, people, who, what, where?, bring?, note?, legacy?, unconfirme
 - **Busy days.** Each column has six two-line slots (five under the coverage
   note). A day with more items shows the first ones and "+N more on the
   board".
+
+## The Google Doc
+
+The same brief also goes out as a Google Doc, so it can be read on a phone
+away from home, and shared, which `pub.lan` can't be
+([#90](https://github.com/lentago/brasenia/issues/90)). `family_brief_producer.doc`
+renders it as flowing HTML, built from the same `latest.json` as the panes so
+the two can't disagree:
+
+```sh
+python3 -m family_brief_producer.doc tests/fixtures/example/latest.json > brief.html
+```
+
+- **Sections**, each left out when empty: the day (coverage note, then
+  items), Needs a decision, To do, the rest of the week (with the week
+  strip's gap and crunch flags), Coming up, FYI, and the brief's footer.
+- **Markup Google Docs' import keeps:** headings, paragraphs, bulleted lists,
+  bold and inline colour. People keep their legend colour, darkened to read
+  on a white page.
+- **Absolute dates, no "today".** The output depends only on the brief, so an
+  unchanged brief renders the same bytes. pub uses that to update the Doc
+  only when the brief changes.
+
+The upload is kalmia's `publish-family-brief` on pub. When a new
+`latest.json` lands, it runs this module as the unprivileged `brasenia` user,
+then imports the HTML into one Google Doc with rclone, updated in place so
+the link stays the same. The Doc's Drive folder is shared with the household.
