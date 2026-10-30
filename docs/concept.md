@@ -335,6 +335,11 @@ One pane per distinct `repo` with a fresh beacon and something to show, at `pane
 
 *Added 2026-08-16 (kalmia#102 + [ADR-0007](adr/0007-live-rtmp-ingest-generic-path.md)).*
 
+> **Retired 2026-10-29** ([kalmia#213](https://github.com/lentago/kalmia/issues/213)):
+> RTMP live ingest and mediamtx are gone from the runtime, so nothing in this
+> section runs and nothing publishes to `rtmp://…/live`. Roku is the focus.
+> Bringing it back needs a new decision that supersedes ADR-0007.
+
 A generic `live` RTMP path on mediamtx is the first event-driven source type:
 publisher presence on `live` is a binary, machine-readable signal that
 something worth watching is happening — the rubric decides by observing

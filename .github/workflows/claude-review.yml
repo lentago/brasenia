@@ -70,8 +70,7 @@ jobs:
           Video node, holds focus, and Back must stay caught. The remote may
           peek, and may set only `default.pane`; nothing in the app may pin a
           pane over the urgent classes. A sideload-worthy change must bump
-          `build_version` in roku-app/manifest. A mediamtx stream URL needs
-          `?cookieCheck=1`.
+          `build_version` in roku-app/manifest.
         - **Rubric and bus integrity**: the compositor is the only writer to
           the screen. Pane-bus and settings writes must stay write-then-rename,
           and the contracts in docs/concept.md (pane revision, link panes,
@@ -88,8 +87,8 @@ jobs:
           runtime stays credential-free; pub holds the credentials. Check that
           producers pace their requests by cost (unauthenticated GitHub 304s
           still count against the rate limit).
-        - **Ownership split with kalmia**: services, units, mediamtx config and
-          container shape belong in kalmia (roles/brasenia/, terraform/), not
+        - **Ownership split with kalmia**: services, units and container shape
+          belong in kalmia (roles/brasenia/, terraform/), not
           here. Flag runtime scripts forked into this repo. Historical
           references to the old `lunaria` name (ADRs, changelogs, rename
           notes such as "named lunaria until kalmia#63") are not findings.
