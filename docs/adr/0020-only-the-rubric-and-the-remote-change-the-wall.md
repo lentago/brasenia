@@ -2,8 +2,11 @@
 
 **Status:** Accepted (2026-10-29, Chris; #117). Amends
 [ADR-0019](0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md) (a pane is
-one band) and [ADR-0016](0016-panes-carry-a-revision-and-may-link-a-web-page.md)
-(a link pane shows one band), and retires the rubric's rotation (Rubric v1 in
+one band), [ADR-0016](0016-panes-carry-a-revision-and-may-link-a-web-page.md)
+(a link pane shows one band, and its `dwell` is ignored),
+[ADR-0014](0014-home-and-fleet-feed-resting-panes.md) and
+[ADR-0018](0018-standing-slots-are-household-settings.md) (resting panes and
+slots no longer take turns), and retires the rubric's rotation (Rubric v1 in
 [`concept.md`](../concept.md#rubric-v1)). Builds on
 [ADR-0003](0003-rubric-driven-selection-compositor-sole-writer.md) (the
 compositor is the only writer to the screen),
@@ -123,8 +126,9 @@ verdict:
   `docs/claiming-the-display.md`, `bin/pane claim --screens`, and the
   compositor's validation of `source.screens`. The external `search-map`
   pane is redesigned where it is published.
-- **The compositor ranks strictly** (#121). `_rotate`, the rotation cursor
-  and `rotation.dwell_s` go, and arrival replaces `created` in the order.
+- **The compositor ranks strictly** (#121). `_rotate`, the rotation cursor,
+  `rotation.dwell_s` and `pane claim --dwell` go, and arrival replaces
+  `created` in the order.
   Rubric v1 and Contracts v1 in `concept.md` are updated, and so are the
   producers' READMEs that describe taking turns.
 - **A resting wall is still.** It shows the default resting pane, or the

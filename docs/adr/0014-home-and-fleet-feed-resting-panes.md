@@ -1,6 +1,9 @@
 # ADR-0014: Home Assistant and the job queue feed resting panes; pub holds the token
 
-**Status:** Accepted (2026-10-28; #86). Amends
+**Status:** Accepted (2026-10-28; #86). **Amended by
+[ADR-0020](0020-only-the-rubric-and-the-remote-change-the-wall.md)
+(2026-10-29): resting panes no longer take turns**; with no default set, the
+first resting pane by id shows. Amends
 [ADR-0008](0008-compositor-and-producers-on-pub.md): one producer, the home
 producer, holds a credential. Amended by
 [ADR-0017](0017-grafana-panes-rendered-on-pub.md): the grafana producer holds

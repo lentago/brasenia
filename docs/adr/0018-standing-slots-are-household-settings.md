@@ -1,6 +1,9 @@
 # ADR-0018: Standing slots are household settings, kept on the bus by a producer
 
-**Status:** Accepted (2026-10-29; #97). Builds on
+**Status:** Accepted (2026-10-29; #97). **Amended by
+[ADR-0020](0020-only-the-rubric-and-the-remote-change-the-wall.md)
+(2026-10-29): slots do not rotate with the other resting panes**; the
+remote's Left/Right and the default still choose among them. Builds on
 [ADR-0011](0011-rubric-settings-on-the-share.md) (household settings on the
 share) and [ADR-0016](0016-panes-carry-a-revision-and-may-link-a-web-page.md)
 (link panes).
