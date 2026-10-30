@@ -493,10 +493,10 @@ class LinkPanes(unittest.TestCase):
         self.assertEqual(pointer["fallback"], "briefing")
 
     def test_settings_are_kept_and_unknown_keys_dropped(self):
-        source = {"url": self.URL, "theme": "light", "screens": 2,
+        source = {"url": self.URL, "theme": "light", "screens": 1,
                   "viewport": [1920, 1080], "refresh_s": 300, "zoom": 2}
         pointer, _ = run([self.link(source=source)], link_panes=True)
-        self.assertEqual(pointer["source"], {"url": self.URL, "theme": "light", "screens": 2,
+        self.assertEqual(pointer["source"], {"url": self.URL, "theme": "light", "screens": 1,
                                              "viewport": [1920, 1080], "refresh_s": 300})
 
     def test_a_new_source_is_a_new_revision(self):
@@ -511,7 +511,10 @@ class LinkPanes(unittest.TestCase):
             ({"url": "https://"}, "not an http(s) URL"),
             ({"url": "https://x.test/a b"}, "is not a URL"),
             ({"url": self.URL, "theme": "sepia"}, "source.theme"),
-            ({"url": self.URL, "screens": 5}, "source.screens"),
+            # A pane is one band (ADR-0020): screens is 1 or absent.
+            ({"url": self.URL, "screens": 2}, "source.screens"),
+            ({"url": self.URL, "screens": 4}, "source.screens"),
+            ({"url": self.URL, "screens": 0}, "source.screens"),
             ({"url": self.URL, "screens": True}, "source.screens"),
             ({"url": self.URL, "viewport": [100, 720]}, "source.viewport"),
             ({"url": self.URL, "viewport": [1280]}, "source.viewport"),

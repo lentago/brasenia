@@ -134,27 +134,27 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
 
 ## The pane contract
 
-> **One band, nothing rotates ([ADR-0020](adr/0020-only-the-rubric-and-the-remote-change-the-wall.md)).**
-> A pane is one band. Where this section or Contracts v1 says 1–4 bands or
-> `source.screens` up to 4, ADR-0020 supersedes it, pending the rewrite in #118.
+> **One band ([ADR-0020](adr/0020-only-the-rubric-and-the-remote-change-the-wall.md)).**
+> A pane is exactly one band, and multi-band panes are not allowed. The
+> renderer shows that band and never pages through a taller one. Content that
+> does not fit one band leaves the wall.
 
 > **Moving to a 1920×1080 canvas ([ADR-0019](adr/0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md)).**
 > A pane that declares `<meta name="brasenia-canvas" content="1920x1080">` is
-> laid out 1920 px wide in 1080 px bands and rendered at 2×. It uses ≥30 px
+> laid out at 1920×1080, one band, and rendered at 2×. It uses ≥30 px
 > text, 36 px safe margins and a 330×75 px clock corner. The 30 px floor binds
 > every pane the shared stream shows except link panes. Producers move one at a
 > time (#113), and declare the tag only after the renderer supports it
 > (lentago/kalmia#216). Until then the 1280×720 rules below apply. A **band**
 > is one 16:9 screenful of a pane.
 
-- `pane.html`: self-contained (inline CSS, no external assets/JS), body width
-  1280px, height an exact multiple of 720px (≤ 2880). Every 720px band must
-  stand alone — nothing straddles a boundary. Dark background, ≥20px body
-  text, 24px safe margins, bottom-right ~220×50px of each band kept clear
+- `pane.html`: self-contained (inline CSS, no external assets/JS), body
+  1280×720px: one band, and nothing below 720px is shown. Dark background,
+  ≥20px body text, 24px safe margins, bottom-right ~220×50px kept clear
   (clock overlay is composited there).
 - A link pane (a manifest `source`, ADR-0016) has no `pane.html`. Its page is
   someone else's and cannot be held to this contract. The client lays it out
-  at `source.viewport`, shows `source.screens` bands of it, and asks for
+  at `source.viewport`, shows one band of it, and asks for
   `source.theme`; the clock still covers the bottom-right corner.
 - Sizes are CSS pixels. A client may render a pane at an integer scale (the
   office Roku renders at 3×, 3840×2160 device pixels), and the clock and its
@@ -280,7 +280,7 @@ Writers use write-then-rename for every file (`x.partial` → `x`) and write `ma
 - `repo` (`owner/name`), `dwell_s` and `done_when` are optional. v1 ignores `done_when`.
 - `source` is optional and makes the pane a **link pane** ([ADR-0016](adr/0016-panes-carry-a-revision-and-may-link-a-web-page.md)): the screen shows a web page instead of `pane.html`. It is `{"url": "https://…", "theme": "dark", "screens": 1, "viewport": [1280, 720], "refresh_s": 60}`.
   - `url` (http or https) is required; the other fields have the defaults shown. The pointer is readable on the LAN, so a `url` with a user or password, or with a query or fragment parameter that usually carries a secret (`token`, `signature`, `key`, …), is malformed. That check is a heuristic: a link pane's URL must be token-free.
-  - `theme` is `dark` or `light`; `screens` is 1–4 bands of the page to show; `viewport` is the CSS size to lay the page out at (240–3840 each); `refresh_s` (at least 10) is how often to render it again.
+  - `theme` is `dark` or `light`; `screens` is always 1, one band (ADR-0020): it stays in the contract so a writer that sends it keeps working, and any other value is malformed; `viewport` is the CSS size to lay the page out at (240–3840 each); `refresh_s` (at least 10) is how often to render it again.
   - Other keys are ignored. The compositor shows link panes only with `--link-panes`, which stays off until the renderer has its allowed-sites list and Chromium's sandbox ([kalmia#194](https://github.com/lentago/kalmia/issues/194)).
 - A pane is live when both files exist (a link pane needs only `manifest.json`), neither is a `.partial`, the manifest parses, and `created + ttl_minutes` is in the future.
 

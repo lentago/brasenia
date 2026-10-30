@@ -36,6 +36,8 @@ REQUIRED = ("class", "title", "created", "ttl_minutes", "author")
 
 # A link pane (#96, ADR-0016) names a web page in its manifest's `source`
 # instead of shipping pane.html. These are the source fields and their defaults.
+# `screens` is always 1, because a pane is one band (ADR-0020). It stays a
+# Contracts v1 field, so a writer that sends "screens": 1 keeps working.
 SOURCE_DEFAULTS = {"theme": "dark", "screens": 1, "viewport": [1280, 720],
                    "refresh_s": 60}
 THEMES = ("dark", "light")
@@ -120,8 +122,8 @@ def parse_source(source):
             out[key] = source[key]
     if out["theme"] not in THEMES:
         raise Malformed("source.theme is not one of %s" % ", ".join(THEMES))
-    if not _whole(out["screens"], 1, 4):
-        raise Malformed("source.screens is not 1-4")
+    if not _whole(out["screens"], 1, 1):
+        raise Malformed("source.screens is not 1: a pane is one band (ADR-0020)")
     viewport = out["viewport"]
     if not (isinstance(viewport, list) and len(viewport) == 2
             and all(_whole(v, *VIEWPORT_RANGE) for v in viewport)):

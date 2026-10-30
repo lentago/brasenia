@@ -172,7 +172,7 @@ class StandingSlots(unittest.TestCase):
         for bad in ("not json", json.dumps(["x"]), json.dumps({"url": self.URL}),
                     self.label(title=" "), self.label(title="x" * 121),
                     self.label(url="ftp://x.test/"), self.label(url="https://u:p@x.test/"),
-                    self.label(screens=9)):
+                    self.label(screens=2), self.label(screens=9)):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 settings.parse_value("link.prs", bad)
 
@@ -198,6 +198,7 @@ class StandingSlots(unittest.TestCase):
         self.assertIn('data-id="link.prs">Remove</button>', page)
         self.assertIn('<a href="%s">' % self.URL, page)
         self.assertIn("Link panes are off", page)
+        self.assertNotIn("slot-screens", page)   # a pane is one band (ADR-0020)
         current = re.search(r"const CURRENT = (\{.*?\}), DEFAULTS", page).group(1)
         self.assertNotIn("link.prs", current)
         self.assertIn(', OVERRIDDEN = [];', page)
