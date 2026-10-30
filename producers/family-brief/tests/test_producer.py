@@ -24,7 +24,7 @@ class ProducerTests(unittest.TestCase):
 
     def test_fresh_brief_writes_pane_then_manifest(self):
         self.producer.cycle()
-        self.assertEqual(sorted(os.listdir(self.pane_dir)), ["detail.html", "manifest.json", "pane.html"])
+        self.assertEqual(sorted(os.listdir(self.pane_dir)), ["manifest.json", "pane.html"])
         m = self.manifest()
         self.assertEqual((m["class"], m["ttl_minutes"], m["author"], m["origin"]),
                          ("ambient", 30, AUTHOR, "operator"))
@@ -73,7 +73,7 @@ class ProducerTests(unittest.TestCase):
     def test_fresh_brief_also_fills_the_briefing_slot(self):
         self.producer.cycle()
         d = os.path.join(self.webroot, "viewport", "briefing")
-        self.assertEqual(sorted(os.listdir(d)), ["detail.html", "manifest.json", "pane.html"])
+        self.assertEqual(sorted(os.listdir(d)), ["manifest.json", "pane.html"])
         m = json.loads(self.briefing("manifest.json"))
         self.assertEqual(m, {"schema": 1, "title": "Family Brief",
                              "published": "2026-10-25T11:10:49Z", "author": AUTHOR,
@@ -85,7 +85,16 @@ class ProducerTests(unittest.TestCase):
         self.producer.cycle()
         self.assertFalse(os.path.exists(self.pane_dir))
         self.assertIn("No brief since Fri 10/23", self.briefing("pane.html"))
-        self.assertIn("No brief since Fri 10/23", self.briefing("detail.html"))
+
+    def test_a_desk_edition_left_by_an_older_producer_is_removed(self):
+        briefing = os.path.join(self.webroot, "viewport", "briefing")
+        for d in (self.pane_dir, briefing):
+            os.makedirs(d, exist_ok=True)
+            with open(os.path.join(d, "detail.html"), "w", encoding="utf-8") as fh:
+                fh.write("<p>old desk edition</p>")
+        self.producer.cycle()
+        for d in (self.pane_dir, briefing):
+            self.assertFalse(os.path.exists(os.path.join(d, "detail.html")), d)
 
     def test_published_falls_back_to_the_brief_date(self):
         del self.doc["generated_at"]
@@ -106,7 +115,7 @@ class ProducerTests(unittest.TestCase):
     def test_both_resting_panes_are_written_with_a_slow_dwell(self):
         self.producer.cycle()
         week = os.path.join(self.webroot, "viewport", "panes", WEEK_ID)
-        self.assertEqual(sorted(os.listdir(week)), ["detail.html", "manifest.json", "pane.html"])
+        self.assertEqual(sorted(os.listdir(week)), ["manifest.json", "pane.html"])
         for d in (self.pane_dir, week):
             with open(os.path.join(d, "manifest.json"), encoding="utf-8") as fh:
                 m = json.load(fh)
