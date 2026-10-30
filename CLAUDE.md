@@ -17,7 +17,7 @@ compositor). One sentence is plenty; don't make a meal of it.
 
 The product half of the wall display. There is no build step: the Roku app is
 zipped and sideloaded as-is, and the concept doc is the design record. The
-*runtime* (mediamtx + shooter/rotator/encoder on LXC 118) is provisioned from
+*runtime* (the renderer, encoder, HLS server and mediamtx on LXC 118) is provisioned from
 `kalmia` — see the ownership table in the README before deciding where a
 change goes.
 
