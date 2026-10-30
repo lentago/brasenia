@@ -77,10 +77,14 @@ jobs:
           rubric v1, standing slots) must agree with the code and ADRs. Flag a
           change that lets a producer or client decide what is shown. The live
           panes rank in one strict order with no ties (ADR-0020): priority, the
-          default resting pane, origin, arrival (never `created`), then the
-          pane id. Nothing rotates, and no timer may change what is shown.
-          Flag code that brings back rotation, ranks by `created`, or rejects
-          a manifest over `dwell_s`, which is accepted and ignored.
+          default resting pane, origin, arrival (never `created`; resting
+          `ambient` panes skip this step and keep their order by id), then the
+          pane id. Nothing rotates, and no timer may change which pane is
+          shown. ADR-0020's "What counts as a change" lists what is allowed: a
+          content refresh, the retry handler and lag rejoin, the peek's 60 s
+          close, and a stand-in giving way to the decided pane. Flag code that
+          brings back rotation, ranks by `created`, or rejects a manifest over
+          `dwell_s`, which is accepted and ignored.
         - **Pane contract**: pane HTML is self-contained and exactly one band
           (ADR-0020): 1280x720 px, or 1920x1080 on the canvas a pane declares
           (ADR-0019). There are no multi-band panes, and a link pane's
