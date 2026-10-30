@@ -66,7 +66,7 @@ Three nouns:
       │  write pane dirs (write-then-rename, same discipline as claude-jobs)
       ▼
  NAS pane bus   /volume1/lentago/web/viewport/panes/<pane>/
-      │           ├── pane.html      (1..4 bands of 1280×720)
+      │           ├── pane.html      (one 1920×1080 band, ADR-0019/0020)
       │           └── manifest.json  (class, ttl, created, author, origin)
       ▼
  pub (LXC 114, mounts and serves the share) — compositor:
@@ -162,10 +162,11 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
 - A pane directory may also hold other renditions beside `pane.html`. The
   compositor reads only `pane.html` and `manifest.json`, and a client reaches
   a rendition only by pinning to its URL. The shared stream shows
-  `pane.html` and never prefers a rendition (lentago/kalmia#217), because
-  everything it shows is held to the 30 px floor (ADR-0019). The family
-  brief's `detail.html` desk editions were retired for being below it (#115).
-  A rendition goes when its pane does.
+  `pane.html` and never prefers a rendition, because everything it shows is
+  held to the 30 px floor (ADR-0019, lentago/kalmia#217). Until #217 is
+  deployed on LXC 118, the renderer still prefers a `detail.html` if one
+  exists, and none does: the family brief's desk editions were retired for
+  being below the floor (#115). A rendition goes when its pane does.
 - `manifest.json`: the fields and liveness rule are in
   [Contracts v1](#manifestjson).
 - Writers use write-then-rename (`pane.html.partial` → `pane.html`), create
