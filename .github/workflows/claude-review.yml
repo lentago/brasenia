@@ -75,11 +75,22 @@ jobs:
           the screen. Pane-bus and settings writes must stay write-then-rename,
           and the contracts in docs/concept.md (pane revision, link panes,
           rubric v1, standing slots) must agree with the code and ADRs. Flag a
-          change that lets a producer or client decide what is shown.
-        - **Pane contract**: pane HTML is self-contained, 1280 px wide, a height
-          that is an exact multiple of 720 px (at most 2880), with nothing
-          straddling a 720 px band, a dark background, text of 20 px or more,
-          and the bottom-right ~220x50 px of each band kept clear for the clock
+          change that lets a producer or client decide what is shown. The live
+          panes rank in one strict order with no ties (ADR-0020): priority, the
+          default resting pane, origin, arrival (never `created`; resting
+          `ambient` panes skip this step and keep their order by id), then the
+          pane id. Nothing rotates, and no timer may change which pane is
+          shown. ADR-0020's "What counts as a change" lists what is allowed: a
+          content refresh, the retry handler and lag rejoin, the peek's 60 s
+          close, and a stand-in giving way to the decided pane. Flag code that
+          brings back rotation, ranks by `created`, or rejects a manifest over
+          `dwell_s`, which is accepted and ignored.
+        - **Pane contract**: pane HTML is self-contained and exactly one band
+          (ADR-0020): 1280x720 px, or 1920x1080 on the canvas a pane declares
+          (ADR-0019). There are no multi-band panes, and a link pane's
+          `source.screens` is always 1. A dark background, text of 20 px or
+          more (30 px on the 1920x1080 canvas), and the bottom-right
+          ~220x50 px (330x75 px on that canvas) kept clear for the clock
           overlay. The contract lives in docs/concept.md; update it there.
         - **Secrets and credentials**: ROKU_IP, ROKU_DEV_PASS, Home Assistant,
           GitHub and Grafana tokens come from the environment only. None may be
