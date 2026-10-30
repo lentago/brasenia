@@ -45,8 +45,10 @@ counts them as `source.screens`.
 
   The stream's clock overlay keeps its size in device pixels, so it still
   fits that corner.
-- **The floor binds everything the shared stream shows.** Every screen
-  mirrors one stream, so one floor serves the desk and the couch alike. A
+- **The floor binds every pane the shared stream shows, except link panes.**
+  A link pane's page belongs to someone else, and the contract already
+  cannot hold it to any of these rules. Every screen mirrors one stream, so
+  one floor serves the desk and the couch alike. A
   denser layout for one screen would need its own stream, at about 1.4 cores
   per 4K encoder (ADR-0010). A pane directory may still hold other
   renditions for a client that pins one, but the stream stops preferring
@@ -66,7 +68,9 @@ counts them as `source.screens`.
   markup with `<meta name="brasenia-canvas" content="1920x1080">`, so the
   manifest, pointer and line-up are unchanged. The renderer lays a declaring
   pane out at 1920×1080 at 2×. A pane without the tag renders exactly as
-  today: 1280×720 at 3×, under the old numbers. When the last producer and
+  today: 1280×720 at 3×, under the old numbers. Producers declare the tag
+  only after the renderer supports it (kalmia#216). Before that, a pane laid
+  out for 1920 would be shot through the 1280×720 viewport. When the last producer and
   the compositor's status card have moved, the contract section in
   `concept.md` is rewritten for the new canvas. At that point 1280×720 panes
   are no longer supported.
@@ -86,10 +90,12 @@ counts them as `source.screens`.
   size, a 1920×1080 band holds what a 1280×720 band holds. What changes is
   finer control: images, rules, charts and smaller non-text detail get 1.5×
   the CSS pixels, and layouts snap to the grid TV interfaces use.
-- **Every producer moves** (#113): family-brief, fleet, focus, grafana, home,
-  links and pipeline, and the compositor's status card. Each one moves on
-  its own and updates its tests that pin 1280/720. Nothing changes on the
-  wall until a producer opts in.
+- **Every producer that writes `pane.html` moves** (#113): family-brief,
+  fleet, focus, grafana, home and pipeline, and the compositor's status card.
+  Each one moves on its own and updates its tests that pin 1280/720. Nothing
+  changes on the wall until a producer opts in. The links producer writes
+  only link panes, which have no `pane.html` and keep their own viewport, so
+  it does not move.
 - **The runtime change is small** (kalmia#216). The renderer reads the meta
   tag and picks the canvas and scale. The stream stays 3840×2160 HEVC, and
   the encoder and its clock overlay do not change.
