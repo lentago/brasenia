@@ -64,6 +64,12 @@ The full contract is in [concept.md](concept.md#the-pane-contract).
 4. Dark background, body text at least 20 px, 24 px safe margins.
 5. Keep the bottom-right 220×50 px of each band clear (the clock overlay).
 
+Those are the 1280×720 numbers. A pane may instead declare
+`<meta name="brasenia-canvas" content="1920x1080">` and use the 1920×1080 canvas
+([ADR-0019](adr/0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md)): 1920 px wide,
+1080 px bands (at most 4320), body text at least 30 px, 36 px margins, and a
+330×75 px clock corner. Both render at 3840×2160.
+
 Your display can be dark or stale during an internet outage; see
 [Degraded mode: internet outage](concept.md#degraded-mode-internet-outage).
 
@@ -113,8 +119,8 @@ claim it as a **link pane** with `--url` and no `pane.html`
     --url https://github.com/lentago/brasenia/pull/42
 ```
 
-`--theme dark|light` (default dark), `--screens N` (720 px bands to show,
-1–4, default 1), `--viewport WxH` (the CSS size to lay the page out at,
+`--theme dark|light` (default dark), `--screens N` (bands to show, each one
+viewport high, 1–4, default 1), `--viewport WxH` (the CSS size to lay the page out at,
 default 1280x720) and `--refresh SEC` (render it again this often, at
 least 10, default 60) set how it is shown. The URL must be http or https,
 with no user or password in it. The whole URL, query string included, ends up

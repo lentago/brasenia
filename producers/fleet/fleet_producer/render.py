@@ -1,13 +1,13 @@
-"""Render the fleet pane: one 1280×720 band, inline CSS, no scripts.
+"""Render the fleet pane: one 1920×1080 band, inline CSS, no scripts.
 
-Geometry (inside the 24 px margins): a 60 px header, a 96 px row of five
-counts, and a 442 px row of three cards, with 12 px gaps, fill the 622 px
-main area that ends at y=646, above the bottom-right 220×50 px clock corner.
-The footer sits bottom-left and stops 356 px short of the right edge.
+Geometry (inside the 36 px margins): a 90 px header, a 144 px row of five
+counts, and a 663 px row of three cards, with 18 px gaps, fill the 933 px
+main area that ends at y=969, above the bottom-right 330×75 px clock corner.
+The footer sits bottom-left and stops 534 px short of the right edge.
 
-The cards are Workers (one 38 px row each: idle, busy with a project, or
+The cards are Workers (one 57 px row each: idle, busy with a project, or
 silent when its heartbeat stopped), Last 24 hours (the six most recent runs,
-two 58 px lines each) and Agent PRs (oldest first, the same two-line rows).
+two 87 px lines each) and Agent PRs (oldest first, the same two-line rows).
 Only counts, project names, models and PR titles appear: no prompt, no log.
 """
 
@@ -21,45 +21,44 @@ CARD_H, CHROME, ROW_H, ROW2_H = 442, 52, 38, 58
 
 CSS = """
 html, body { margin: 0; padding: 0; }
-@media (min-width: 1900px) and (min-height: 1060px) { html { zoom: 1.5; } }
-body { width: 1280px; height: 720px; overflow: hidden; position: relative;
+body { width: 1920px; height: 1080px; overflow: hidden; position: relative;
   background: %(bg)s; color: %(text)s; font-family: "DejaVu Sans", sans-serif;
-  font-size: 21px; line-height: 26px; }
-.main { position: absolute; top: 24px; left: 24px; right: 24px; height: 622px; overflow: hidden; }
-header { height: 60px; display: flex; align-items: center; gap: 20px; border-radius: 10px;
-  padding: 0 18px; box-sizing: border-box; background: %(band)s; }
-h1 { margin: 0; font-size: 34px; line-height: 40px; color: #ffffff; white-space: nowrap; }
-h1 span { font-size: 22px; font-weight: normal; color: %(band_text)s; }
-.summary { margin-left: auto; font-size: 20px; color: %(amber)s; white-space: nowrap; }
-.tiles { display: flex; gap: 12px; margin-top: 12px; height: 96px; }
-.tile { flex: 1 1 0; min-width: 0; background: %(card)s; border-radius: 10px; padding: 8px 16px;
+  font-size: 31.5px; line-height: 39px; }
+.main { position: absolute; top: 36px; left: 36px; right: 36px; height: 933px; overflow: hidden; }
+header { height: 90px; display: flex; align-items: center; gap: 30px; border-radius: 15px;
+  padding: 0 27px; box-sizing: border-box; background: %(band)s; }
+h1 { margin: 0; font-size: 51px; line-height: 60px; color: #ffffff; white-space: nowrap; }
+h1 span { font-size: 33px; font-weight: normal; color: %(band_text)s; }
+.summary { margin-left: auto; font-size: 30px; color: %(amber)s; white-space: nowrap; }
+.tiles { display: flex; gap: 18px; margin-top: 18px; height: 144px; }
+.tile { flex: 1 1 0; min-width: 0; background: %(card)s; border-radius: 15px; padding: 12px 24px;
   box-sizing: border-box; }
-.tile .n { height: 48px; font-size: 40px; line-height: 48px; font-weight: bold; }
-.tile .l { height: 26px; font-size: 20px; color: %(muted)s; white-space: nowrap; }
-.cols { display: flex; gap: 12px; margin-top: 12px; height: 442px; }
-.card { background: %(card)s; border-radius: 10px; padding: 10px 16px; box-sizing: border-box;
-  overflow: hidden; height: 442px; }
-.card.workers { flex: 0 0 360px; }
-.card.runs { flex: 0 0 420px; }
+.tile .n { height: 72px; font-size: 60px; line-height: 72px; font-weight: bold; }
+.tile .l { height: 39px; font-size: 30px; color: %(muted)s; white-space: nowrap; }
+.cols { display: flex; gap: 18px; margin-top: 18px; height: 663px; }
+.card { background: %(card)s; border-radius: 15px; padding: 15px 24px; box-sizing: border-box;
+  overflow: hidden; height: 663px; }
+.card.workers { flex: 0 0 540px; }
+.card.runs { flex: 0 0 630px; }
 .card.prs { flex: 1 1 auto; min-width: 0; }
-h2 { margin: 0; height: 32px; font-size: 21px; line-height: 32px; color: %(muted)s;
+h2 { margin: 0; height: 48px; font-size: 31.5px; line-height: 48px; color: %(muted)s;
   font-weight: normal; white-space: nowrap; }
-.row { height: 38px; box-sizing: border-box; display: flex; align-items: center; gap: 12px;
-  border-bottom: 1px solid %(line)s; }
-.row2 { height: 58px; box-sizing: border-box; padding: 3px 0; border-bottom: 1px solid %(line)s; }
-.row2 > div { height: 26px; display: flex; gap: 12px; }
+.row { height: 57px; box-sizing: border-box; display: flex; align-items: center; gap: 18px;
+  border-bottom: 1.5px solid %(line)s; }
+.row2 { height: 87px; box-sizing: border-box; padding: 4.5px 0; border-bottom: 1.5px solid %(line)s; }
+.row2 > div { height: 39px; display: flex; gap: 18px; }
 .name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .right { flex: 0 0 auto; white-space: nowrap; }
-.row2 > .sub { display: block; color: %(muted)s; font-size: 20px; white-space: nowrap; overflow: hidden;
+.row2 > .sub { display: block; color: %(muted)s; font-size: 30px; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; }
 .busy { color: %(blue)s; font-weight: bold; }
 .ok { color: %(green)s; }
 .warn { color: %(amber)s; font-weight: bold; }
 .bad { color: %(red)s; font-weight: bold; }
 .muted { color: %(muted)s; }
-.none { color: %(faint)s; font-style: italic; padding-top: 6px; }
-.foot { position: absolute; left: 24px; bottom: 24px; width: 900px; height: 26px; font-size: 20px;
-  line-height: 26px; color: %(faint)s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.none { color: %(faint)s; font-style: italic; padding-top: 9px; }
+.foot { position: absolute; left: 36px; bottom: 36px; width: 1350px; height: 39px; font-size: 30px;
+  line-height: 39px; color: %(faint)s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 """ % {"bg": BG, "text": TEXT, "card": CARD, "line": LINE, "muted": MUTED, "faint": FAINT,
        "band": BAND, "band_text": BAND_TEXT, "green": GREEN, "amber": AMBER, "red": RED, "blue": BLUE}
 
@@ -81,6 +80,7 @@ def render(snap, prs, now, tz):
     foot = "claude-jobs queue · as of %s" % _clock(now, tz)
     return """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
+<meta name="brasenia-canvas" content="1920x1080">
 <title>Fleet</title>
 <style>%(css)s</style></head>
 <body>

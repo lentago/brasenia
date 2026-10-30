@@ -32,15 +32,16 @@ class RenderTests(unittest.TestCase):
         for pattern in EXTERNAL:
             self.assertIsNone(pattern.search(page), pattern.pattern)
         self.assertNotIn("<script", page)
-        self.assertIn("width: 1280px; height: 720px;", page)
+        self.assertIn("width: 1920px; height: 1080px;", page)
+        self.assertIn('<meta name="brasenia-canvas" content="1920x1080">', page)
         sizes = [int(px) for px in re.findall(r"font-size: (\d+)px", page)]
-        self.assertGreaterEqual(min(sizes), 20)
-        # Fixed layout: header + four strips fit the 622 px main area, which
-        # ends at 646 px, above the clock corner; the footer stops short of it.
-        self.assertIn("top: 24px; left: 24px; right: 24px; height: 622px;", page)
-        self.assertLessEqual(64 + MAX_STRIPS * (130 + 8), 622)
-        self.assertIn("left: 24px; bottom: 24px; width: 900px;", page)
-        self.assertLessEqual(24 + 900, 1280 - 220 - 24)
+        self.assertGreaterEqual(min(sizes), 30)
+        # Fixed layout: header + four strips fit the 933 px main area, which
+        # ends at 969 px, above the clock corner; the footer stops short of it.
+        self.assertIn("top: 36px; left: 36px; right: 36px; height: 933px;", page)
+        self.assertLessEqual(96 + MAX_STRIPS * (195 + 12), 933)
+        self.assertIn("left: 36px; bottom: 36px; width: 1350px;", page)
+        self.assertLessEqual(36 + 1350, 1920 - 330 - 36)
 
     def test_strip_content(self):
         page = render(flying(), AS_OF, NOW)
@@ -55,7 +56,7 @@ class RenderTests(unittest.TestCase):
         self.assertIn('class="strip"', kalmia)
         self.assertNotIn("stuck", kalmia)
         self.assertIn("terraform apply · in progress", kalmia)
-        self.assertNotIn("brasenia", page)  # landed repos are not shown
+        self.assertNotIn("brasenia", page.split("<body>", 1)[1])  # landed repos are not shown
         self.assertIn("<h1>2 changes in flight</h1>", page)
         self.assertIn("data as of", page)
 

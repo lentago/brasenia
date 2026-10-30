@@ -90,7 +90,8 @@ counts them as `source.screens`.
   size, a 1920×1080 band holds what a 1280×720 band holds. What changes is
   finer control: images, rules, charts and smaller non-text detail get 1.5×
   the CSS pixels, and layouts snap to the grid TV interfaces use.
-- **Every producer that writes `pane.html` moves** (#113): family-brief,
+- **Every producer that writes `pane.html` moves** (#113, and #115 for the
+  family brief): family-brief,
   fleet, focus, grafana, home and pipeline, and the compositor's status card.
   Each one moves on its own and updates its tests that pin 1280/720. Nothing
   changes on the wall until a producer opts in. The links producer writes

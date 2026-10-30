@@ -44,7 +44,7 @@ Logs go to stdout, which is the journal under systemd.
   and no `.partial` files, as long as the repo has something to show: an
   open PR, a `main` run that didn't pass, or a pipeline row. A quiet repo
   gets no pane (see below), so try it with a repo that has an open PR.
-- Opening `pane.html` in a browser at 1280×720 shows the repo name, its open
+- Opening `pane.html` in a browser at 1920×1080 shows the repo name, its open
   PRs (number, title, author, age, draft flag, check state, review
   decision), `main`'s latest push run, and a "data as of HH:MM" stamp
   bottom-left. The bottom-right corner is empty, kept clear for the clock.
@@ -125,13 +125,13 @@ starts when the server reports fewer requests left than it needs.
 
 ## The pane
 
-One 1280×720 band, self-contained: inline CSS, no scripts, no external
+One 1920×1080 band, self-contained: inline CSS, no scripts, no external
 assets. Dark background `#0e2b1a`, text `#f3f0e8`, muted `#cdd6d0`, one
 accent `#E0A81C` (repo name, failing checks, change requests, a non-green
-`main`). Text is 20 px or larger, inside 24 px margins. The layout is fixed
-height: at most nine PR rows, then `+N more`. Content stops 74 px above the
-bottom edge, and the stamp ends 256 px short of the right edge, so the
-bottom-right 220×50 px clock corner stays clear.
+`main`). Text is 30 px or larger, inside 36 px margins. The layout is fixed
+height: at most nine PR rows, then `+N more`. Content stops 111 px above the
+bottom edge, and the stamp ends 384 px short of the right edge, so the
+bottom-right 330×75 px clock corner stays clear.
 
 The pane contract, manifest and beacon shapes are the v1 contracts in
 [`docs/concept.md`](../../docs/concept.md) (written there by #27).

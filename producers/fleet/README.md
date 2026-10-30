@@ -44,7 +44,7 @@ Options: `--jobs` (default `/srv/claude-jobs`), `--tz` (default
 - `panes/fleet/` holds `pane.html` and `manifest.json`, and no `.partial`
   files. The manifest reads `class: ambient`, `ttl_minutes: 10`,
   `dwell_s: 60`, `author: fleet-producer@pub`, `origin: operator`.
-- At 1280×720 the page shows five counts (workers alive, busy, waiting, runs
+- At 1920×1080 the page shows five counts (workers alive, busy, waiting, runs
   and failures in the last 24 hours) over three cards: Workers, Last 24 hours
   (the six newest runs) and Agent PRs to review (oldest first). The
   bottom-right corner is empty, kept clear for the clock.

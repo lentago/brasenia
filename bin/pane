@@ -378,7 +378,7 @@ def build_parser():
                       "query string included, is readable on the LAN")
     link.add_argument("--theme", choices=THEMES, help="default: dark")
     link.add_argument("--screens", type=int, metavar="N",
-                      help="720 px bands of the page to show, 1-4 (default 1)")
+                      help="bands of the page to show, each one viewport high, 1-4 (default 1)")
     link.add_argument("--viewport", metavar="WxH",
                       help="CSS size to lay the page out at (default 1280x720)")
     link.add_argument("--refresh", type=finite, metavar="SEC",

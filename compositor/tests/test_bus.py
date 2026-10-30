@@ -82,7 +82,8 @@ class Bus(unittest.TestCase):
         with open(self.p["status"]) as f:
             card = f.read()
         self.assertIn("No live pane", card)
-        self.assertIn("width: 1280px; height: 720px", card)
+        self.assertIn("width: 1920px; height: 1080px", card)
+        self.assertIn('<meta name="brasenia-canvas" content="1920x1080">', card)
         self.assertEqual(len(self.lines), 1)
         self.assertTrue(self.lines[0].startswith("decision: fallback=status"))
 

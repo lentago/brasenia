@@ -34,7 +34,9 @@ class RenderTest(unittest.TestCase):
     def test_contract_and_no_prompt(self):
         page = render(self.snap, self.prs, NOW, TZ)
         self.assertNotRegex(page, r"(?i)<script|<link\b|\bsrc\s*=")
-        self.assertIn("width: 1280px; height: 720px", page)
+        self.assertIn("width: 1920px; height: 1080px", page)
+        self.assertIn('<meta name="brasenia-canvas" content="1920x1080">', page)
+        self.assertNotIn("zoom", page)
         self.assertNotIn(SECRET, page)
         self.assertIn("claude-jobs queue · as of 8:40 PM", page)
 

@@ -140,17 +140,18 @@ STATUS_HTML = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="brasenia-canvas" content="1920x1080">
 <title>brasenia status</title>
 <style>
   html, body {{ margin: 0; padding: 0; background: #0e1612; }}
-  body {{ width: 1280px; height: 720px; overflow: hidden; color: #d8e4dc;
-         font: 28px/1.4 system-ui, sans-serif; }}
-  main {{ box-sizing: border-box; width: 1280px; height: 720px;
-         padding: 24px 24px 74px 24px; display: flex; flex-direction: column;
+  body {{ width: 1920px; height: 1080px; overflow: hidden; color: #d8e4dc;
+         font: 42px/1.4 system-ui, sans-serif; }}
+  main {{ box-sizing: border-box; width: 1920px; height: 1080px;
+         padding: 36px 36px 111px 36px; display: flex; flex-direction: column;
          justify-content: center; }}
-  h1 {{ margin: 0 0 24px 0; font-size: 44px; color: #e0a81c; }}
-  p {{ margin: 0 0 16px 0; max-width: 1000px; }}
-  .meta {{ font-size: 22px; color: #8fa89a; }}
+  h1 {{ margin: 0 0 36px 0; font-size: 66px; color: #e0a81c; }}
+  p {{ margin: 0 0 24px 0; max-width: 1500px; }}
+  .meta {{ font-size: 33px; color: #8fa89a; }}
 </style>
 </head>
 <body>
@@ -166,8 +167,8 @@ STATUS_HTML = """<!doctype html>
 
 
 def render_status(pointer, tz=None):
-    """The fallback of last resort, to the pane contract: 1280x720, dark,
-    text >= 20 px, and the bottom-right 220x50 px left clear (the bottom
+    """The fallback of last resort, to the pane contract: 1920x1080, dark,
+    text >= 30 px, and the bottom-right 330x75 px left clear (the bottom
     padding keeps every line above the clock overlay)."""
     decided = rubric.parse_time(pointer["decided_at"]).astimezone(tz)
     return STATUS_HTML.format(

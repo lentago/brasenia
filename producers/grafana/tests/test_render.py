@@ -23,20 +23,27 @@ class RenderTest(unittest.TestCase):
                            datetime(2026, 10, 29, 0, 40, tzinfo=timezone.utc),
                            ZoneInfo("America/New_York"))
 
-    def test_the_default_size_fills_the_frame_one_to_one(self):
-        self.assertEqual(render.fit((1232, 610), 40), (24, 1232, 610, 650))
+    def test_the_default_size_fills_the_frame_at_one_and_a_half(self):
+        self.assertEqual(render.fit((1232, 610), 40), (36, 1848, 915, 975))
 
     def test_a_larger_layout_is_scaled_to_fit_and_centred(self):
         left, width, height, image_h = render.fit((1920, 1080), 40)
-        self.assertEqual((width, height), (1084, 610))
-        self.assertEqual(left, 24 + (1232 - 1084) // 2)
-        self.assertEqual(image_h, round(1120 * 610 / 1080))
+        self.assertEqual((width, height), (1627, 915))
+        self.assertEqual(left, 36 + (1848 - 1627) // 2)
+        self.assertEqual(image_h, round(1120 * 915 / 1080))
 
     def test_the_frame_and_footer_keep_off_the_clock_corner(self):
         for size in ((1232, 610), (1000, 460), (3000, 500), (1000, 2960)):
             left, width, height, _ = render.fit(size, 40)
-            self.assertLessEqual(left + width, 1280 - 24)
-            self.assertLessEqual(24 + height, 720 - 50 - 24)   # ends above the clock band
+            self.assertLessEqual(left + width, 1920 - 36)
+            self.assertLessEqual(36 + height, 1080 - 75 - 36)   # ends above the clock band
+
+    def test_the_page_declares_the_1920_canvas(self):
+        page = self.page()
+        self.assertIn('<meta name="brasenia-canvas" content="1920x1080">', page)
+        self.assertIn("width: 1920px; height: 1080px;", page)
+        self.assertNotIn("zoom", page)
+        self.assertIn("font-size: 30px", page)
 
     def test_the_page_is_self_contained_and_inlines_the_png(self):
         page = self.page()
