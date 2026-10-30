@@ -37,20 +37,22 @@ change goes.
 - **Deploying the Roku app** needs `ROKU_IP` and `ROKU_DEV_PASS` in the
   environment. Never commit the password; never bake either into the script.
   `ROKU_IP` takes several addresses separated by spaces, and the script
-  sideloads each one. The screens:
-  - **Office:** Streaming Stick Plus 3830R on a 4K display, `192.168.139.21`.
-  - **Basement:** TCL 75R7D Roku TV, `192.168.139.190`.
-  - **Play room:** TCL 32S327 Roku TV (720p), `192.168.139.240`.
+  sideloads each one. The screens, both 4K:
+  - **Office:** Streaming Stick Plus 3830R on a 4K display, `192.168.139.21`
+    (Firewalla reservation).
+  - **Basement:** TCL 75R7D Roku TV, `192.168.139.190`. This is a DHCP lease
+    until its Firewalla reservation is made, so confirm the address first.
 
   They share one dev password, which Chris keeps in
   `~/.config/brasenia/roku-dev.env` (mode 600). Source it with
   `set -a; . ~/.config/brasenia/roku-dev.env; set +a` and never print it. Each
   Roku must be in dev mode and powered on, with ECP network access set to
   Default; "Limited" refuses `query/apps` and `query/media-player`.
-- **The stream is 4K HEVC only.** A Roku that can't decode it, such as the
-  play room's 720p TCL, installs the channel, but the player fails with
+- **The stream is 4K HEVC only, and every screen is a 4K Roku.** A Roku that
+  can't decode it installs the channel, but the player fails with
   `reader pick stream error:bad:invalid or corrupt playlist` and the retry
-  handler keeps retrying.
+  handler keeps retrying. The play room's 720p TCL 32S327 failed this way on
+  2026-10-29 and is not a screen.
 - **The stream URL is baked into `VideoScene.xml`** (`host()`):
   `http://192.168.139.19:8080/master.m3u8`, the 4K HEVC stream from kalmia's
   `brasenia-hls-serve` ([ADR-0009](docs/adr/0009-office-roku-4k-hevc-over-ffmpeg-hls.md));
