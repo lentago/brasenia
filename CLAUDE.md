@@ -40,8 +40,8 @@ change goes.
   sideloads each one. The screens, both 4K:
   - **Office:** Streaming Stick Plus 3830R on a 4K display, `192.168.139.21`
     (Firewalla reservation).
-  - **Basement:** TCL 75R7D Roku TV, `192.168.139.190`. This is a DHCP lease
-    until its Firewalla reservation is made, so confirm the address first.
+  - **Basement:** TCL 75R7D Roku TV, `192.168.139.190` (Firewalla
+    reservation).
 
   They share one dev password, which Chris keeps in
   `~/.config/brasenia/roku-dev.env` (mode 600). Source it with
@@ -87,7 +87,10 @@ change goes.
 - **Pane contract** (Phase 2+): panes are self-contained HTML, 1280 px wide,
   height an exact multiple of 720 px (≤ 2880), nothing straddling a 720 px
   band, dark background, ≥20 px text, bottom-right ~220×50 px of each band
-  kept clear for the clock overlay. The contract lives in `docs/concept.md` —
+  kept clear for the clock overlay. It is moving to a 1920×1080 canvas at 2×
+  with a 30 px text floor, one producer at a time
+  ([ADR-0019](docs/adr/0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md)).
+  The contract lives in `docs/concept.md` —
   update it there, not in scattered comments.
 
 ## When in doubt

@@ -136,6 +136,15 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
 
 ## The pane contract
 
+> **Moving to a 1920×1080 canvas ([ADR-0019](adr/0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md)).**
+> A pane that declares `<meta name="brasenia-canvas" content="1920x1080">` is
+> laid out 1920 px wide in 1080 px bands and rendered at 2×. It uses ≥30 px
+> text, 36 px safe margins and a 330×75 px clock corner. The 30 px floor binds
+> every pane the shared stream shows except link panes. Producers move one at a
+> time (#113), and declare the tag only after the renderer supports it
+> (lentago/kalmia#216). Until then the 1280×720 rules below apply. A **band**
+> is one 16:9 screenful of a pane.
+
 - `pane.html`: self-contained (inline CSS, no external assets/JS), body width
   1280px, height an exact multiple of 720px (≤ 2880). Every 720px band must
   stand alone — nothing straddles a boundary. Dark background, ≥20px body
@@ -152,7 +161,10 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
   `family-today/detail.html`, the 1920×1080 desk edition. The compositor
   reads only `pane.html` and `manifest.json`. A client reaches a rendition by
   pinning to its URL, or by preferring it whenever the pointer names that
-  pane, as the office Roku does. It goes when the pane does.
+  pane, as the stream does today for both screens. That preference ends
+  when the family brief moves to the 1920×1080 canvas, because its desk
+  editions are below the 30 px floor (ADR-0019). A rendition goes when its
+  pane does.
 - `manifest.json`: the fields and liveness rule are in
   [Contracts v1](#manifestjson).
 - Writers use write-then-rename (`pane.html.partial` → `pane.html`), create
