@@ -1,17 +1,17 @@
-"""Render the family pane: one 1280×720 band, inline CSS, no scripts.
+"""Render the family pane: one 1920×1080 band (the canvas, ADR-0019), inline CSS, no scripts.
 
-Geometry (all inside the 24 px safe margins): a 60 px header, two day
-columns 452 px tall, and an 86 px decision strip, with 12 px gaps, add up to
-the 622 px main area that ends at y=646, above the bottom-right 220×50 px
+Geometry (all inside the 36 px safe margins): a 90 px header, two day
+columns 678 px tall, and a 129 px decision strip, with 18 px gaps, add up to
+the 933 px main area that ends at y=969, above the bottom-right 330×75 px
 clock corner. The "as of" footer sits bottom-left and stops short of it.
 
-Rows are fixed-height slots (62 px, two lines of text at most), so a busy day
+Rows are fixed-height slots (93 px, two lines of text at most), so a busy day
 never pushes anything off the band: a column shows ROWS slots, or one fewer
 under the coverage callout, and the last slot becomes "+N more" when the day
 has more items than fit.
 
-At 1920×1080 (a Cast receiver's iframe on an HD set) the page zooms 1.5x, so
-the same band fills the screen; the Roku shooter renders it at 1280×720.
+The page declares the 1920×1080 canvas (brasenia ADR-0019), so the Roku stream
+renders it at 2x. It is the pane's only rendition: the desk edition is retired.
 """
 
 import html
@@ -36,28 +36,27 @@ HEX = re.compile(r"#[0-9a-fA-F]{6}\Z")
 
 CSS = """
 html, body { margin: 0; padding: 0; }
-@media (min-width: 1900px) and (min-height: 1060px) { html { zoom: 1.5; } }
-body { width: 1280px; height: 720px; overflow: hidden; position: relative;
+body { width: 1920px; height: 1080px; overflow: hidden; position: relative;
   background: %(bg)s; color: %(text)s; font-family: "DejaVu Sans", sans-serif;
-  font-size: 22px; line-height: 26px; }
-.main { position: absolute; top: 24px; left: 24px; right: 24px; height: 622px;
+  font-size: 33px; line-height: 39px; }
+.main { position: absolute; top: 36px; left: 36px; right: 36px; height: 933px;
   overflow: hidden; }
-header { height: 60px; display: flex; justify-content: space-between;
-  align-items: center; background: %(band)s; border-radius: 10px; padding: 0 18px;
+header { height: 90px; display: flex; justify-content: space-between;
+  align-items: center; background: %(band)s; border-radius: 15px; padding: 0 27px;
   box-sizing: border-box; }
-h1 { margin: 0; font-size: 34px; line-height: 40px; color: #ffffff; white-space: nowrap; }
-.edition { font-size: 20px; color: %(band_text)s; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; max-width: 640px; }
+h1 { margin: 0; font-size: 51px; line-height: 60px; color: #ffffff; white-space: nowrap; }
+.edition { font-size: 30px; color: %(band_text)s; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 960px; }
 .edition.stale { color: %(amber)s; font-weight: bold; }
-.cols { display: flex; gap: 12px; margin-top: 12px; height: 452px; }
-.col { flex: 1 1 0; min-width: 0; background: %(card)s; border-radius: 10px;
-  padding: 14px 16px; box-sizing: border-box; overflow: hidden; }
-h2 { margin: 0 0 8px; height: 34px; font-size: 28px; line-height: 34px; white-space: nowrap; }
-h2 span { color: %(muted)s; font-weight: normal; font-size: 22px; }
-.row { box-sizing: border-box; height: 62px; padding: 5px 0 5px 12px;
-  border-left: 6px solid var(--pc); border-bottom: 1px solid %(line)s;
-  display: flex; gap: 12px; overflow: hidden; }
-.time { flex: 0 0 150px; font-weight: bold; white-space: nowrap; overflow: hidden;
+.cols { display: flex; gap: 18px; margin-top: 18px; height: 678px; }
+.col { flex: 1 1 0; min-width: 0; background: %(card)s; border-radius: 15px;
+  padding: 21px 24px; box-sizing: border-box; overflow: hidden; }
+h2 { margin: 0 0 12px; height: 51px; font-size: 42px; line-height: 51px; white-space: nowrap; }
+h2 span { color: %(muted)s; font-weight: normal; font-size: 33px; }
+.row { box-sizing: border-box; height: 93px; padding: 7.5px 0 7.5px 18px;
+  border-left: 9px solid var(--pc); border-bottom: 1.5px solid %(line)s;
+  display: flex; gap: 18px; overflow: hidden; }
+.time { flex: 0 0 225px; font-weight: bold; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; }
 .what { flex: 1 1 auto; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2;
   -webkit-box-orient: vertical; overflow: hidden; }
@@ -65,23 +64,23 @@ h2 span { color: %(muted)s; font-weight: normal; font-size: 22px; }
 .cancelled .time, .cancelled .what { text-decoration: line-through; color: %(muted)s; }
 .tag { font-weight: bold; color: %(legacy)s; }
 .unconf { font-weight: bold; color: %(amber)s; }
-.more { height: 62px; line-height: 52px; color: %(muted)s; padding-left: 18px; }
-.none { color: %(faint)s; font-style: italic; padding-top: 8px; }
-.coverage { box-sizing: border-box; height: 64px; margin-top: 8px; padding: 6px 10px;
-  border-radius: 8px; background: %(bg)s; font-size: 20px; line-height: 26px;
+.more { height: 93px; line-height: 78px; color: %(muted)s; padding-left: 27px; }
+.none { color: %(faint)s; font-style: italic; padding-top: 12px; }
+.coverage { box-sizing: border-box; height: 96px; margin-top: 12px; padding: 9px 15px;
+  border-radius: 12px; background: %(bg)s; font-size: 30px; line-height: 39px;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .coverage b { color: %(muted)s; }
-.decide { box-sizing: border-box; height: 86px; margin-top: 12px; padding: 8px 16px;
-  border-radius: 10px; background: %(amber_wash)s; border-left: 6px solid %(amber)s;
-  display: flex; gap: 16px; overflow: hidden; }
-.decide .label { flex: 0 0 150px; font-weight: bold; color: %(amber)s; font-size: 20px;
-  line-height: 26px; }
+.decide { box-sizing: border-box; height: 129px; margin-top: 18px; padding: 12px 24px;
+  border-radius: 15px; background: %(amber_wash)s; border-left: 9px solid %(amber)s;
+  display: flex; gap: 24px; overflow: hidden; }
+.decide .label { flex: 0 0 225px; font-weight: bold; color: %(amber)s; font-size: 30px;
+  line-height: 39px; }
 .decide ul { flex: 1 1 auto; min-width: 0; margin: 0; padding: 0; list-style: none; }
-.decide li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 35px;
-  line-height: 35px; }
+.decide li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 52.5px;
+  line-height: 52.5px; }
 .decide .quiet { color: %(muted)s; }
-.foot { position: absolute; left: 24px; bottom: 24px; width: 900px; height: 26px;
-  font-size: 20px; line-height: 26px; color: %(faint)s; white-space: nowrap; overflow: hidden; }
+.foot { position: absolute; left: 36px; bottom: 36px; width: 1350px; height: 39px;
+  font-size: 30px; line-height: 39px; color: %(faint)s; white-space: nowrap; overflow: hidden; }
 """ % {"bg": BG, "card": CARD, "line": LINE, "text": TEXT, "muted": MUTED, "faint": FAINT,
        "band": BAND, "band_text": BAND_TEXT, "amber": AMBER, "amber_wash": AMBER_WASH,
        "legacy": LEGACY}
@@ -104,6 +103,7 @@ def render(doc, today, now, tz):
     decisions = touching(doc.get("decisions"), (today, tomorrow), "dates")
     return """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
+<meta name="brasenia-canvas" content="1920x1080">
 <title>Family: today and tomorrow</title>
 <style>%(css)s</style></head>
 <body>

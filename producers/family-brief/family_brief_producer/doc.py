@@ -1,6 +1,6 @@
 """Render the Family Brief as a document: flowing HTML for a Google Doc (#90).
 
-The panes are fixed 1280×720 and 1920×1080 bands for the wall; this is the
+The panes are fixed 1920×1080 bands for the wall; this is the
 same brief as a page that reads top to bottom on a phone. pub imports it into
 one Google Doc, updated in place each morning, which is shared beyond the LAN
 (kalmia's publish-family-brief). It is built from the same ``latest.json`` as

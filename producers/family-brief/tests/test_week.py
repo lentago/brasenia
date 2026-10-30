@@ -5,7 +5,7 @@ from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
 from helpers import fixture
-from family_brief_producer.week import DAYS, render_week, render_week_detail, week_days
+from family_brief_producer.week import DAYS, render_week, week_days
 from test_render import EXTERNAL
 
 TZ = ZoneInfo("America/New_York")
@@ -44,9 +44,10 @@ class WeekTests(unittest.TestCase):
         for pattern in EXTERNAL:
             self.assertIsNone(pattern.search(page), pattern.pattern)
         self.assertNotIn("<script", page)
-        self.assertIn("width: 1280px; height: 720px;", page)
-        self.assertGreaterEqual(min(int(px) for px in re.findall(r"font-size: (\d+)px", page)), 20)
-        self.assertLessEqual(60 + 12 + DAYS * 78, 622)
+        self.assertIn("width: 1920px; height: 1080px;", page)
+        self.assertIn('<meta name="brasenia-canvas" content="1920x1080">', page)
+        self.assertGreaterEqual(min(float(px) for px in re.findall(r"font-size: ([\d.]+)px", page)), 30)
+        self.assertLessEqual(90 + 18 + DAYS * 117, 933)
         self.assertIn("<h1>This week <span>Sun 10/25 – Sat 10/31</span></h1>", page)
         r = rows(page)
         self.assertEqual(len(r), DAYS)
@@ -57,25 +58,7 @@ class WeekTests(unittest.TestCase):
         self.assertIn('<span class="chip">crunch day</span>', r[2])
         self.assertIn('<span class="chip quiet">1 due</span>', r[2])
         self.assertIn("Nothing on the calendar.", r[6])
-        self.assertIn("zoom: 1.5", page)
-
-    def test_desk_edition_contract(self):
-        page = render_week_detail(doc_with_week(), SUN, NOW, TZ)
-        for pattern in EXTERNAL:
-            self.assertIsNone(pattern.search(page), pattern.pattern)
-        self.assertIn("width: 1920px; height: 1080px;", page)
-        self.assertGreaterEqual(min(int(px) for px in re.findall(r"font-size: (\d+)px", page)), 18)
-        self.assertLessEqual(36 + 64 + 14 + DAYS * 120, 1080 - 75)
-        self.assertIn("zoom: 0.666667", page)
-        self.assertEqual(len(rows(page)), DAYS)
-        self.assertIn("<b>Monday</b>", page)
-
-    def test_a_busy_day_ends_in_more(self):
-        doc = doc_with_week()
-        doc["this_week"][0]["items"] = [{"time": "9:00 AM", "who": "Jordan", "what": "x%d" % i}
-                                        for i in range(9)]
-        page = render_week_detail(doc, SUN, NOW, TZ)
-        self.assertIn("+4 more on the board", page)
+        self.assertNotIn("zoom", page)
 
     def test_a_stale_brief_says_so(self):
         page = render_week(doc_with_week(), date(2026, 10, 28), NOW, TZ)
