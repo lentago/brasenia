@@ -35,11 +35,22 @@ change goes.
   `brand/` (`"roku": true` in `fleet.json`, rasterized by `render.sh`). Change
   them there and copy them in, the same way as `assets/banner.svg`.
 - **Deploying the Roku app** needs `ROKU_IP` and `ROKU_DEV_PASS` in the
-  environment. Never commit either; never bake them into the script. The
-  office Roku is `192.168.139.21`; Chris keeps its dev password in
-  `~/.config/brasenia/roku-dev.env` (mode 600) — source it with
-  `set -a; . ~/.config/brasenia/roku-dev.env; set +a` and never print it. The
-  Roku must be in dev mode and powered on.
+  environment. Never commit the password; never bake either into the script.
+  `ROKU_IP` takes several addresses separated by spaces, and the script
+  sideloads each one. The screens:
+  - **Office:** Streaming Stick Plus 3830R on a 4K display, `192.168.139.21`.
+  - **Basement:** TCL 75R7D Roku TV, `192.168.139.190`.
+  - **Play room:** TCL 32S327 Roku TV (720p), `192.168.139.240`.
+
+  They share one dev password, which Chris keeps in
+  `~/.config/brasenia/roku-dev.env` (mode 600). Source it with
+  `set -a; . ~/.config/brasenia/roku-dev.env; set +a` and never print it. Each
+  Roku must be in dev mode and powered on, with ECP network access set to
+  Default; "Limited" refuses `query/apps` and `query/media-player`.
+- **The stream is 4K HEVC only.** A Roku that can't decode it, such as the
+  play room's 720p TCL, installs the channel, but the player fails with
+  `reader pick stream error:bad:invalid or corrupt playlist` and the retry
+  handler keeps retrying.
 - **The stream URL is baked into `VideoScene.xml`** (`host()`):
   `http://192.168.139.19:8080/master.m3u8`, the 4K HEVC stream from kalmia's
   `brasenia-hls-serve` ([ADR-0009](docs/adr/0009-office-roku-4k-hevc-over-ffmpeg-hls.md));
@@ -66,7 +77,7 @@ change goes.
   `control = "start"` alone; "stop" then "start" in one callback left it
   stopped on Roku OS 15.3.
 - **Testing on the device**: `ROKU_IP=192.168.139.21 scripts/deploy-roku.sh`
-  sideloads; ECP `POST :8060/keypress/<Key>` presses remote keys; `GET
+  sideloads one screen; ECP `POST :8060/keypress/<Key>` presses remote keys; `GET
   :8060/query/sgnodes/all` dumps the live scene graph (node visibility, Poster
   uri, Label text); the debug console is `nc 192.168.139.21 8085`; the dev web
   server's `plugin_inspect` (`mysubmit=Screenshot`) captures the UI plane (not
