@@ -1,5 +1,14 @@
 # Operator Spec: Live RTMP Ingest Validation
 
+> **Status (2026-10-30): superseded as written; do not run its steps.** Since
+> [ADR-0009](adr/0009-office-roku-4k-hevc-over-ffmpeg-hls.md) the Roku plays
+> `brasenia-hls-serve`'s HLS on :8080, not a mediamtx path, and nothing feeds
+> `board`. The `lunaria` host name and the `lunaria_tv_url` recipe below are
+> gone: LXC 118 is `brasenia` since kalmia#63, and the runbook is kalmia's
+> `docs/brasenia.md`. Whether live ingest still has a route to the screen is
+> [lentago/kalmia#213](https://github.com/lentago/kalmia/issues/213). Kept as
+> the record of the plan.
+
 **Objective:** Prove the `live` RTMP ingest path (kalmia#102) end-to-end:
 a LAN RTMP publisher appears on the TV, the display soaks ≥10 minutes at
 acceptable latency, and the display switches automatically between `live` and
@@ -7,7 +16,8 @@ acceptable latency, and the display switches automatically between `live` and
 `VideoScene.xml` from `board` to `live`.
 
 **Receiving agent:** Claude Code, running on a Linux host on the same routable
-network as the viewport LXC (`lunaria`, LXC 118 on pve4) and the Roku TV.
+network as the viewport LXC (`lunaria` when this was written; `brasenia` since
+kalmia#63, LXC 118 on pve4) and the Roku TV.
 
 **Success criteria (overall):**
 

@@ -67,6 +67,9 @@ standing acceptance criterion.
 - The legacy `lunaria` naming in kalmia is accepted as tracked debt
   (kalmia#63) rather than "fixed" opportunistically from this repo, which
   would fork the rename outside the runtime issue that owns it.
+  *Resolved 2026-10-29:* kalmia#63 completed the rename through runtime.
+  kalmia's role, playbook, units, service user and LXC 118's hostname are
+  `brasenia`, and the container was rebuilt to get there (kalmia#211).
 - Coordinating a feature that touches both sides (e.g. a new pane type
   needing both a compositor change here and a runtime dependency in kalmia)
   always costs two PRs in two repos — accepted overhead in exchange for the

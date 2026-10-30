@@ -57,7 +57,7 @@ settings.
   1. **The compositor** points at link panes only with `--link-panes`.
      Without it they wait on the board as `off`.
   2. **The renderer on LXC 118** renders a site other than pub.lan only while
-     Chromium runs sandboxed and the host is in `lunaria_allowed_sites`
+     Chromium runs sandboxed and the host is in `brasenia_allowed_sites`
      (lentago/kalmia#201, #205). A refused page is shown as a notice.
   3. **The URL itself** must carry no credentials. The compositor refuses a
      user or password, and query or fragment parameters that usually carry a

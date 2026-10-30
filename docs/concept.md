@@ -370,7 +370,8 @@ usable by every session. The canonical text is
 - **Phase 0 (done 2026-07-20):** laptop streams brief/Grafana to the TV;
   manual pane switching; publisher on pub.
 - **Phase 1 (done 2026-07-20, same night):** streaming stack moved to the
-  dedicated viewport LXC (118, pve4, hostname `lunaria`) via kalmia (TF + ansible role); Roku
+  dedicated viewport LXC (118, pve4, hostname `lunaria`, renamed `brasenia` and
+  rebuilt 2026-10-29 by kalmia#63) via kalmia (TF + ansible role); Roku
   app repointed; laptop retired from the loop.
 - **Phase 1.5 (2026-08-16):** RTMP `live` ingest path added (kalmia#102);
   `live`→`board` fallback wiring as v0 rubric surrogate; first event-driven
