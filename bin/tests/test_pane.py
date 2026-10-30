@@ -299,11 +299,11 @@ class LinkTests(PaneCase):
         self.assertEqual(self.manifest("pr-93")["source"], {"url": self.URL})
 
     def test_display_options(self):
-        code, _, err = self.link("--theme", "light", "--screens", "2",
-                                 "--viewport", "1920x1080", "--refresh", "300")
+        code, _, err = self.link("--theme", "light", "--viewport", "1920x1080",
+                                 "--refresh", "300")
         self.assertEqual((code, err), (0, ""))
         self.assertEqual(self.manifest("pr-93")["source"],
-                         {"url": self.URL, "theme": "light", "screens": 2,
+                         {"url": self.URL, "theme": "light",
                           "viewport": [1920, 1080], "refresh_s": 300})
 
     def test_refusals(self):
@@ -311,7 +311,6 @@ class LinkTests(PaneCase):
             (["--url", "ftp://x.test/"], "http(s)"),
             (["--url", "https://ann:pw@x.test/"], "user or password"),
             (["--url", "https://x.test/a b"], "not a URL"),
-            (["--url", self.URL, "--screens", "5"], "--screens"),
             (["--url", self.URL, "--viewport", "100x720"], "--viewport"),
             (["--url", self.URL, "--viewport", "wide"], "--viewport"),
             (["--url", self.URL, "--refresh", "5"], "--refresh"),
@@ -327,7 +326,9 @@ class LinkTests(PaneCase):
     def test_usage_errors_exit_2(self):
         for extra, reason in ((["--theme", "dark", self.page], "need --url"),
                               ([], "pass pane.html"),
-                              (["--url", self.URL, self.page], "not both")):
+                              (["--url", self.URL, self.page], "not both"),
+                              # A pane is one band (ADR-0020): the flag is gone.
+                              (["--url", self.URL, "--screens", "1"], "unrecognized arguments")):
             with self.subTest(extra=extra):
                 err = io.StringIO()   # main() directly: run_cli's own buffer dies with SystemExit
                 with contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as cm:
@@ -340,10 +341,9 @@ class LinkTests(PaneCase):
     def test_boundaries_match_the_compositor(self):
         # The rules are mirrored from compositor/rubric.py's parse_source: every
         # case here must get the same verdict from both, so neither can drift.
-        ok = [{"viewport": "240x240"}, {"viewport": "3840x3840"}, {"screens": 1},
-              {"screens": 4}, {"refresh": 10}, {"theme": "light"}]
-        bad = [{"viewport": "239x720"}, {"viewport": "1280x3841"}, {"screens": 0},
-               {"screens": 5}, {"refresh": 9.5}]
+        ok = [{"viewport": "240x240"}, {"viewport": "3840x3840"}, {"refresh": 10},
+              {"theme": "light"}]
+        bad = [{"viewport": "239x720"}, {"viewport": "1280x3841"}, {"refresh": 9.5}]
         for kw, accepted in [(k, True) for k in ok] + [(k, False) for k in bad]:
             with self.subTest(kw=kw):
                 try:

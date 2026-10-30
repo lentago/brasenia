@@ -57,15 +57,17 @@ The full contract is in [concept.md](concept.md#the-pane-contract).
 
 1. One self-contained HTML file: inline CSS and JS, no external assets
    (`pane claim` refuses `<script src=`, `<link href=` and `src="http`).
-2. 1280 px wide; height an exact multiple of 720 px, at most 2880.
-3. Every 720 px band stands alone; nothing straddles a boundary.
+2. One band: 1280×720 px.
+3. A taller page is clipped to its first band: nothing below 720 px is ever
+   shown, and nothing pages to it
+   ([ADR-0020](adr/0020-only-the-rubric-and-the-remote-change-the-wall.md)).
 4. Dark background, body text at least 20 px, 24 px safe margins.
-5. Keep the bottom-right 220×50 px of each band clear (the clock overlay).
+5. Keep the bottom-right 220×50 px clear (the clock overlay).
 
 Those are the 1280×720 numbers. A pane may instead declare
 `<meta name="brasenia-canvas" content="1920x1080">` and use the 1920×1080 canvas
-([ADR-0019](adr/0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md)): 1920 px wide,
-1080 px bands (at most 4320), body text at least 30 px, 36 px margins, and a
+([ADR-0019](adr/0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md)): one 1920×1080
+band, body text at least 30 px, 36 px margins, and a
 330×75 px clock corner. Both render at 3840×2160.
 
 Your display can be dark or stale during an internet outage; see
@@ -117,10 +119,10 @@ claim it as a **link pane** with `--url` and no `pane.html`
     --url https://github.com/lentago/brasenia/pull/42
 ```
 
-`--theme dark|light` (default dark), `--screens N` (bands to show, each one
-viewport high, 1–4, default 1), `--viewport WxH` (the CSS size to lay the page out at,
-default 1280x720) and `--refresh SEC` (render it again this often, at
-least 10, default 60) set how it is shown. The URL must be http or https,
+`--theme dark|light` (default dark), `--viewport WxH` (the CSS size to lay
+the page out at, default 1280x720) and `--refresh SEC` (render it again this often, at
+least 10, default 60) set how it is shown. The screen shows one band of the
+page; there is no `--screens`, because a pane is one band. The URL must be http or https,
 with no user or password in it. The whole URL, query string included, ends up
 in files anyone on the LAN can read, so never put a token or a signed link in
 it. `pane` and the compositor refuse the common ones (`token=`, `signature=`,

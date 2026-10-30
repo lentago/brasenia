@@ -112,8 +112,7 @@ document.getElementById("slot-form").addEventListener("submit", (ev) => {
     slotStatus.textContent = "The pane id is lower-case letters, digits and dashes, starting with a letter or digit.";
     return;
   }
-  const label = JSON.stringify({title: v("title"), url: v("url"), theme: v("theme"),
-                                screens: Number(v("screens"))});
+  const label = JSON.stringify({title: v("title"), url: v("url"), theme: v("theme")});
   if (label.length > %(max_label)d) {
     slotStatus.textContent = "Too long to save: shorten the title or the URL.";
     return;
@@ -217,10 +216,9 @@ def _slots(eff, link_panes):
     for pane_id, slot in settings.links(eff).items():
         src = slot["source"]
         rows.append('<tr><td><code>%s</code></td><td>%s</td><td><a href="%s">%s</a><br>'
-                    '<span class="muted">%s · %d screen%s</span></td>'
+                    '<span class="muted">%s</span></td>'
                     '<td><button type="button" class="secondary remove" data-id="%s">Remove</button></td></tr>'
                     % (e(pane_id), e(slot["title"]), e(src["url"]), e(src["url"]), e(src["theme"]),
-                       src["screens"], "" if src["screens"] == 1 else "s",
                        e(settings.LINK_PREFIX + pane_id)))
     table = ('<table class="slots"><thead><tr><th>pane</th><th>title</th><th>page</th><th></th></tr></thead>'
              '<tbody>%s</tbody></table>' % "".join(rows)) if rows else '<p class="muted">No standing slots.</p>'
@@ -238,7 +236,6 @@ cannot be slots. %(state)s</p>
 <div><label for="slot-title">Title</label><input id="slot-title" required maxlength="%(max_title)d" placeholder="Open pull requests"></div>
 <div class="wide"><label for="slot-url">Page (http or https)</label><input id="slot-url" type="url" required placeholder="https://github.com/pulls"></div>
 <div><label for="slot-theme">Theme</label><select id="slot-theme"><option value="dark">dark</option><option value="light">light</option></select></div>
-<div><label for="slot-screens">Screens</label><select id="slot-screens"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
 </div>
 <div class="buttons"><button type="submit">Add slot</button></div>
 </form>

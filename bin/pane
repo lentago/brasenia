@@ -104,7 +104,7 @@ def check_page(html):
                           "(inline the CSS and JS)" % m.group(0).strip())
 
 
-def link_source(url, theme=None, screens=None, viewport=None, refresh=None):
+def link_source(url, theme=None, viewport=None, refresh=None):
     """The manifest ``source`` of a link pane (ADR-0016): a web page shown
     instead of pane.html. Mirrors the compositor's rules (rubric.parse_source)
     so a bad claim is refused here rather than skipped there."""
@@ -130,10 +130,6 @@ def link_source(url, theme=None, screens=None, viewport=None, refresh=None):
     source = {"url": url}
     if theme is not None:
         source["theme"] = theme
-    if screens is not None:
-        if not 1 <= screens <= 4:
-            raise Refused("--screens must be 1-4")
-        source["screens"] = screens
     if viewport is not None:
         m = VIEWPORT.match(viewport)
         lo, hi = VIEWPORT_RANGE
@@ -376,8 +372,6 @@ def build_parser():
     link.add_argument("--url", help="the page to show (http or https); the whole URL, "
                       "query string included, is readable on the LAN")
     link.add_argument("--theme", choices=THEMES, help="default: dark")
-    link.add_argument("--screens", type=int, metavar="N",
-                      help="bands of the page to show, each one viewport high, 1-4 (default 1)")
     link.add_argument("--viewport", metavar="WxH",
                       help="CSS size to lay the page out at (default 1280x720)")
     link.add_argument("--refresh", type=finite, metavar="SEC",
@@ -434,9 +428,9 @@ def main(argv=None, now=None):
         parser.error("unrecognized arguments: %s" % " ".join(extra))
     now = now or utc_now()
     if args.command == "claim":   # usage errors (exit 2), before anything is read
-        link_opts = (args.theme, args.screens, args.viewport, args.refresh)
+        link_opts = (args.theme, args.viewport, args.refresh)
         if args.url is None and any(v is not None for v in link_opts):
-            parser.error("--theme, --screens, --viewport and --refresh need --url")
+            parser.error("--theme, --viewport and --refresh need --url")
         if args.url is None and args.page is None:
             parser.error("pass pane.html (or - for stdin), or --url for a link pane")
         if args.url is not None and args.page is not None:
@@ -444,7 +438,7 @@ def main(argv=None, now=None):
     try:
         if args.command == "claim":
             source = None if args.url is None else link_source(
-                args.url, args.theme, args.screens, args.viewport, whole(args.refresh))
+                args.url, args.theme, args.viewport, whole(args.refresh))
             page = None if args.page is None else read_page(args.page)
             url = claim(args.bus, args.id, args.cls, args.title, page, now,
                         ttl=whole(args.ttl), origin=args.origin, repo=args.repo,
