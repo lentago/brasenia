@@ -136,6 +136,14 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
 
 ## The pane contract
 
+> **Moving to a 1920×1080 canvas ([ADR-0019](adr/0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md)).**
+> A pane that declares `<meta name="brasenia-canvas" content="1920x1080">` is
+> laid out 1920 px wide in 1080 px bands and rendered at 2×. It uses ≥30 px
+> text, 36 px safe margins and a 330×75 px clock corner. The 30 px floor binds
+> everything the shared stream shows. Panes move one producer at a time (#113),
+> once the renderer supports the tag (lentago/kalmia#216). Until then the
+> 1280×720 rules below apply. A **band** is one 16:9 screenful of a pane.
+
 - `pane.html`: self-contained (inline CSS, no external assets/JS), body width
   1280px, height an exact multiple of 720px (≤ 2880). Every 720px band must
   stand alone — nothing straddles a boundary. Dark background, ≥20px body
