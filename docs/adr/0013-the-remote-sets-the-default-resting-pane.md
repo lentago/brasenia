@@ -2,7 +2,9 @@
 
 **Status:** Accepted (2026-10-28; #83). Amends
 [ADR-0012](0012-the-remote-peeks-it-never-decides.md): Up/Down still only
-peeks, and Left/Right now changes one rubric setting.
+peeks, and Left/Right now changes one rubric setting. The `live` class it
+lists among the interrupting classes was retired on 2026-10-29 (#122), along
+with RTMP live ingest.
 
 ## Context
 

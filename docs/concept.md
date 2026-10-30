@@ -375,7 +375,9 @@ usable by every session. The canonical text is
   `live`→`board` fallback wiring as v0 rubric surrogate; first event-driven
   source type (`live` class at priority 70). Roku repoint from `board` to
   `live` pending bench validation against a live DJI Fly publisher
-  ([live-ingest-spec.md](live-ingest-spec.md)).
+  ([live-ingest-spec.md](live-ingest-spec.md)). Retired 2026-10-29: RTMP
+  ingest left the runtime (kalmia#224), and the `live` class left Rubric v1
+  (#122).
 - **Phase 2 (in progress, 2026-10-07):** pane bus + manifest + compositor
   rubric, the compositor on pub (LXC 114) publishing the pointer;
   `web/viewport/` exists on the share, and compositor v1 (`compositor/`,
