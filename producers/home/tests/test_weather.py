@@ -38,7 +38,9 @@ class Render(unittest.TestCase):
     def test_contract(self):
         page = self.render()
         self.assertNotRegex(page, r"(?i)<script|<link\b|\bsrc\s*=")
-        self.assertIn("width: 1280px; height: 720px", page)
+        self.assertIn("width: 1920px; height: 1080px", page)
+        self.assertIn('<meta name="brasenia-canvas" content="1920x1080">', page)
+        self.assertNotIn("zoom", page)
         self.assertIn("Weather forecast from met.no · as of 8:40 PM", page)
         self.assertIn('<div class="summary">Wednesday, October 28</div>', page)
 

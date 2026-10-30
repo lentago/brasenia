@@ -1,9 +1,9 @@
 """The pane page that frames a rendered dashboard.
 
-One 1280×720 band (the pane contract). The dashboard sits in FRAME, the
-1232×610 box inside the 24 px margins, scaled to fit and centred. The footer
-sits bottom-left at y=670..696 and stops 356 px short of the right edge, so
-the bottom-right clock corner stays empty. The PNG is inlined as a data: URI,
+One 1920×1080 band (the pane contract's canvas, ADR-0019). The dashboard sits
+in FRAME, the 1848×915 box inside the 36 px margins, scaled to fit and centred.
+The footer sits bottom-left at y=1005..1044 and stops 534 px short of the right
+edge, so the bottom-right clock corner stays empty. The PNG is inlined as a data: URI,
 so the page is self-contained and its content revision (ADR-0016, a hash of
 pane.html) moves with every good render: the footer's "as of" time is in it. Grafana's
 own footer is in the ``crop_px`` strip rendered below the dashboard, which the frame cuts off.
@@ -12,7 +12,7 @@ own footer is in the ``crop_px`` strip rendered below the dashboard, which the f
 import base64
 import html
 
-FRAME_W, FRAME_H, MARGIN = 1232, 610, 24
+FRAME_W, FRAME_H, MARGIN = 1848, 915, 36
 BG, TEXT, FAINT = "#0f1518", "#e4ebee", "#73858e"
 
 
@@ -35,17 +35,17 @@ def page(slot, png, rendered_at, tz):
     e = html.escape
     return """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
+<meta name="brasenia-canvas" content="1920x1080">
 <title>%(title)s</title>
 <style>
 html, body { margin: 0; padding: 0; }
-@media (min-width: 1900px) and (min-height: 1060px) { html { zoom: 1.5; } }
-body { width: 1280px; height: 720px; overflow: hidden; position: relative;
+body { width: 1920px; height: 1080px; overflow: hidden; position: relative;
   background: %(bg)s; color: %(text)s; font-family: "DejaVu Sans", sans-serif; }
 .frame { position: absolute; left: %(left)dpx; top: %(margin)dpx; width: %(width)dpx;
-  height: %(height)dpx; overflow: hidden; border-radius: 6px; }
+  height: %(height)dpx; overflow: hidden; border-radius: 9px; }
 .frame img { display: block; width: %(width)dpx; height: %(image_h)dpx; }
-.foot { position: absolute; left: %(margin)dpx; bottom: %(margin)dpx; width: 900px; height: 26px;
-  font-size: 20px; line-height: 26px; color: %(faint)s; white-space: nowrap; overflow: hidden;
+.foot { position: absolute; left: %(margin)dpx; bottom: %(margin)dpx; width: 1350px; height: 39px;
+  font-size: 30px; line-height: 39px; color: %(faint)s; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; }
 </style></head>
 <body>

@@ -1,11 +1,11 @@
-"""Render the focus pane: one 1280×720 band, inline CSS, no scripts or assets.
+"""Render the focus pane: one 1920×1080 band, inline CSS, no scripts or assets.
 
-Layout is fixed-height so the band never overflows: a 150 px header
-(52 + 3×32), a 36 px table head, MAX_ROWS 44 px rows and a 40 px "+N more"
-line add up to the 622 px main area, which starts at the 24 px top margin
-and ends at y=646, above the 50 px clock strip and its 24 px margin.
+Layout is fixed-height so the band never overflows: a 225 px header
+(78 + 3×48), a 54 px table head, MAX_ROWS 66 px rows and a 60 px "+N more"
+line add up to the 933 px main area, which starts at the 36 px top margin
+and ends at y=969, above the 75 px clock strip and its 36 px margin.
 The "as of" footer sits bottom-left and ends well short of the
-bottom-right 220×50 px clock corner.
+bottom-right 330×75 px clock corner.
 """
 
 import html
@@ -14,7 +14,7 @@ from datetime import timezone
 
 from .github import parse_ts
 
-WIDTH, HEIGHT = 1280, 720
+WIDTH, HEIGHT = 1920, 1080
 MAX_ROWS = 9
 TITLE_CHARS = 70
 
@@ -27,28 +27,28 @@ _STAMP_RE = re.compile(re.escape(STAMP_OPEN) + ".*?" + re.escape(STAMP_CLOSE), r
 
 CSS = """
 html, body { margin: 0; padding: 0; }
-body { width: 1280px; height: 720px; overflow: hidden; position: relative;
+body { width: 1920px; height: 1080px; overflow: hidden; position: relative;
   background: %(bg)s; color: %(text)s; font-family: "DejaVu Sans", sans-serif;
-  font-size: 20px; line-height: 1.3; }
-.main { position: absolute; top: 24px; left: 24px; right: 24px; height: 622px;
+  font-size: 30px; line-height: 1.3; }
+.main { position: absolute; top: 36px; left: 36px; right: 36px; height: 933px;
   overflow: hidden; }
-header { height: 150px; }
-h1 { margin: 0; font-size: 40px; line-height: 52px; color: %(accent)s;
+header { height: 225px; }
+h1 { margin: 0; font-size: 60px; line-height: 78px; color: %(accent)s;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.line { font-size: 22px; line-height: 32px; color: %(muted)s;
+.line { font-size: 33px; line-height: 48px; color: %(muted)s;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .line b { color: %(text)s; font-weight: normal; }
 table { width: 100%%; table-layout: fixed; border-collapse: collapse; }
-th { height: 36px; text-align: left; font-weight: normal; font-size: 20px;
-  color: %(muted)s; border-bottom: 1px solid %(muted)s; }
-td { height: 44px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.num { width: 80px; } .who { width: 170px; } .age { width: 80px; }
-.chk { width: 140px; } .rev { width: 210px; }
+th { height: 54px; text-align: left; font-weight: normal; font-size: 30px;
+  color: %(muted)s; border-bottom: 1.5px solid %(muted)s; }
+td { height: 66px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.num { width: 120px; } .who { width: 255px; } .age { width: 120px; }
+.chk { width: 210px; } .rev { width: 315px; }
 .draft { color: %(muted)s; }
 .bad { color: %(accent)s; }
-.more, .empty { height: 40px; line-height: 40px; color: %(muted)s; }
-.foot { position: absolute; left: 24px; bottom: 24px; width: 1000px; height: 26px;
-  font-size: 20px; line-height: 26px; color: %(muted)s;
+.more, .empty { height: 60px; line-height: 60px; color: %(muted)s; }
+.foot { position: absolute; left: 36px; bottom: 36px; width: 1500px; height: 39px;
+  font-size: 30px; line-height: 39px; color: %(muted)s;
   white-space: nowrap; overflow: hidden; }
 """ % {"bg": BG, "text": TEXT, "muted": MUTED, "accent": ACCENT}
 
@@ -96,6 +96,7 @@ def render(repo, data, pipeline_row, as_of, now, tz=None):
 
     return """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
+<meta name="brasenia-canvas" content="1920x1080">
 <title>%(title)s</title>
 <style>%(css)s</style></head>
 <body>

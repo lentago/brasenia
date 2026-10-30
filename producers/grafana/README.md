@@ -65,7 +65,7 @@ defaults. Each slot is one pane:
 | `pane` | (required) | the pane id, `[a-z0-9][a-z0-9-]{0,62}` |
 | `uid` | (required) | the dashboard UID (drosera freezes these, its ADR-0007) |
 | `title` | (required) | the pane's title, on the board and in its footer |
-| `size` | `[1232, 610]` | the CSS size Grafana lays the dashboard out at; the pane scales it into its 1232×610 frame, so the default is 1:1. Grafana Cloud refuses a width under 1000 or a height under 500, and its renderer one over 3000; `size` plus `crop_px` must fit |
+| `size` | `[1232, 610]` | the CSS size Grafana lays the dashboard out at; the pane scales it into its 1848×915 frame (1.5×), so the default looks as it did on the old 1280×720 canvas. Grafana Cloud refuses a width under 1000 or a height under 500, and its renderer one over 3000; `size` plus `crop_px` must fit |
 | `theme` | `dark` | `dark` or `light` (the wall is dark; prefer `dark`) |
 | `refresh_s` | `300` | seconds between renders, at least 60 (ADR-0017) |
 | `from`, `to` | `now-6h`, `now` | the dashboard's time range |
@@ -105,7 +105,7 @@ default 30), `--once` (render every slot once; exit 1 if any failed), `--now`.
   `manifest.json`, and no `.partial` files. Each manifest reads
   `class: ambient`, `ttl_minutes` of three refreshes (15 at the default 300 s),
   the slot's `dwell_s`, `author: grafana-producer@pub`, `origin: operator`.
-- At 1280×720, `pane.html` shows the dashboard inside the 24 px margins, with
+- At 1920×1080, `pane.html` shows the dashboard inside the 36 px margins, with
   no Grafana header or sidebar and no "Powered by" footer, and a footer
   bottom-left reading "Infrastructure · Grafana · as of 8:40 PM". The
   bottom-right corner is empty, kept clear for the clock. If Grafana's footer

@@ -5,7 +5,7 @@ attributes for now, and ``weather.get_forecasts`` for the hourly and daily
 forecasts. Units are the entity's own (``temperature_unit``,
 ``wind_speed_unit``, ``pressure_unit``, ``precipitation_unit``).
 
-Layout at 1280×720: the "Now" card on the left (392 px); on the right, "Next
+Layout at 1920×1080: the "Now" card on the left (588 px); on the right, "Next
 24 hours" (an inline-SVG temperature line through the next 22 hours, with
 eight labelled columns three hours apart, and blue bars where rain or snow is
 expected) above "Coming days" (up to seven columns).
@@ -21,7 +21,8 @@ BAND, BAND_TEXT = "#1d3a4a", "#c6e3ee"
 HOURS = 22          # the line runs through hours 0..21, so columns 0, 3, ... 21 sit on it
 COLUMN_EVERY = 3
 DAYS = 7
-CHART_W, CHART_H = 796, 96
+CHART_W, CHART_H = 796, 96          # drawing units (the viewBox)
+CHART_ZOOM = 1.5                    # shown at 1194x144 CSS px on the 1920x1080 canvas (ADR-0019)
 
 CONDITIONS = {
     "clear-night": ("Clear", "#9fa8da"), "cloudy": ("Cloudy", "#90a4ae"),
@@ -35,34 +36,34 @@ CONDITIONS = {
 COMPASS = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
 
 CSS = """
-.cols { display: flex; gap: 12px; margin-top: 12px; height: 550px; }
+.cols { display: flex; gap: 18px; margin-top: 18px; height: 825px; }
 .card { flex: 0 0 auto; }
-.card.now { flex: 0 0 392px; height: 550px; }
-.right { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
-.hours { height: 262px; }
-.days { height: 276px; }
-.dot { display: inline-block; width: 16px; height: 16px; border-radius: 50%%; margin-right: 10px;
-  vertical-align: -1px; }
-.cond { height: 36px; font-size: 26px; line-height: 36px; white-space: nowrap; overflow: hidden;
+.card.now { flex: 0 0 588px; height: 825px; }
+.right { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+.hours { height: 393px; }
+.days { height: 414px; }
+.dot { display: inline-block; width: 24px; height: 24px; border-radius: 50%%; margin-right: 15px;
+  vertical-align: -1.5px; }
+.cond { height: 54px; font-size: 39px; line-height: 54px; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; }
-.big { height: 120px; font-size: 112px; line-height: 120px; font-weight: bold; }
-.hilo { height: 30px; font-size: 22px; line-height: 30px; color: %(muted)s; }
-.fact { height: 34px; display: flex; justify-content: space-between; gap: 12px;
-  border-bottom: 1px solid #2a373e; box-sizing: border-box; line-height: 33px; }
+.big { height: 180px; font-size: 168px; line-height: 180px; font-weight: bold; }
+.hilo { height: 45px; font-size: 33px; line-height: 45px; color: %(muted)s; }
+.fact { height: 51px; display: flex; justify-content: space-between; gap: 18px;
+  border-bottom: 1.5px solid #2a373e; box-sizing: border-box; line-height: 49.5px; }
 .fact span:first-child { color: %(muted)s; }
 svg { display: block; }
 .strip { display: flex; }
 .strip > div { flex: 1 1 0; min-width: 0; text-align: center; }
-.t { height: 26px; color: %(muted)s; white-space: nowrap; }
-.v { height: 26px; font-weight: bold; }
-.c { height: 26px; font-size: 20px; color: %(muted)s; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; padding: 0 4px; }
-.p { height: 26px; font-size: 20px; color: %(blue)s; white-space: nowrap; }
-.day { height: 30px; font-size: 24px; line-height: 30px; font-weight: bold; margin-top: 4px; }
-.dc { height: 52px; font-size: 20px; line-height: 26px; color: %(muted)s; padding: 0 4px;
+.t { height: 39px; color: %(muted)s; white-space: nowrap; }
+.v { height: 39px; font-weight: bold; }
+.c { height: 39px; font-size: 30px; color: %(muted)s; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; padding: 0 6px; }
+.p { height: 39px; font-size: 30px; color: %(blue)s; white-space: nowrap; }
+.day { height: 45px; font-size: 36px; line-height: 45px; font-weight: bold; margin-top: 6px; }
+.dc { height: 78px; font-size: 30px; line-height: 39px; color: %(muted)s; padding: 0 6px;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.hi { height: 36px; font-size: 30px; line-height: 36px; font-weight: bold; }
-.lo { height: 28px; font-size: 22px; line-height: 28px; color: %(muted)s; }
+.hi { height: 54px; font-size: 45px; line-height: 54px; font-weight: bold; }
+.lo { height: 42px; font-size: 33px; line-height: 42px; color: %(muted)s; }
 """ % {"muted": MUTED, "blue": BLUE}
 
 
@@ -76,7 +77,7 @@ def pick(states, entity_id=None):
 
 
 def render_weather(entity, hourly, daily, now, tz):
-    """pane.html: the weather at 1280×720. ``hourly``/``daily`` may be None (no forecast)."""
+    """pane.html: the weather at 1920×1080. ``hourly``/``daily`` may be None (no forecast)."""
     attrs = entity.get("attributes") if isinstance(entity.get("attributes"), dict) else {}
     today = now.astimezone(tz).date()
     days = _days(daily, today, tz)
@@ -149,7 +150,7 @@ def _chart(hours, columns):
     line = " ".join("%.1f,%.1f" % (x(i), y(t)) for i, t in enumerate(temps) if t is not None)
     bars = []
     for i, (_, _, _, rain) in enumerate(hours):
-        if rain:   # a bar per wet hour, full height (30 px) at a quarter inch or more
+        if rain:   # a bar per wet hour, full height (30 units) at a quarter inch or more
             h = max(min(rain, 0.25) / 0.25 * 30, 3)
             bars.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s" opacity="0.7"/>'
                         % (x(i) - step * 0.35, CHART_H - h, step * 0.7, h, BLUE))
@@ -157,7 +158,8 @@ def _chart(hours, columns):
                    for i in range(0, len(temps), COLUMN_EVERY) if temps[i] is not None)
     return ('<svg width="%d" height="%d" viewBox="0 0 %d %d">%s<polyline points="%s" fill="none" '
             'stroke="%s" stroke-width="3" stroke-linejoin="round"/>%s</svg>'
-            % (CHART_W, CHART_H, CHART_W, CHART_H, "".join(bars), line, AMBER, dots))
+            % (round(CHART_W * CHART_ZOOM), round(CHART_H * CHART_ZOOM), CHART_W, CHART_H,
+               "".join(bars), line, AMBER, dots))
 
 
 def _days_card(days, today, unit):

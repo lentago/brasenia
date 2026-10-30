@@ -1,10 +1,10 @@
-"""Render the change-pipeline pane: one 1280×720 band, inline CSS and SVG, no scripts.
+"""Render the change-pipeline pane: one 1920×1080 band, inline CSS and SVG, no scripts.
 
-Layout is fixed-height so the band never overflows: a 64 px header and
-MAX_STRIPS strips of 130 px plus an 8 px gap add up to 616 px of the 622 px
-main area, which starts at the 24 px top margin and ends at y=646, above the
-50 px clock strip and its 24 px margin. The "as of" footer sits bottom-left
-and ends well short of the bottom-right 220×50 px clock corner.
+Layout is fixed-height so the band never overflows: a 96 px header and
+MAX_STRIPS strips of 195 px plus an 12 px gap add up to 924 px of the 933 px
+main area, which starts at the 36 px top margin and ends at y=969, above the
+75 px clock strip and its 36 px margin. The "as of" footer sits bottom-left
+and ends well short of the bottom-right 330×75 px clock corner.
 
 Each strip is six state-coloured boxes joined by five inline-SVG edges. The
 edge into the change's frontier (the first stage after the furthest green
@@ -37,40 +37,40 @@ _STAMP_RE = re.compile(re.escape(STAMP_OPEN) + ".*?" + re.escape(STAMP_CLOSE), r
 
 CSS = """
 html, body { margin: 0; padding: 0; }
-body { width: 1280px; height: 720px; overflow: hidden; position: relative;
+body { width: 1920px; height: 1080px; overflow: hidden; position: relative;
   background: %(bg)s; color: %(text)s; font-family: "DejaVu Sans", sans-serif;
-  font-size: 20px; line-height: 1.2; }
-.main { position: absolute; top: 24px; left: 24px; right: 24px; height: 622px;
+  font-size: 30px; line-height: 1.2; }
+.main { position: absolute; top: 36px; left: 36px; right: 36px; height: 933px;
   overflow: hidden; }
-header { height: 64px; display: flex; justify-content: space-between;
+header { height: 96px; display: flex; justify-content: space-between;
   align-items: baseline; }
-h1 { margin: 0; font-size: 40px; line-height: 52px; font-weight: bold; }
-.more { font-size: 28px; color: %(muted)s; }
-.strip { box-sizing: border-box; height: 130px; margin-bottom: 8px;
-  padding: 4px 8px; border: 3px solid transparent; border-radius: 8px; }
+h1 { margin: 0; font-size: 60px; line-height: 78px; font-weight: bold; }
+.more { font-size: 42px; color: %(muted)s; }
+.strip { box-sizing: border-box; height: 195px; margin-bottom: 12px;
+  padding: 6px 12px; border: 4.5px solid transparent; border-radius: 12px; }
 .strip.stuck { border-color: %(red)s; }
-.head { height: 30px; line-height: 30px; font-size: 22px; color: %(muted)s;
+.head { height: 45px; line-height: 45px; font-size: 33px; color: %(muted)s;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .head b { color: %(text)s; }
 .head .bad { color: %(red)s; font-weight: bold; }
-.row { display: flex; align-items: center; height: 82px; margin-top: 4px; }
-.box { box-sizing: border-box; flex: 0 0 170px; width: 170px; height: 80px;
-  padding: 4px 8px; border-radius: 6px; color: #0b0f14; overflow: hidden; }
-.box div { height: 24px; line-height: 24px; white-space: nowrap; overflow: hidden;
+.row { display: flex; align-items: center; height: 123px; margin-top: 6px; }
+.box { box-sizing: border-box; flex: 0 0 255px; width: 255px; height: 120px;
+  padding: 6px 12px; border-radius: 9px; color: #0b0f14; overflow: hidden; }
+.box div { height: 36px; line-height: 36px; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; }
 .box .stage { font-weight: bold; }
 .box .sha { font-family: "DejaVu Sans Mono", monospace; }
 .s3 { background: %(s3)s; } .s2 { background: %(s2)s; } .s1 { background: %(s1)s; }
 .s0 { background: %(s0)s; color: %(text)s; }
-svg.edge { flex: 0 0 36px; width: 36px; height: 82px; }
+svg.edge { flex: 0 0 54px; width: 54px; height: 123px; }
 svg.edge line { stroke: %(edge)s; stroke-width: 4; }
 svg.edge polygon { fill: %(edge)s; }
 svg.edge.go line { stroke: %(text)s; stroke-width: 6; stroke-dasharray: 6 4;
   animation: travel 0.8s linear infinite; }
 svg.edge.go polygon { fill: %(text)s; }
 @keyframes travel { from { stroke-dashoffset: 10; } to { stroke-dashoffset: 0; } }
-.foot { position: absolute; left: 24px; bottom: 24px; width: 900px; height: 26px;
-  font-size: 20px; line-height: 26px; color: %(muted)s;
+.foot { position: absolute; left: 36px; bottom: 36px; width: 1350px; height: 39px;
+  font-size: 30px; line-height: 39px; color: %(muted)s;
   white-space: nowrap; overflow: hidden; }
 """ % {"bg": BG, "text": TEXT, "muted": MUTED, "edge": EDGE, "red": RED,
        "s3": STATE_COLOURS[3], "s2": STATE_COLOURS[2], "s1": STATE_COLOURS[1],
@@ -92,6 +92,7 @@ def render(flying, as_of, now):
     more = '<span class="more">+%d more</span>' % extra if extra > 0 else ""
     return """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
+<meta name="brasenia-canvas" content="1920x1080">
 <title>%(title)s</title>
 <style>%(css)s</style></head>
 <body>

@@ -87,7 +87,7 @@ weather entity; default the first `weather.*` by id), `--hide ENTITY_ID`
   `manifest.json`, and no `.partial` files. Each manifest reads
   `class: ambient`, `ttl_minutes: 10`, `dwell_s: 60`,
   `author: home-producer@pub`, `origin: operator`.
-- At 1280×720, `home.html` shows three columns (Alarm, People and Locks;
+- At 1920×1080, `home.html` shows three columns (Alarm, People and Locks;
   Climate and Water; Doors & windows, open ones first, in amber) and a header
   summary such as "2 open · 1 of 3 home". `weather.html` shows the big
   temperature on the left, a temperature line over eight three-hour columns,

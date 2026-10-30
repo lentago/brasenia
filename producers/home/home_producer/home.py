@@ -56,22 +56,22 @@ ACTION = {"heating": ("heating", "heat"), "cooling": ("cooling", "cool"), "idle"
           "preheating": ("preheating", "heat"), "defrosting": ("defrosting", "muted")}
 
 CSS = """
-.cols { display: flex; gap: 12px; margin-top: 12px; height: 550px; }
-.col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.col.a { flex: 0 0 380px; }
-.col.b { flex: 0 0 432px; }
+.cols { display: flex; gap: 18px; margin-top: 18px; height: 825px; }
+.col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.col.a { flex: 0 0 570px; }
+.col.b { flex: 0 0 648px; }
 .col.c { flex: 1 1 auto; }
 .card { flex: 0 0 auto; }
-.row { height: 38px; box-sizing: border-box; display: flex; align-items: center; gap: 12px;
-  border-bottom: 1px solid #2a373e; }
+.row { height: 57px; box-sizing: border-box; display: flex; align-items: center; gap: 18px;
+  border-bottom: 1.5px solid #2a373e; }
 .name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .state { flex: 0 0 auto; white-space: nowrap; }
-.climate { height: 64px; box-sizing: border-box; padding: 4px 0; border-bottom: 1px solid #2a373e;
-  display: grid; grid-template-columns: 1fr auto; grid-template-rows: 28px 28px;
-  align-items: center; column-gap: 12px; }
+.climate { height: 96px; box-sizing: border-box; padding: 6px 0; border-bottom: 1.5px solid #2a373e;
+  display: grid; grid-template-columns: 1fr auto; grid-template-rows: 42px 42px;
+  align-items: center; column-gap: 18px; }
 .climate .name { font-weight: bold; }
-.climate .temp { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-size: 34px;
-  line-height: 40px; font-weight: bold; }
+.climate .temp { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-size: 51px;
+  line-height: 60px; font-weight: bold; }
 .climate .how { color: #9fb0b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .heat { color: %(heat)s; font-weight: bold; }
 .cool { color: %(cool)s; font-weight: bold; }
@@ -120,7 +120,7 @@ def summarize(states, hide=()):
 
 
 def render_home(groups, now, tz):
-    """pane.html: the home at 1280×720."""
+    """pane.html: the home at 1920×1080."""
     columns = (("a", [("Alarm", groups["alarm"], ROW_H), ("People", groups["people"], ROW_H),
                       ("Locks", groups["locks"], ROW_H)]),
                ("b", [("Climate", groups["climate"], CLIMATE_ROW_H), ("Water", groups["water"], ROW_H)]),
@@ -135,7 +135,7 @@ def render_home(groups, now, tz):
 
 
 def _column(cards):
-    """The cards of one column, its 550 px shared out (small cards whole, then evenly)."""
+    """The cards of one column, its 825 px shared out (small cards whole, then evenly)."""
     cards = [c for c in cards if c[1]]
     if not cards:
         return ""

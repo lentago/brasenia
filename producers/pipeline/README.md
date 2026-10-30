@@ -49,7 +49,7 @@ the journal under systemd.
   `.partial` files. `manifest.json` reads `class: activity`,
   `ttl_minutes: 15`, `author: pipeline-producer@pub`, `origin: operator`,
   `title: 2 changes in flight`.
-- Opening `pane.html` in a browser at 1280×720 shows one strip for drosera
+- Opening `pane.html` in a browser at 1920×1080 shows one strip for drosera
   (red outline, "stuck 9 min", the marker running into `live`) and one for
   kalmia (the marker running into `applied`). brasenia has landed and is not
   shown. "data as of HH:MM" sits bottom-left; the bottom-right corner is
@@ -84,9 +84,9 @@ warning.
 
 ## The pane
 
-One 1280×720 band, self-contained: inline CSS and inline SVG, no scripts,
+One 1920×1080 band, self-contained: inline CSS and inline SVG, no scripts,
 no external assets. Dark background `#111217`, text `#f3f0e8`, muted
-`#b8bcc6`. Text is 20 px or larger, inside 24 px margins. The header reads
+`#b8bcc6`. Text is 30 px or larger, inside 36 px margins. The header reads
 "N changes in flight". Below it is one strip per in-flight repo, at most
 four (the four oldest `in_flight_since`), with `+N more` at the right of
 the header if more are in flight.
@@ -106,10 +106,10 @@ stage that is not yet green" is almost always `live` while a change is in
 flight. The frontier is where the change actually is: a failed `applied`
 stops the marker at `applied`.
 
-The layout is fixed-height: a 64 px header and four 130 px strips with
-8 px gaps fill 616 px of the 622 px main area, which ends 74 px above the
-bottom edge. The stamp ends 356 px short of the right edge, so the
-bottom-right 220×50 px clock corner stays clear.
+The layout is fixed-height: a 96 px header and four 195 px strips with
+12 px gaps fill 924 px of the 933 px main area, which ends 111 px above the
+bottom edge. The stamp ends 534 px short of the right edge, so the
+bottom-right 330×75 px clock corner stays clear.
 
 The pane contract and manifest shape are the v1 contracts in
 [`docs/concept.md`](../../docs/concept.md); the document is schema 1 as

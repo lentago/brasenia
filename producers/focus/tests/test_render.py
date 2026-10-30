@@ -31,8 +31,10 @@ class RenderTests(unittest.TestCase):
     def test_single_band(self):
         html = page([pr(1)])
         css = re.search(r"<style>(.*)</style>", html, re.S).group(1)
-        self.assertEqual(px(css, "body", "width"), 1280)
-        self.assertEqual(px(css, "body", "height"), 720)
+        self.assertEqual(px(css, "body", "width"), 1920)
+        self.assertEqual(px(css, "body", "height"), 1080)
+        self.assertIn('<meta name="brasenia-canvas" content="1920x1080">', html)
+        self.assertNotIn("zoom", html)
         self.assertIn("overflow: hidden", re.search(r"^body \{([^}]*)\}", css, re.M).group(1))
 
     def test_layout_fits_band_and_clears_clock_corner(self):
@@ -45,11 +47,11 @@ class RenderTests(unittest.TestCase):
         content = header + px(css, "th", "height") + MAX_ROWS * px(css, "td", "height") \
             + px(css, ".more, .empty", "height")
         self.assertLessEqual(content, main_h)
-        self.assertGreaterEqual(top, 24)
-        self.assertLessEqual(top + main_h, 720 - 50 - 24)  # above the clock strip
+        self.assertGreaterEqual(top, 36)
+        self.assertLessEqual(top + main_h, 1080 - 75 - 36)  # above the clock strip
         foot_left, foot_w = px(css, ".foot", "left"), px(css, ".foot", "width")
-        self.assertLessEqual(foot_left + foot_w, 1280 - 220 - 24)  # left of the clock corner
-        self.assertGreaterEqual(px(css, ".foot", "bottom"), 24)
+        self.assertLessEqual(foot_left + foot_w, 1920 - 330 - 36)  # left of the clock corner
+        self.assertGreaterEqual(px(css, ".foot", "bottom"), 36)
 
     def test_min_text_size(self):
         css = re.search(r"<style>(.*)</style>", page(), re.S).group(1)
