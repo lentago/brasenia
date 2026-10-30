@@ -13,7 +13,13 @@ compositor is the only writer to the screen),
 [ADR-0012](0012-the-remote-peeks-it-never-decides.md) and
 [ADR-0013](0013-the-remote-sets-the-default-resting-pane.md) (what the remote
 may do), which stand unchanged. Implementation: lentago/kalmia#223 (renderer),
-#118 (one band), #121 (strict order).
+#118 (one band), #121 (strict order). **Amended in #121 (2026-10-29): an
+arrival is forgotten only after the pane has been gone for 10 minutes**
+(`ARRIVAL_GRACE`), not the moment it stops being live. Producers renew by
+rewriting the manifest, so a TTL that lapses just before its renewal, or a
+manifest caught mid-write, can drop a pane for one tick. Forgetting at once
+would make it arrive again and change its place in its rung, a reorder no
+rubric decision made, which this ADR's principle forbids.
 
 ## Context
 

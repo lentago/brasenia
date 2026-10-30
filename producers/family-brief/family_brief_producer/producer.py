@@ -37,7 +37,8 @@ TITLE = "Family: today and tomorrow"
 WEEK_ID = "family-week"
 WEEK_TITLE = "Family: this week"
 # Both are resting panes; with no household default they share the rung and
-# take turns, slowly (#83).
+# the first by id shows (ADR-0020). The compositor ignores dwell_s; it stays
+# in the manifest for Contracts v1.
 DWELL_S = 60
 BRIEFING_TITLE = "Family Brief"
 DEFAULT_SOURCE = "http://pub.lan/family-brief/latest.json"

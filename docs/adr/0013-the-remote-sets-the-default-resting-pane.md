@@ -4,7 +4,9 @@
 [ADR-0012](0012-the-remote-peeks-it-never-decides.md): Up/Down still only
 peeks, and Left/Right now changes one rubric setting. The `live` class it
 lists among the interrupting classes was retired on 2026-10-29 (#122), along
-with RTMP live ingest.
+with RTMP live ingest. Since [ADR-0020](0020-only-the-rubric-and-the-remote-change-the-wall.md)
+(#121), clearing the default shows the first resting pane by id; resting panes
+no longer take turns, and `dwell_s` is ignored.
 
 ## Context
 

@@ -1,6 +1,9 @@
 # ADR-0011: Rubric settings are household overrides on the share, written through pub-signals
 
-**Status:** Accepted (2026-10-28; #70)
+**Status:** Accepted (2026-10-28; #70). The `rotation.dwell_s` setting it
+lists was retired with rotation by
+[ADR-0020](0020-only-the-rubric-and-the-remote-change-the-wall.md) (#121); an
+old override of it is an unknown setting and changes nothing.
 
 ## Context
 
