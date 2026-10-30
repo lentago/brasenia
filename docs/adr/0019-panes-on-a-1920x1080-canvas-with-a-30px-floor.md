@@ -3,7 +3,9 @@
 **Status:** Accepted (2026-10-29; #112). Amends the pane contract in
 [`concept.md`](../concept.md#the-pane-contract) and the 3× rendering of
 [ADR-0009](0009-office-roku-4k-hevc-over-ffmpeg-hls.md). Runtime in
-lentago/kalmia#216; producers in #113.
+lentago/kalmia#216; producers in #113. **Amended by
+[ADR-0020](0020-only-the-rubric-and-the-remote-change-the-wall.md)
+(2026-10-29): a pane is one band**, so a pane is 1920×1080, not 1–4 bands.
 
 ## Context
 

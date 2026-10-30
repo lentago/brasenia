@@ -136,6 +136,10 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
 
 ## The pane contract
 
+> **One band, nothing rotates ([ADR-0020](adr/0020-only-the-rubric-and-the-remote-change-the-wall.md)).**
+> A pane is one band. Where this section or Contracts v1 says 1–4 bands or
+> `source.screens` up to 4, ADR-0020 supersedes it, pending the rewrite in #118.
+
 > **Moving to a 1920×1080 canvas ([ADR-0019](adr/0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md)).**
 > A pane that declares `<meta name="brasenia-canvas" content="1920x1080">` is
 > laid out 1920 px wide in 1080 px bands and rendered at 2×. It uses ≥30 px
@@ -172,6 +176,11 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
   TTL is the backstop for writers that die without cleaning up.
 
 ## Rubric v1
+
+> **No ties, no rotation ([ADR-0020](adr/0020-only-the-rubric-and-the-remote-change-the-wall.md)).**
+> The rubric ranks live panes in a strict order, and the first one shows.
+> Where this section describes panes taking turns by `dwell_s`, ADR-0020
+> supersedes it, pending the rewrite in #121.
 
 *Replaces rubric v0 (2026-10-07): adds `focus` at 50, the `origin`
 tie-break, and rotation by `dwell_s`.*

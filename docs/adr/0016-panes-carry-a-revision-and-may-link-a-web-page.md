@@ -1,6 +1,9 @@
 # ADR-0016: Panes carry a content revision, and a pane may link a web page
 
-**Status:** Accepted (2026-10-29; #96). Amends Contracts v1 in
+**Status:** Accepted (2026-10-29; #96). **Amended by
+[ADR-0020](0020-only-the-rubric-and-the-remote-change-the-wall.md)
+(2026-10-29): a link pane shows one band** (`source.screens` is 1), **and
+its `dwell` is accepted but ignored**, as for every pane. Amends Contracts v1 in
 [`concept.md`](../concept.md#contracts-v1); additive, so existing writers and
 clients keep working.
 
