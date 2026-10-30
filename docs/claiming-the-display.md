@@ -47,9 +47,8 @@ explicit `--ttl` for those two.
 1. **Write only your own pane directory.** Never edit or delete another
    writer's pane. `pane renew` and `pane release` refuse a pane whose author
    is not you, and there is no force flag.
-2. **The compositor alone decides what shows.** A claim is a request. Rank,
-   rotation and fallback are the compositor's; do not try to force the
-   pointer.
+2. **The compositor alone decides what shows.** A claim is a request. Rank
+   and fallback are the compositor's; do not try to force the pointer.
 
 ## The pane contract in five lines
 
@@ -98,13 +97,14 @@ The same answer is a web page: `http://pub.lan/viewport/rubric.html`, which
 the compositor rewrites as it decides. It shows what is on screen, the class
 ladder with each live pane on its rung, the fallbacks, and why every pane on
 the bus is or is not showing. The rubric's settings (class priorities, the
-briefing fallback's age limit, rotation time) are household overrides made at
+briefing fallback's age limit, the default resting pane) are household overrides made at
 `http://pub.lan/viewport/configure.html`; claim with the class that fits, not
 the rung you want.
 
-`--origin` is `operator` by default (use `fleet` for unattended runs),
-`--dwell SEC` sets rotation time among equals, and `--author` overrides the
-default `<user>@<hostname>`. Renew and release identify you the same way, so
+`--origin` is `operator` by default (use `fleet` for unattended runs), and
+`--author` overrides the default `<user>@<hostname>`. There is no `--dwell`:
+panes on a rung never take turns, and the newest arrival shows
+([ADR-0020](adr/0020-only-the-rubric-and-the-remote-change-the-wall.md)). Renew and release identify you the same way, so
 pass the same `--author` you claimed with if you set one. Exit codes: 0 ok,
 1 refused (the reason is on stderr), 2 usage.
 

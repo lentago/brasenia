@@ -45,7 +45,6 @@ ol.ladder { list-style: none; margin: 0; padding: 0; }
 .chip { display: inline-block; margin: 2px 6px 2px 0; padding: 1px 9px; border-radius: 999px;
   background: #22332a; font-size: 14px; }
 .chip.showing { background: #e0a81c; color: #1b1405; font-weight: 600; }
-.chip.rotating { background: #3a3317; color: #f0d28a; }
 .warn { color: #f0a53a; font-weight: 600; }
 .ovr { display: block; font-size: 12px; font-weight: 400; color: #e0a81c; }
 tr.overridden td { color: #f0d28a; }
@@ -60,7 +59,6 @@ td.id { font-family: ui-monospace, "DejaVu Sans Mono", monospace; font-size: 14p
 .badge { display: inline-block; padding: 0 8px; border-radius: 6px; font-size: 13px;
   font-weight: 600; background: #22332a; white-space: nowrap; }
 .badge.showing { background: #e0a81c; color: #1b1405; }
-.badge.rotating { background: #3a3317; color: #f0d28a; }
 .badge.expired, .badge.writing, .badge.off { background: #1f2e26; color: #8fa89a; }
 .badge.malformed, .badge.invalid { background: #4a1f1f; color: #f3b1a8; }
 ul.rules { margin: 0; padding-left: 20px; }
@@ -159,10 +157,6 @@ def _now_card(pointer, brief, now, tz, view):
         meta.append("live until %s" % e(_clock(expires, now, tz)))
     except (ValueError, OverflowError):
         pass
-    rotation = pointer.get("rotation")
-    if rotation:
-        meta.append("taking turns: %d of %d, %ss each"
-                    % (rotation["index"] + 1, rotation["of"], rotation["dwell_s"]))
     return ('<div class="card"><div class="big">%s</div><div class="meta">%s · '
             '<a href="%s">open the pane</a></div></div>'
             % (e(str(pointer.get("title"))), " · ".join(meta), e(str(pointer.get("url")))))
@@ -170,7 +164,7 @@ def _now_card(pointer, brief, now, tz, view):
 
 def _ladder(pointer, rows, brief, now, tz, view):
     e = html.escape
-    live = [r for r in rows if r["status"] in ("showing", "rotating", "outranked")]
+    live = [r for r in rows if r["status"] in ("showing", "outranked")]
     rungs = []
     prio_map = settings.priorities(view["effective"])
     for cls in sorted(settings.CLASSES, key=lambda c: (-prio_map[c], c)):
@@ -230,7 +224,6 @@ def _bus_table(rows, now, tz):
 
 
 def _rules(view):
-    dwell = view["effective"]["rotation.dwell_s"]
     limit = view["effective"]["briefing.max_age_hours"]
     link_rule = ("Link panes are on." if view.get("link_panes") else
                  "Link panes are off until the renderer can show web pages safely.")
@@ -243,12 +236,11 @@ def _rules(view):
                       "within the last %d hours" % limit)
     return """<ul class="rules">
 <li>A pane is live from its manifest's <code>created</code> time for <code>ttl_minutes</code>; its producer keeps it live by rewriting the manifest.</li>
-<li>The live pane on the highest rung wins. On a tie, <code>operator</code> panes go before <code>fleet</code> ones, then the newest.</li>
-<li>Panes that tie on rung and origin with the winner take turns, each for its <code>dwell_s</code> (%d s unless the manifest says otherwise).</li>
+<li>The live panes are ranked in one strict order, and the first is shown: highest rung first, then the household's default resting pane, then <code>operator</code> before <code>fleet</code>, then the pane that arrived most recently (resting panes skip this and keep their order by id), then the pane id. No two panes ever tie, and nothing takes turns.</li>
 <li>With nothing live, %s; otherwise the status card.</li>
 <li>A pane directory without both <code>pane.html</code> and <code>manifest.json</code> is still being written, and a bad manifest is skipped; neither can blank the screen.</li>
 <li>A pane whose manifest has a <code>source</code> is a link pane: the screen shows that web page and needs no <code>pane.html</code>. %s</li>
-</ul>""" % (dwell, brief_rule, link_rule)
+</ul>""" % (brief_rule, link_rule)
 
 
 def _brief_age(brief, now, tz):
@@ -292,7 +284,7 @@ def _settings(view, now, tz, url_base):
     defaults = settings.defaults()
     def show(key, v):
         if v is None:
-            return "none (they take turns)" if key == "default.pane" else "no limit"
+            return "none (the first by id)" if key == "default.pane" else "no limit"
         return str(v)
     rows = []
     for key, (_, _, label, _) in settings.SPEC.items():

@@ -1,7 +1,7 @@
 """Household overrides for the rubric, read back from the configurator's log.
 
-Defaults live in code: ``rubric.PRIORITY``, ``rubric.DEFAULT_DWELL_S``, and no
-age limit on the briefing fallback. Overrides live on the share (ADR-0011).
+Defaults live in code: ``rubric.PRIORITY``, and no age limit on the briefing
+fallback. Overrides live on the share (ADR-0011).
 ``viewport/configure.html`` posts each change to pub-signals, which appends a
 line to ``signals/rubric.jsonl``:
 
@@ -38,16 +38,14 @@ SPEC["briefing.max_age_hours"] = (
     "With nothing live, show the briefing (the Family Brief) only if it was "
     "published within this many hours; otherwise the status card. 0 turns the "
     "fallback off; empty means any age.")
-SPEC["rotation.dwell_s"] = (
-    5, 600, "Rotation: default seconds per pane",
-    "How long each tied pane shows before the next, for panes whose manifest "
-    "sets no dwell_s.")
+# rotation.dwell_s retired with rotation (ADR-0020): an old line in the log
+# is listed as an unknown setting and changes nothing.
 # Not a number: a pane id (lo/hi unused). Set from the Roku remote's
 # Left/Right as well as from configure.html (#83).
 SPEC["default.pane"] = (
     None, None, "Default resting pane",
     "The resting (ambient) pane shown when nothing more urgent is up. Unset, "
-    "the resting panes take turns. Left/Right on the Roku remote sets it too.")
+    "the first resting pane by id shows. Left/Right on the Roku remote sets it too.")
 
 
 LINK_PREFIX = "link."
@@ -86,7 +84,6 @@ def links(eff):
 def defaults():
     out = {"priority." + c: rubric.PRIORITY[c] for c in CLASSES}
     out["briefing.max_age_hours"] = None
-    out["rotation.dwell_s"] = rubric.DEFAULT_DWELL_S
     out["default.pane"] = None
     return out
 

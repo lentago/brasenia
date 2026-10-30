@@ -196,9 +196,9 @@ A value it rejects shows under "Recent changes" on the rubric board and changes 
 
 
 def _pane_field(key, label, help_text, current, overridden, resting):
-    """A <select> of the live resting panes; an unset value means they take turns."""
+    """A <select> of the live resting panes; unset, the first by id shows."""
     e = html.escape
-    choices = [("", "None: the resting panes take turns")] + list(resting)
+    choices = [("", "None: the first resting pane by id")] + list(resting)
     if current and current not in {pid for pid, _ in resting}:
         choices.append((current, "%s (not on the bus now)" % current))
     options = "".join('<option value="%s"%s>%s</option>' % (

@@ -177,15 +177,15 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
 ## Rubric v1
 
 > **No ties, no rotation ([ADR-0020](adr/0020-only-the-rubric-and-the-remote-change-the-wall.md)).**
-> The rubric ranks live panes in a strict order, and the first one shows.
-> Where this section describes panes taking turns by `dwell_s`, ADR-0020
-> supersedes it, pending the rewrite in #121.
+> The rubric ranks the live panes in one strict order, and the first one is
+> shown. What the wall shows changes only when that order changes: no pane
+> takes turns, and nothing on a timer moves it.
 
 *Replaces rubric v0 (2026-10-07): adds `focus` at 50, the `origin`
-tie-break, and rotation by `dwell_s`.*
+tie-break, and rotation by `dwell_s`. ADR-0020 retired the rotation (#121).*
 
-The priorities below, the default dwell and the briefing fallback's maximum
-age are defaults. The household can override them from
+The priorities below and the briefing fallback's maximum age are
+defaults. The household can override them from
 `http://pub.lan/viewport/configure.html`, beside the rubric board. Each change
 is a pub-signals line in `signals/rubric.jsonl` that the compositor validates
 and applies within seconds, and the effective values are in
@@ -194,11 +194,10 @@ and applies within seconds, and the effective values are in
 
 **The default resting pane** (`default.pane`, #83). Several `ambient` panes
 (the Family Brief's today and week, Home, Weather and Fleet, #86) share the
-resting rung and take turns in a fixed order (by id), each for its
-`dwell_s`. The household can name one as the
-default, from the configurator's dropdown or with Left/Right on the Roku
-remote: when it is live it ranks first in its rung and holds, and the others
-wait. It only orders the resting panes, so `focus`, `activity`,
+resting rung in a fixed order by id, and the first of them is shown. The
+household can name one as the default, from the configurator's dropdown or
+with Left/Right on the Roku remote: when it is live it ranks first in its rung,
+and the others wait. With no default, the first resting pane by id shows. It only orders the resting panes, so `focus`, `activity`,
 `attention` and `alert` panes still take over when they appear, and the
 default returns after them.
 
@@ -213,7 +212,7 @@ Standing slots section.
   `viewport/rubric.json` and keeps one `ambient` link pane per slot (author
   `links-producer@pub`), renewed every 30 s, and takes it down when the slot
   goes.
-- **On screen:** slots rest and rotate like the other resting panes; Left/Right
+- **On screen:** slots rest like the other resting panes, in id order; Left/Right
   steps through them and can make one the default. They show only once link
   panes are on.
 
@@ -226,7 +225,14 @@ Standing slots section.
 | 40 | `ambient` | while fresh |
 | 0 | `briefing` | never |
 
-Ranking: priority descending, then `origin` (`operator` before `fleet`), then `created` descending, except among `ambient` panes, which keep a fixed order by id because each producer rewrites `created` on its own cadence (#86). Panes tied on priority and origin rotate; each shows for its `dwell_s` (default 20 s) before the next. Only the top group rotates; lower groups wait. Fallback ladder: no live pane → the briefing slot (below), skipped when it is absent or older than the household's `briefing.max_age_hours` → `status.html`, which the compositor writes with the reason.
+Ranking is one strict order (ADR-0020), and the first live pane in it is shown:
+1. priority, descending;
+2. the household's default resting pane (`default.pane`, an `ambient` pane only);
+3. `origin`, `operator` before `fleet`;
+4. arrival, newest first. Arrival is when the compositor first saw the pane live. It is kept in `state/compositor.json` and forgotten once the pane has been gone for 10 minutes, so a renewal that misses a tick keeps its place. `ambient` panes skip this step and keep a fixed order by id (#86), so the remote's Left/Right order stays put;
+5. the pane id, which is unique on the bus (it is the directory name), so no two live panes ever tie.
+
+The order never uses `created`: every producer rewrites it each cycle, because it is the base of the TTL, and `pane renew` resets it, so ranking by it would reorder a rung on the producers' cadence. A pane that leaves the bus and comes back after the grace window arrives again. Nothing rotates. Fallback ladder: no live pane → the briefing slot (below), skipped when it is absent or older than the household's `briefing.max_age_hours` → `status.html`, which the compositor writes with the reason.
 
 **The briefing slot** (`viewport/briefing/`, #76) holds what the fallback shows: `pane.html` (the pane contract) and `manifest.json` (`schema` 1, `title`, `published`: when the brief itself was generated, RFC 3339, and `author`). The family-brief producer keeps it filled with the latest Family Brief whatever its age. The `family-today` pane leaves the bus once the brief is older than yesterday; the slot stays, saying how old it is. The compositor names `pane.html` in the pointer, titled from the manifest, and judges the age by `published` rather than the file time, because the producer rewrites the page every minute. Writers follow the bus rules: write-then-rename, and leave a slot another author owns alone. It replaced `http://pub.lan/brief/`, the morning brief, which stopped publishing on 2026-08-31.
 
@@ -255,7 +261,7 @@ Inside it:
 - `briefing/`, the briefing slot the fallback shows (see Rubric v1).
 - `rubric.html`, `configure.html` and `rubric.json`, the rubric board, its configurator and the effective settings (ADR-0011).
 - `status.html`, the status card the compositor writes as the fallback of last resort.
-- `state/`, compositor rotation state.
+- `state/`, the compositor's state (`compositor.json`): its last decision, and each live pane's arrival for the rank order.
 
 Writers use write-then-rename for every file (`x.partial` → `x`) and write `manifest.json` last. A writer relinquishes by deleting its own pane directory. The compositor is the only writer of `current.json`, `lineup.json`, `status.html`, the board files and `state/`.
 
@@ -271,14 +277,14 @@ Writers use write-then-rename for every file (`x.partial` → `x`) and write `ma
   "author": "focus-producer@pub",
   "origin": "operator",
   "repo": "lentago/brasenia",
-  "dwell_s": 20,
   "done_when": "pr-merged"
 }
 ```
 
 - `class` is one of `alert`, `attention`, `activity`, `focus`, `ambient`, `briefing`. `title`, `created` (RFC 3339, UTC), `ttl_minutes`, `author` are required.
-- `origin` is `operator` or `fleet` (default `fleet`); it is the tie-break within a class.
-- `repo` (`owner/name`), `dwell_s` and `done_when` are optional. v1 ignores `done_when`.
+- `origin` is `operator` or `fleet` (default `fleet`); within a rung, `operator` panes rank first.
+- `repo` (`owner/name`) and `done_when` are optional. v1 ignores `done_when`.
+- `dwell_s` is retired (ADR-0020): it set a pane's turn in a rotation, and nothing rotates. A manifest may still carry it, and the compositor neither reads nor checks it.
 - `source` is optional and makes the pane a **link pane** ([ADR-0016](adr/0016-panes-carry-a-revision-and-may-link-a-web-page.md)): the screen shows a web page instead of `pane.html`. It is `{"url": "https://…", "theme": "dark", "screens": 1, "viewport": [1280, 720], "refresh_s": 60}`.
   - `url` (http or https) is required; the other fields have the defaults shown. The pointer is readable on the LAN, so a `url` with a user or password, or with a query or fragment parameter that usually carries a secret (`token`, `signature`, `key`, …), is malformed. That check is a heuristic: a link pane's URL must be token-free.
   - `theme` is `dark` or `light`; `screens` is always 1, one band (ADR-0020): it stays in the contract so a writer that sends it keeps working, and any other value is malformed; `viewport` is the CSS size to lay the page out at (240–3840 each); `refresh_s` (at least 10) is how often to render it again.
@@ -298,16 +304,16 @@ Writers use write-then-rename for every file (`x.partial` → `x`) and write `ma
   "title": "brasenia — open pull requests",
   "expires_at": "2026-10-07T12:10:00Z",
   "fallback": null,
-  "rotation": {"index": 0, "of": 2, "dwell_s": 20},
+  "rotation": null,
   "rev": "8dddf601435e",
   "source": null
 }
 ```
 
-- `pane` is null and `fallback` is `"briefing"` or `"status"` when nothing on the bus won. `expires_at` is null for the briefing. `rotation` is null when there is a single winner.
+- `pane` is null and `fallback` is `"briefing"` or `"status"` when nothing on the bus won. `expires_at` is null for the briefing. `rotation` is always null since ADR-0020; the field stays so Contracts v1 clients keep parsing the pointer.
 - `rev` is the shown page's revision: the first 12 hex digits of the SHA-256 of its `pane.html`, or of a link pane's validated `source`. It is null for the status card.
 - `source` is the link pane's validated `source`, defaults filled in, and `url` is then its page; `source` is null for every other pane.
-- The compositor re-evaluates every second (pub runs `--interval 1`, kalmia#193). It rewrites the file when the pointer changes. A new pane, fallback, rotation step or `rev` is a new decision and moves `decided_at`. A renewal that only moves `expires_at` rewrites the file but keeps `decided_at` ([ADR-0016](adr/0016-panes-carry-a-revision-and-may-link-a-web-page.md)).
+- The compositor re-evaluates every second (pub runs `--interval 1`, kalmia#193). It rewrites the file when the pointer changes. A new pane, fallback or `rev` is a new decision and moves `decided_at`. A renewal that only moves `expires_at` rewrites the file but keeps `decided_at` ([ADR-0016](adr/0016-panes-carry-a-revision-and-may-link-a-web-page.md)).
 - Clients poll every few seconds (the Roku adapter every second), render again when `decided_at` changes, and show their own status card when the pointer has been unreadable for 30 s.
 
 ### lineup.json (what a client may step through)
@@ -410,8 +416,10 @@ usable by every session. The canonical text is
 
 ## Open questions
 
-1. Rotation vs. splitting: with 2+ live high-priority panes, rotate the full
-   screen (v0) or explore band-level composition (mix panes per band)?
+1. ~~Rotation vs. splitting: with 2+ live high-priority panes, rotate the full
+   screen (v0) or explore band-level composition (mix panes per band)?~~
+   **Answered (2026-10-29, ADR-0020):** neither. A pane is one band, the live
+   panes rank in a strict order, and the first one is shown.
 2. ~~Pane render cadence: compositor re-shoots the winner every N minutes —
    is 5 min fresh enough for `activity` panes, or should manifests declare it?~~
    **Answered (2026-10-29, ADR-0016):** a pane is rendered again when its

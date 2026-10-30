@@ -29,7 +29,12 @@ ORIGINS = ("operator", "fleet")
 BRIEFING_PATH = "/viewport/briefing/pane.html"
 BRIEFING_TITLE = "Briefing"
 DEFAULT_ORIGIN = "fleet"
-DEFAULT_DWELL_S = 20
+# How long the compositor remembers a pane's arrival after the pane stops
+# being live (ADR-0020, #121). Producers renew by rewriting the manifest, so
+# a pane can drop out for a tick (a TTL that lapsed just before its renewal,
+# a manifest caught mid-write). Within this window it keeps its place in its
+# rung instead of arriving again at the back.
+ARRIVAL_GRACE = timedelta(minutes=10)
 
 PANE_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}\Z")
 REQUIRED = ("class", "title", "created", "ttl_minutes", "author")
@@ -167,17 +172,14 @@ def _being_written(entry):
     return "pane.html" not in files and not _is_link(entry.get("manifest"))
 
 
-def parse_manifest(pane_id, data, priority=None, default_dwell=None):
+def parse_manifest(pane_id, data, priority=None):
     """Validate a decoded manifest and return the fields the rubric uses.
 
-    ``priority`` maps class → priority (default ``PRIORITY``) and
-    ``default_dwell`` is the dwell for a manifest without ``dwell_s``
-    (default ``DEFAULT_DWELL_S``); the compositor passes the household's
-    overrides (ADR-0011). Raises ``Malformed`` with a short reason on any
-    contract violation.
+    ``priority`` maps class → priority (default ``PRIORITY``); the compositor
+    passes the household's overrides (ADR-0011). Raises ``Malformed`` with a
+    short reason on any contract violation.
     """
     priority = PRIORITY if priority is None else priority
-    default_dwell = DEFAULT_DWELL_S if default_dwell is None else default_dwell
     if not isinstance(data, dict):
         raise Malformed("manifest is not a JSON object")
     missing = [k for k in REQUIRED if k not in data]
@@ -204,9 +206,9 @@ def parse_manifest(pane_id, data, priority=None, default_dwell=None):
     origin = data.get("origin", DEFAULT_ORIGIN)
     if origin not in ORIGINS:
         raise Malformed("unknown origin %r" % (origin,))
-    dwell = data.get("dwell_s", default_dwell)
-    if not _finite_positive(dwell):
-        raise Malformed("dwell_s is not a positive number")
+    # dwell_s set a pane's turn in a rotation, which ADR-0020 retired. A
+    # manifest may still carry it (Contracts v1), and it is neither read nor
+    # checked, so an ignored field can never take a pane off the wall.
     source = parse_source(data["source"]) if "source" in data else None
     return {
         "id": pane_id,
@@ -216,25 +218,24 @@ def parse_manifest(pane_id, data, priority=None, default_dwell=None):
         "created": created,
         "expires": expires,
         "origin": origin,
-        "dwell_s": dwell,
         "source": source,
     }
 
 
-def _parse_entry(entry, priority, default_dwell):
+def _parse_entry(entry, priority):
     """Parse a scanned pane directory whose files are in place, adding its
     revision: ``rev`` from the scan (a hash of pane.html), or for a link pane
     the hash of its source. Raises ``Malformed``."""
     data = entry.get("manifest")
     if isinstance(data, Malformed):
         raise data
-    pane = parse_manifest(entry["id"], data, priority, default_dwell)
+    pane = parse_manifest(entry["id"], data, priority)
     pane["rev"] = (source_rev(pane["source"]) if pane["source"] is not None
                    else entry.get("rev"))
     return pane
 
 
-def _candidate(entry, now, priority=None, default_dwell=None, link_panes=False):
+def _candidate(entry, now, priority=None, link_panes=False):
     """Return ``(pane, skip_reason)`` for one scanned pane directory.
 
     ``pane`` is the parsed pane when it is live. ``skip_reason`` is set only
@@ -247,7 +248,7 @@ def _candidate(entry, now, priority=None, default_dwell=None, link_panes=False):
     if _being_written(entry):
         return None, None
     try:
-        pane = _parse_entry(entry, priority, default_dwell)
+        pane = _parse_entry(entry, priority)
     except Malformed as exc:
         return None, str(exc)
     if pane["expires"] <= now:
@@ -262,42 +263,59 @@ def _is_default(pane, default_pane):
     return default_pane is not None and pane["id"] == default_pane and pane["class"] == "ambient"
 
 
-def _rank_key(default_pane=None):
-    # priority desc, the household's default resting pane first within its
-    # rung, operator before fleet, created desc, id for determinism. Resting
-    # (ambient) panes skip the created step and keep a fixed order by id
-    # (#86): each producer rewrites created on its own cadence, which would
-    # reshuffle their rotation and the remote's Left/Right order.
+def _arrivals(previous, live, now):
+    """Carry each pane's arrival forward (ADR-0020, #121).
+
+    Returns ``{pane id: {"at": RFC 3339}}`` for every live pane, plus
+    ``"gone"``, the time it was first missed, for a pane that stopped being
+    live less than ``ARRIVAL_GRACE`` ago. A live pane keeps its arrival, or
+    arrives ``now``. A pane gone for the whole grace window is forgotten, and
+    arrives again if it comes back. A record that does not parse counts as
+    absent, so a damaged state file costs at most an arrival.
+
+    Times are whole seconds, so two panes seen first in the same tick arrive
+    together and fall through to the pane id.
+    """
+    live_ids = {p["id"] for p in live}
+    out = {}
+    for pane_id, rec in (previous if isinstance(previous, dict) else {}).items():
+        try:
+            at = parse_time(rec["at"])
+            gone = None if rec.get("gone") is None else parse_time(rec["gone"])
+        except (AttributeError, KeyError, TypeError, ValueError, OverflowError):
+            continue
+        if pane_id in live_ids:
+            out[pane_id] = {"at": iso(at)}
+        elif gone is None:
+            out[pane_id] = {"at": iso(at), "gone": iso(now)}
+        elif now - gone < ARRIVAL_GRACE:
+            out[pane_id] = {"at": iso(at), "gone": iso(gone)}
+    for pane_id in live_ids - out.keys():
+        out[pane_id] = {"at": iso(now)}
+    return out
+
+
+def _arrived(arrivals, pane_id):
+    """A pane's arrival as a timestamp; 0 when none is recorded."""
+    try:
+        return parse_time(arrivals[pane_id]["at"]).timestamp()
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return 0.0
+
+
+def _rank_key(default_pane=None, arrivals=None):
+    # A strict order (ADR-0020): priority desc, the household's default
+    # resting pane first in its rung, operator before fleet, arrival desc
+    # (newest first), then the pane id. The id is unique on the bus, so no two
+    # live panes ever rank equal. Resting (ambient) panes skip arrival and
+    # keep a fixed order by id (#86), so the remote's Left/Right order stays
+    # put. Arrival, never created: producers and `pane renew` rewrite created
+    # every cycle, and ranking by it would reorder a rung on their cadence.
+    arrivals = arrivals or {}
     return lambda pane: (-pane["priority"], 0 if _is_default(pane, default_pane) else 1,
                          ORIGINS.index(pane["origin"]),
-                         0 if pane["class"] == "ambient" else -pane["created"].timestamp(),
+                         0 if pane["class"] == "ambient" else -_arrived(arrivals, pane["id"]),
                          pane["id"])
-
-
-def _rotate(group, now, prev):
-    """Pick the showing pane of the top group; return ``(index, rotation)``.
-
-    ``rotation`` is the next rotation state, or None for a single winner.
-    """
-    if len(group) == 1:
-        return 0, None
-    prev = prev or {}
-    ids = [p["id"] for p in group]
-    current = prev.get("pane")
-    if current in ids:
-        index = ids.index(current)
-        elapsed = (now - datetime.fromisoformat(prev["since"])).total_seconds()
-        if elapsed < group[index]["dwell_s"]:
-            return index, dict(prev, index=index, group=ids)
-        index = (index + 1) % len(ids)
-    elif set(prev.get("group") or ()) & set(ids):
-        # The showing pane left a group that carries on: its successor has
-        # slid into its slot, so show that one rather than restarting.
-        index = prev.get("index", 0) % len(ids)
-    else:
-        index = 0
-    return index, {"pane": ids[index], "index": index,
-                   "since": now.isoformat(), "group": ids}
 
 
 def _pointer(now, url_base, **fields):
@@ -311,7 +329,7 @@ def _pointer(now, url_base, **fields):
         "title": None,
         "expires_at": None,
         "fallback": None,
-        "rotation": None,
+        "rotation": None,   # always null since ADR-0020; kept for Contracts v1
         "rev": None,
         "source": None,
     }
@@ -331,7 +349,7 @@ def _same(a, b):
 
 
 def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
-           priority=None, default_dwell=None, briefing_title=BRIEFING_TITLE,
+           priority=None, briefing_title=BRIEFING_TITLE,
            default_pane=None, link_panes=False, brief_rev=None):
     """Rank the bus and return ``(pointer, state)``.
 
@@ -341,42 +359,37 @@ def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
     decode). ``now`` is an aware datetime. ``state`` is the previous state
     (``{}`` on first run); the returned state is JSON-serialisable.
 
-    ``priority`` and ``default_dwell`` override ``PRIORITY`` and
-    ``DEFAULT_DWELL_S`` (see ``parse_manifest``). With nothing live and
-    ``brief_present``, the pointer names the briefing slot (``BRIEFING_PATH``),
-    titled ``briefing_title``. ``default_pane`` is the household's default
-    resting pane: when it is live and ``ambient`` it ranks first in its rung
-    and holds rather than taking turns. Link panes (a manifest ``source``)
-    are skipped unless ``link_panes``. ``brief_rev`` is the briefing page's
-    revision, carried in the pointer when the briefing is shown.
+    ``priority`` overrides ``PRIORITY`` (see ``parse_manifest``). The live
+    panes rank in a strict order (``_rank_key``, ADR-0020) and the first one
+    is shown; nothing rotates. With nothing live and ``brief_present``, the
+    pointer names the briefing slot (``BRIEFING_PATH``), titled
+    ``briefing_title``. ``default_pane`` is the household's default resting
+    pane: when it is live and ``ambient`` it ranks first in its rung. Link
+    panes (a manifest ``source``) are skipped unless ``link_panes``.
+    ``brief_rev`` is the briefing page's revision, carried in the pointer when
+    the briefing is shown.
 
     The pointer's ``rev`` is the shown pane's revision, so a change of content
     is a new decision; a renewal that only moves ``expires_at`` is not (#96).
 
     State keys: ``pointer`` (the last decision, so an unchanged decision keeps
-    its ``decided_at``), ``rotation`` (the top group's rotation cursor) and
-    ``skipped`` (pane id → reason, for log-once).
+    its ``decided_at``), ``arrivals`` (see ``_arrivals``; the rank order's
+    arrival step) and ``skipped`` (pane id → reason, for log-once). A state
+    from before ADR-0020 still loads: its ``rotation`` cursor is dropped.
     """
     url_base = url_base.rstrip("/")
     live, skipped = [], {}
     for entry in panes:
-        pane, reason = _candidate(entry, now, priority, default_dwell, link_panes)
+        pane, reason = _candidate(entry, now, priority, link_panes)
         if pane is not None:
             live.append(pane)
         elif reason is not None:
             skipped[entry["id"]] = reason
 
-    rotation_state = None
+    arrivals = _arrivals(state.get("arrivals"), live, now)
     if live:
-        live.sort(key=_rank_key(default_pane))
-        top = live[0]
-        if _is_default(top, default_pane):
-            group = [top]   # the default holds; the other resting panes wait
-        else:
-            group = [p for p in live if p["priority"] == top["priority"]
-                     and p["origin"] == top["origin"]]
-        index, rotation_state = _rotate(group, now, state.get("rotation"))
-        win = group[index]
+        live.sort(key=_rank_key(default_pane, arrivals))
+        win = live[0]
         source = win["source"]
         pointer = _pointer(
             now, url_base,
@@ -384,8 +397,6 @@ def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
             url=pane_url(win, url_base),
             title=win["title"],
             expires_at=iso(win["expires"]),
-            rotation=None if rotation_state is None else {
-                "index": index, "of": len(group), "dwell_s": win["dwell_s"]},
             rev=win["rev"],
             source=None if source is None else dict(source),
             **{"class": win["class"], "priority": win["priority"]})
@@ -405,8 +416,28 @@ def decide(panes, now, state, brief_present=True, url_base="http://pub.lan",
         # all changed, but carry a renewed expires_at.
         pointer = (previous if pointer["expires_at"] == previous.get("expires_at")
                    else dict(pointer, decided_at=previous["decided_at"]))
-    return pointer, {"pointer": pointer, "rotation": rotation_state,
+    return pointer, {"pointer": pointer, "arrivals": arrivals,
                      "skipped": skipped}
+
+
+def _outranked_by(pane, win, default_pane, arrivals):
+    """Why ``pane`` ranks below ``win``, the shown pane: the first step of the
+    strict order that tells them apart."""
+    if win is None:
+        return None
+    if pane["priority"] != win["priority"]:
+        return "lower priority than %s (%s %d)" % (win["id"], win["class"], win["priority"])
+    if _is_default(win, default_pane):
+        return "%s is the household's default resting pane" % win["id"]
+    if pane["origin"] != win["origin"]:
+        return "same priority as %s; %s panes go first" % (win["id"], win["origin"])
+    if pane["class"] == "ambient" and win["class"] == "ambient":
+        return "resting panes go in id order; %s comes first" % win["id"]
+    if pane["class"] != "ambient" and win["class"] != "ambient":
+        if _arrived(arrivals, win["id"]) != _arrived(arrivals, pane["id"]):
+            return "%s arrived more recently" % win["id"]
+        return "arrived with %s, which comes first by id" % win["id"]
+    return "same priority as %s, which ranks first in the rung" % win["id"]
 
 
 def pane_url(pane, url_base):
@@ -418,21 +449,22 @@ def pane_url(pane, url_base):
 
 
 # explain() statuses, in the order the board lists them.
-STATUSES = ("showing", "rotating", "outranked", "off", "expired", "writing",
+STATUSES = ("showing", "outranked", "off", "expired", "writing",
             "malformed", "invalid")
 
 
-def explain(panes, now, pointer, priority=None, default_dwell=None, default_pane=None,
-            link_panes=False):
+def explain(panes, now, pointer, priority=None, default_pane=None,
+            link_panes=False, arrivals=None):
     """Say what happened to every scanned pane directory under ``pointer``.
 
     Returns one dict per entry, live panes first in rank order: the parsed
     fields (``class``, ``priority``, ``title``, ``origin``, ``created``,
-    ``expires``, ``dwell_s``, ``source``, ``rev``; absent when the manifest
-    did not parse), plus ``id``, ``status`` (one of ``STATUSES``) and
-    ``reason`` (a short phrase, or None). ``pointer`` is the decision
-    ``decide`` returned for the same ``panes``, ``now``, ``priority``,
-    ``default_dwell`` and ``link_panes``; this function only explains it.
+    ``expires``, ``source``, ``rev``; absent when the manifest did not
+    parse), plus ``id``, ``status`` (one of ``STATUSES``) and ``reason`` (a
+    short phrase, or None). ``pointer`` and ``arrivals`` are the decision and
+    the state's ``arrivals`` that ``decide`` returned for the same ``panes``,
+    ``now``, ``priority``, ``default_pane`` and ``link_panes``; this function
+    only explains them.
     """
     live, rest = [], []
     for entry in panes:
@@ -447,7 +479,7 @@ def explain(panes, now, pointer, priority=None, default_dwell=None, default_pane
                          "reason": "no " + " or ".join(missing) + " yet"})
             continue
         try:
-            pane = _parse_entry(entry, priority, default_dwell)
+            pane = _parse_entry(entry, priority)
         except Malformed as exc:
             rest.append({"id": pane_id, "status": "malformed", "reason": str(exc)})
             continue
@@ -460,26 +492,17 @@ def explain(panes, now, pointer, priority=None, default_dwell=None, default_pane
             continue
         live.append(pane)
 
-    live.sort(key=_rank_key(default_pane))
+    arrivals = arrivals or {}
+    live.sort(key=_rank_key(default_pane, arrivals))
     shown = pointer.get("pane")
     win = next((p for p in live if p["id"] == shown), None)
     rows = []
     for p in live:
         if p is win:
-            status, reason = "showing", None
-        elif win is not None and _is_default(win, default_pane) and p["priority"] == win["priority"]:
-            status, reason = "outranked", "%s is the household's default resting pane" % win["id"]
-        elif win is not None and (p["priority"], p["origin"]) == (win["priority"], win["origin"]):
-            status, reason = "rotating", "takes turns with %s every %ss" % (win["id"], p["dwell_s"])
+            rows.append(dict(p, status="showing", reason=None))
         else:
-            status, reason = "outranked", None
-            if win is None:
-                pass
-            elif p["priority"] < win["priority"]:
-                reason = "lower priority than %s (%s %d)" % (win["id"], win["class"], win["priority"])
-            else:
-                reason = "same priority as %s; %s panes go first" % (win["id"], win["origin"])
-        rows.append(dict(p, status=status, reason=reason))
+            rows.append(dict(p, status="outranked",
+                             reason=_outranked_by(p, win, default_pane, arrivals)))
     order = {s: i for i, s in enumerate(STATUSES)}
     rest.sort(key=lambda r: (order[r["status"]], r["id"]))
     return rows + rest
