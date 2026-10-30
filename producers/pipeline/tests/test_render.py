@@ -56,7 +56,7 @@ class RenderTests(unittest.TestCase):
         self.assertIn('class="strip"', kalmia)
         self.assertNotIn("stuck", kalmia)
         self.assertIn("terraform apply · in progress", kalmia)
-        self.assertNotIn("<b>brasenia</b>", page)  # landed repos are not shown
+        self.assertNotIn("brasenia", page.split("<body>", 1)[1])  # landed repos are not shown
         self.assertIn("<h1>2 changes in flight</h1>", page)
         self.assertIn("data as of", page)
 
