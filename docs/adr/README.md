@@ -35,3 +35,4 @@ decision was made, not reconstructed.
 | [0017](0017-grafana-panes-rendered-on-pub.md) | Grafana dashboards are rendered on pub into ordinary panes with a Viewer token (amends 0014) | 2026-10-29 |
 | [0018](0018-standing-slots-are-household-settings.md) | Standing slots are household settings, kept on the bus by a producer | 2026-10-29 |
 | [0019](0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md) | Panes are laid out on a 1920×1080 canvas at 2×, with a 30 px text floor; "band" names the screenful (amends 0009) | 2026-10-29 |
+| [0020](0020-only-the-rubric-and-the-remote-change-the-wall.md) | Only the rubric and the remote change what the wall shows (**proposed**, awaiting Chris's decision) | 2026-10-29 |
