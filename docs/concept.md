@@ -219,6 +219,8 @@ Standing slots section.
 | 40 | `ambient` | while fresh |
 | 0 | `briefing` | never |
 
+`live` has had no source since RTMP live ingest was retired on 2026-10-29 (see [Live-ingest source type](#live-ingest-source-type)). The class is still defined.
+
 Ranking: priority descending, then `origin` (`operator` before `fleet`), then `created` descending, except among `ambient` panes, which keep a fixed order by id because each producer rewrites `created` on its own cadence (#86). Panes tied on priority and origin rotate; each shows for its `dwell_s` (default 20 s) before the next. Only the top group rotates; lower groups wait. Fallback ladder: no live pane → the briefing slot (below), skipped when it is absent or older than the household's `briefing.max_age_hours` → `status.html`, which the compositor writes with the reason.
 
 **The briefing slot** (`viewport/briefing/`, #76) holds what the fallback shows: `pane.html` (the 1280×720 pane contract), optionally `detail.html` (a desk edition, as for panes), and `manifest.json` (`schema` 1, `title`, `published`: when the brief itself was generated, RFC 3339, and `author`). The family-brief producer keeps it filled with the latest Family Brief whatever its age. The `family-today` pane leaves the bus once the brief is older than yesterday; the slot stays, saying how old it is. The compositor names `pane.html` in the pointer, titled from the manifest, and judges the age by `published` rather than the file time, because the producer rewrites the page every minute. Writers follow the bus rules: write-then-rename, and leave a slot another author owns alone. It replaced `http://pub.lan/brief/`, the morning brief, which stopped publishing on 2026-08-31.
@@ -336,9 +338,10 @@ One pane per distinct `repo` with a fresh beacon and something to show, at `pane
 *Added 2026-08-16 (kalmia#102 + [ADR-0007](adr/0007-live-rtmp-ingest-generic-path.md)).*
 
 > **Retired 2026-10-29** ([kalmia#213](https://github.com/lentago/kalmia/issues/213)):
-> RTMP live ingest and mediamtx are gone from the runtime, so nothing in this
-> section runs and nothing publishes to `rtmp://…/live`. Roku is the focus.
-> Bringing it back needs a new decision that supersedes ADR-0007.
+> Roku is the focus, and [kalmia#224](https://github.com/lentago/kalmia/pull/224)
+> removes RTMP live ingest and mediamtx from the runtime, so this section no
+> longer describes a way onto the screen. Bringing it back needs a new
+> decision that supersedes ADR-0007.
 
 A generic `live` RTMP path on mediamtx is the first event-driven source type:
 publisher presence on `live` is a binary, machine-readable signal that
