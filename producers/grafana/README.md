@@ -72,7 +72,7 @@ defaults. Each slot is one pane:
 | `vars` | `{}` | template variables, sent as `var-<name>=<value>` |
 | `crop_px` | `40` | rendered below `size` and cut off: Grafana's "Powered by" footer |
 | `scale` | `1` | device scale factor, 1–3: 2 or 3 is sharper on the 4K Roku, at a slower render and a larger file |
-| `dwell_s` | `60` | how long the pane shows in its rotation |
+| `dwell_s` | `60` | written to the manifest; ignored since ADR-0020 retired rotation |
 | `org_id` | `1` | the Grafana organization |
 
 ## Try it

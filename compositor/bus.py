@@ -184,10 +184,6 @@ def describe(pointer):
     line = "decision: pane=%s class=%s priority=%d expires_at=%s" % (
         pointer["pane"], pointer["class"], pointer["priority"],
         pointer["expires_at"])
-    if pointer["rotation"]:
-        r = pointer["rotation"]
-        line += " rotation=%d/%d dwell_s=%s" % (r["index"] + 1, r["of"],
-                                               r["dwell_s"])
     return line
 
 
@@ -211,13 +207,13 @@ def tick(webroot, url_base, state, now, log=print, tz=None, link_panes=False):
     entries = scan(p["panes"])
     overrides, history = settings.load(p["signals"])
     eff = settings.effective(overrides)
-    priority, dwell = settings.priorities(eff), eff["rotation.dwell_s"]
+    priority = settings.priorities(eff)
     brief = _brief(p["briefing"], p["briefing_manifest"])
     brief_ok, brief_why = settings.brief_usable(brief, eff, now)
     default_pane = eff["default.pane"]
     pointer, new_state = rubric.decide(
         entries, now, state, brief_present=brief_ok, url_base=url_base,
-        priority=priority, default_dwell=dwell, briefing_title=brief["title"],
+        priority=priority, briefing_title=brief["title"],
         default_pane=default_pane, link_panes=link_panes, brief_rev=brief["rev"])
 
     old_skipped = state.get("skipped") or {}
@@ -239,9 +235,10 @@ def tick(webroot, url_base, state, now, log=print, tz=None, link_panes=False):
     if new_state != state:
         save_state(p["state"], new_state)
     write_settings(p["settings"], settings.document(eff, overrides, history), log)
-    rows = rubric.explain(entries, now, pointer, priority, dwell, default_pane, link_panes)
+    rows = rubric.explain(entries, now, pointer, priority, default_pane=default_pane,
+                          link_panes=link_panes, arrivals=new_state["arrivals"])
     resting = [(r["id"], r["title"]) for r in rows
-               if r.get("class") == "ambient" and r["status"] in ("showing", "rotating", "outranked")]
+               if r.get("class") == "ambient" and r["status"] in ("showing", "outranked")]
     page, key = configure.render(eff, overrides, url_base, resting, link_panes)
     _write_if_changed(p["configure"], page, key, configure.key_of)
     view = {"effective": eff, "overrides": overrides, "history": history,
@@ -267,7 +264,7 @@ def lineup(pointer, rows, brief, url_base, default_pane=None):
               "default": r["id"] == default_pane and r["class"] == "ambient",
               "url": rubric.pane_url(r, base), "rev": r.get("rev"),
               "source": r.get("source")}
-             for r in rows if r["status"] in ("showing", "rotating", "outranked")]
+             for r in rows if r["status"] in ("showing", "outranked")]
     if brief["present"] and brief.get("pane") not in {i["id"] for i in items}:
         items.append({"id": BRIEFING_ID, "title": brief["title"], "class": "briefing",
                       "priority": rubric.PRIORITY["briefing"],

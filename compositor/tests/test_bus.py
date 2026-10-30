@@ -275,7 +275,8 @@ class Bus(unittest.TestCase):
         self.write_pane("family-week", self.manifest("ambient", title="Week", dwell_s=60,
                                                      created=rubric.iso(T0 - timedelta(minutes=1))))
         state = self.tick({})
-        self.assertEqual(self.current()["rotation"]["of"], 2)
+        # No default: the first resting pane by id shows, and nothing rotates.
+        self.assertEqual((self.current()["pane"], self.current()["rotation"]), ("family-today", None))
         self.signal({"ts": rubric.iso(T0), "id": "default.pane", "action": "set",
                      "label": "family-week", "client": "192.168.139.21"})
         state = self.tick(state, 5)

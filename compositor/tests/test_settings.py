@@ -33,7 +33,6 @@ class Settings(unittest.TestCase):
         for cls in settings.CLASSES:
             self.assertEqual(d["priority." + cls], rubric.PRIORITY[cls])
         self.assertIsNone(d["briefing.max_age_hours"])
-        self.assertEqual(d["rotation.dwell_s"], rubric.DEFAULT_DWELL_S)
         self.assertEqual(set(d), set(settings.SPEC))
 
     def test_missing_log_means_no_overrides(self):
@@ -42,8 +41,8 @@ class Settings(unittest.TestCase):
     def test_latest_valid_action_per_setting_wins(self):
         self.write({"ts": "2026-10-07T11:00:00Z", "id": "priority.focus", "action": "set", "label": "60"},
                    {"ts": "2026-10-07T11:01:00Z", "id": "priority.focus", "action": "set", "label": "5000"},
-                   {"ts": "2026-10-07T11:02:00Z", "id": "rotation.dwell_s", "action": "set", "label": "30"},
-                   {"ts": "2026-10-07T11:03:00Z", "id": "rotation.dwell_s", "action": "undo"},
+                   {"ts": "2026-10-07T11:02:00Z", "id": "default.pane", "action": "set", "label": "family-week"},
+                   {"ts": "2026-10-07T11:03:00Z", "id": "default.pane", "action": "undo"},
                    {"ts": "2026-10-07T11:04:00Z", "id": "briefing.max_age_hours", "action": "set",
                     "label": "36", "client": "192.168.139.50"},
                    raw="not json\n[1, 2]\n")
@@ -51,7 +50,7 @@ class Settings(unittest.TestCase):
         # 5000 is out of range: rejected, so the earlier 60 stands.
         self.assertEqual(overrides, {"priority.focus": 60, "briefing.max_age_hours": 36})
         self.assertEqual([h["key"] for h in history],
-                         ["briefing.max_age_hours", "rotation.dwell_s", "rotation.dwell_s",
+                         ["briefing.max_age_hours", "default.pane", "default.pane",
                           "priority.focus", "priority.focus"])
         self.assertEqual(history[0]["client"], "192.168.139.50")
         self.assertIn("outside 1-999", history[3]["error"])
@@ -75,10 +74,19 @@ class Settings(unittest.TestCase):
         self.assertEqual(history[0]["error"], "unknown setting")
         self.assertNotIn("priority.live", settings.SPEC)
 
-    def test_history_is_capped_newest_first(self):
-        self.write(*[{"id": "rotation.dwell_s", "action": "set", "label": str(10 + i)} for i in range(20)])
+    def test_rotation_time_is_an_unknown_setting(self):
+        # Rotation is retired (ADR-0020, #121); an old override changes nothing.
+        self.write({"id": "rotation.dwell_s", "action": "set", "label": "30"})
         overrides, history = settings.load(self.log)
-        self.assertEqual(overrides["rotation.dwell_s"], 29)
+        self.assertEqual(overrides, {})
+        self.assertEqual(history[0]["error"], "unknown setting")
+        self.assertNotIn("rotation.dwell_s", settings.SPEC)
+        self.assertNotIn("rotation.dwell_s", settings.defaults())
+
+    def test_history_is_capped_newest_first(self):
+        self.write(*[{"id": "priority.focus", "action": "set", "label": str(10 + i)} for i in range(20)])
+        overrides, history = settings.load(self.log)
+        self.assertEqual(overrides["priority.focus"], 29)
         self.assertEqual(len(history), settings.HISTORY)
         self.assertEqual(history[0]["value"], 29)
 
@@ -124,7 +132,7 @@ class Configure(unittest.TestCase):
     def test_key_tracks_content(self):
         _, a = configure.render(settings.effective({}), {})
         _, b = configure.render(settings.effective({}), {})
-        _, c = configure.render(settings.effective({"rotation.dwell_s": 30}), {"rotation.dwell_s": 30})
+        _, c = configure.render(settings.effective({"priority.focus": 60}), {"priority.focus": 60})
         self.assertEqual(a, b)
         self.assertNotEqual(a, c)
 
@@ -145,7 +153,7 @@ class DefaultPaneSetting(unittest.TestCase):
                                    resting=[("family-today", "Family: today"), ("family-week", "Family: this week")])
         self.assertIn('<select id="default.pane" name="default.pane">', page)
         self.assertIn('<option value="family-week" selected>Family: this week</option>', page)
-        self.assertIn('<option value="">None: the resting panes take turns</option>', page)
+        self.assertIn('<option value="">None: the first resting pane by id</option>', page)
         page, _ = configure.render(eff, {"default.pane": "family-week"}, resting=[("family-today", "T")])
         self.assertIn('<option value="family-week" selected>family-week (not on the bus now)</option>', page)
 

@@ -27,9 +27,10 @@ seven days from today, one row per day. Each row has the day, any coverage
 flag the brief raised for it (a gap or a crunch, in amber), how many
 decisions and to-dos land on it, and its items. `pane.html` is one
 1920×1080 band, with each day's items on two lines. Both family panes are
-`ambient`, so they share the resting rung, and their manifests set
-`dwell_s: 60`: with no default resting pane they take turns slowly, and the
-household can hold one from the Roku remote's Left/Right or the configurator.
+`ambient`, so they share the resting rung. With no default resting pane the
+first by id shows (they never take turns, ADR-0020), and the household can pick
+one from the Roku remote's Left/Right or the configurator. Their manifests still
+set `dwell_s: 60`, which the compositor ignores.
 
 **The briefing slot:** each cycle that loads a brief also writes
 `viewport/briefing/{pane.html,manifest.json}`, the compositor's
@@ -106,7 +107,7 @@ An item is `{time, people, who, what, where?, bring?, note?, legacy?, unconfirme
 
 - **Class `ambient` (priority 40).** While the pane is live it outranks the
   morning-brief fallback, so it becomes the wall's resting surface; anything
-  `focus` or above still wins. To make it rotate with the briefing instead,
+  `focus` or above still wins. To rank it on the briefing rung instead,
   change `PANE_CLASS` in `producer.py`.
 - **Freshness.** Each cycle re-renders and renews the 30-minute TTL while the
   brief is dated today or yesterday. A brief older than that removes the

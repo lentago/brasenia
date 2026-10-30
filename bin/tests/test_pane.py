@@ -92,12 +92,13 @@ class ClaimTests(PaneCase):
     def test_options_and_stdin(self):
         code, _, _ = self.run_cli(
             "claim", "x1", "--class", "focus", "--title", "t", "--ttl", "5",
-            "--origin", "fleet", "--repo", "lentago/brasenia", "--dwell", "30",
+            "--origin", "fleet", "--repo", "lentago/brasenia",
             "--author", "ann@a", "-", stdin=PAGE)
         self.assertEqual(code, 0)
         m = self.manifest("x1")
-        self.assertEqual((m["ttl_minutes"], m["origin"], m["repo"],
-                          m["dwell_s"]), (5, "fleet", "lentago/brasenia", 30))
+        self.assertEqual((m["ttl_minutes"], m["origin"], m["repo"]),
+                         (5, "fleet", "lentago/brasenia"))
+        self.assertNotIn("dwell_s", m)
 
     def test_default_author(self):
         with mock.patch.object(pane, "default_author", lambda: "u@h"):
@@ -126,9 +127,9 @@ class ClaimTests(PaneCase):
         self.assertEqual(ctx.exception.code, 2)
         self.assertFalse(os.path.exists(self.pane_dir("d")))
 
-    def test_nonfinite_ttl_and_dwell_are_usage_errors(self):
-        for flag, value in (("--ttl", "nan"), ("--ttl", "inf"),
-                            ("--dwell", "nan"), ("--dwell", "-inf")):
+    def test_nonfinite_ttl_and_the_retired_dwell_are_usage_errors(self):
+        # --dwell went with rotation (ADR-0020, #121).
+        for flag, value in (("--ttl", "nan"), ("--ttl", "inf"), ("--dwell", "30")):
             with self.assertRaises(SystemExit) as ctx:
                 self.claim("d", "ann@a", flag, value)
             self.assertEqual(ctx.exception.code, 2)

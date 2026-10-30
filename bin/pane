@@ -191,7 +191,7 @@ def owned_manifest(bus, pane_id, author):
 
 
 def claim(bus, pane_id, cls, title, page, now, ttl=None, origin="operator",
-          repo=None, dwell=None, author=None, source=None):
+          repo=None, author=None, source=None):
     """Write the pane. With ``source`` (see ``link_source``) it is a link pane:
     no page, and the manifest names the web page instead."""
     author = author or default_author()
@@ -209,8 +209,6 @@ def claim(bus, pane_id, cls, title, page, now, ttl=None, origin="operator",
     check_ttl(ttl, now)
     if repo is not None and not REPO.match(repo):
         raise Refused("--repo %r is not owner/name" % repo)
-    if dwell is not None and not (math.isfinite(dwell) and dwell > 0):
-        raise Refused("--dwell must be a positive number of seconds")
     if source is None:
         check_page(page)
     elif page is not None:
@@ -235,8 +233,6 @@ def claim(bus, pane_id, cls, title, page, now, ttl=None, origin="operator",
     }
     if repo is not None:
         manifest["repo"] = repo
-    if dwell is not None:
-        manifest["dwell_s"] = dwell
     if source is not None:
         manifest["source"] = source
         atomic_write(os.path.join(pane_dir, "manifest.json"),
@@ -362,7 +358,6 @@ def build_parser():
     c.add_argument("--ttl", type=finite, metavar="MIN")
     c.add_argument("--origin", choices=ORIGINS, default="operator")
     c.add_argument("--repo", metavar="owner/name")
-    c.add_argument("--dwell", type=finite, metavar="SEC")
     c.add_argument("--author", help="default: <user>@<hostname>")
     c.add_argument("page", metavar="pane.html", nargs="?",
                    help="page file, or - for stdin; omit with --url")
@@ -442,7 +437,7 @@ def main(argv=None, now=None):
             page = None if args.page is None else read_page(args.page)
             url = claim(args.bus, args.id, args.cls, args.title, page, now,
                         ttl=whole(args.ttl), origin=args.origin, repo=args.repo,
-                        dwell=whole(args.dwell), author=args.author, source=source)
+                        author=args.author, source=source)
             print(url)
         elif args.command == "renew":
             renew(args.bus, args.id, now, ttl=whole(args.ttl),

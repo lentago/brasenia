@@ -1,4 +1,6 @@
+import json
 import os
+import random
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -63,7 +65,7 @@ class Ranking(unittest.TestCase):
                  created=T0 - timedelta(minutes=5))])
         self.assertEqual(pointer["pane"], "focus-laptop")
         self.assertIsNone(pointer["rotation"])
-        self.assertIsNone(state["rotation"])
+        self.assertNotIn("rotation", state)
 
     def test_origin_defaults_to_fleet(self):
         pointer, _ = run([pane("focus-default"),
@@ -76,13 +78,15 @@ class Ranking(unittest.TestCase):
                           pane("job", "activity", origin="fleet")])
         self.assertEqual(pointer["pane"], "job")
 
-    def test_rotation_starts_with_the_newest(self):
-        pointer, _ = run([
-            pane("older", origin="operator", created=T0 - timedelta(minutes=2)),
-            pane("newer", origin="operator", created=T0 - timedelta(minutes=1))])
-        self.assertEqual(pointer["pane"], "newer")
-        self.assertEqual(pointer["rotation"], {"index": 0, "of": 2,
-                                               "dwell_s": 20})
+    def test_panes_seen_first_together_rank_by_id_not_created(self):
+        # Both arrive in the first tick, so created (newest: "b-newer") decides nothing.
+        pointer, state = run([
+            pane("a-older", origin="operator", created=T0 - timedelta(minutes=2)),
+            pane("b-newer", origin="operator", created=T0 - timedelta(minutes=1))])
+        self.assertEqual(pointer["pane"], "a-older")
+        self.assertIsNone(pointer["rotation"])
+        self.assertEqual(state["arrivals"], {"a-older": {"at": "2026-10-07T12:00:00Z"},
+                                             "b-newer": {"at": "2026-10-07T12:00:00Z"}})
 
     def test_pointer_shape(self):
         pointer, _ = run([pane("focus-lentago-brasenia",
@@ -110,79 +114,137 @@ class Ranking(unittest.TestCase):
                          "http://example.test/viewport/panes/p/pane.html")
 
 
-class Rotation(unittest.TestCase):
-
-    def ops(self, dwell_a=None, dwell_b=None):
-        return [pane("a", origin="operator", created=T0, dwell=dwell_a),
-                pane("b", origin="operator", created=T0 - timedelta(seconds=1),
-                     dwell=dwell_b)]
+class StrictOrder(unittest.TestCase):
+    """ADR-0020: a strict total order and nothing rotates (#121)."""
 
     def step(self, panes, seconds, state):
         return decide(panes, T0 + timedelta(seconds=seconds), state)
 
-    def test_two_operator_panes_rotate_every_dwell(self):
-        panes = self.ops()
-        shown = []
-        state = {}
-        for t in range(0, 85, 5):
-            pointer, state = self.step(panes, t, state)
-            shown.append(pointer["pane"])
-        self.assertEqual(shown, ["a"] * 4 + ["b"] * 4 + ["a"] * 4 + ["b"] * 4
-                         + ["a"])
+    def ops(self):
+        return [pane("a", origin="operator", ttl=60), pane("b", origin="operator", ttl=60)]
 
-    def test_each_pane_keeps_its_own_dwell(self):
-        panes = self.ops(dwell_a=10, dwell_b=30)
-        state, shown = {}, []
-        for t in range(0, 50, 5):
-            pointer, state = self.step(panes, t, state)
-            shown.append((pointer["pane"], pointer["rotation"]["dwell_s"]))
-        self.assertEqual(shown, [("a", 10)] * 2 + [("b", 30)] * 6
-                         + [("a", 10)] * 2)
+    def test_same_rung_panes_never_take_turns(self):
+        state, shown = {}, set()
+        for t in range(0, 300, 5):
+            pointer, state = self.step(self.ops(), t, state)
+            shown.add(pointer["pane"])
+        self.assertEqual(shown, {"a"})
 
-    def test_attention_preempts_at_once(self):
-        panes = self.ops()
-        pointer, state = self.step(panes, 0, {})
+    def test_an_unchanged_decision_keeps_decided_at(self):
+        first, state = self.step(self.ops(), 0, {})
+        for t in range(5, 120, 5):
+            again, state = self.step(self.ops(), t, state)
+            self.assertIs(again, first)
+        self.assertEqual(again["decided_at"], "2026-10-07T12:00:00Z")
+
+    def test_a_new_arrival_ranks_first_in_its_rung(self):
+        _, state = self.step(self.ops(), 0, {})
+        pointer, state = self.step(self.ops() + [pane("c", origin="operator", ttl=60)], 30, state)
+        self.assertEqual(pointer["pane"], "c")
+        self.assertEqual(pointer["decided_at"], "2026-10-07T12:00:30Z")
+        self.assertEqual(state["arrivals"]["c"], {"at": "2026-10-07T12:00:30Z"})
+        self.assertEqual(state["arrivals"]["a"], {"at": "2026-10-07T12:00:00Z"})
+
+    def test_renewal_and_a_rewritten_created_never_reorder(self):
+        # b arrives after a, so b shows. Then a's producer renews every tick,
+        # so a's created is always the newest, and b's falls further behind.
+        _, state = self.step([pane("a", origin="operator", ttl=60)], 0, {})
+        for t in range(10, 600, 10):
+            now = T0 + timedelta(seconds=t)
+            panes = [pane("a", origin="operator", created=now, ttl=60),
+                     pane("b", origin="operator", created=T0 + timedelta(seconds=10), ttl=60)]
+            pointer, state = decide(panes, now, state)
+            self.assertEqual(pointer["pane"], "b", t)
+
+    def test_attention_preempts_at_once_and_the_rung_comes_back_unchanged(self):
+        pointer, state = self.step(self.ops(), 0, {})
         self.assertEqual(pointer["pane"], "a")
-        pointer, state = self.step(
-            panes + [pane("blocked", "attention", ttl=240)], 5, state)
+        pointer, state = self.step(self.ops() + [pane("blocked", "attention", ttl=240)], 5, state)
         self.assertEqual(pointer["pane"], "blocked")
         self.assertEqual(pointer["decided_at"], "2026-10-07T12:00:05Z")
-        self.assertIsNone(pointer["rotation"])
-
-    def test_rotation_restarts_when_the_group_returns(self):
-        panes = self.ops()
-        _, state = self.step(panes, 0, {})
-        _, state = self.step(panes, 25, state)  # b showing
-        _, state = self.step(panes + [pane("x", "alert")], 30, state)
-        pointer, _ = self.step(panes, 35, state)
+        pointer, state = self.step(self.ops(), 10, state)
         self.assertEqual(pointer["pane"], "a")
 
-    def test_lower_groups_wait(self):
-        panes = self.ops() + [pane("c", origin="fleet")]
+    def test_lower_panes_wait(self):
+        panes = self.ops() + [pane("c", origin="fleet", ttl=60)]
         state, seen = {}, set()
         for t in range(0, 200, 5):
             pointer, state = self.step(panes, t, state)
             seen.add(pointer["pane"])
-        self.assertEqual(seen, {"a", "b"})
+        self.assertEqual(seen, {"a"})
 
-    def test_successor_takes_the_slot_of_a_released_pane(self):
-        panes = self.ops() + [pane("c", origin="operator",
-                                   created=T0 - timedelta(seconds=2))]
-        _, state = self.step(panes, 0, {})
-        pointer, state = self.step(panes, 20, state)
+    def test_a_released_pane_hands_over_to_the_next_in_order(self):
+        _, state = self.step([pane("a", origin="operator", ttl=60)], 0, {})
+        _, state = self.step([pane("a", origin="operator", ttl=60),
+                              pane("b", origin="operator", ttl=60)], 5, state)
+        _, state = self.step([pane("a", origin="operator", ttl=60),
+                              pane("b", origin="operator", ttl=60),
+                              pane("c", origin="operator", ttl=60)], 10, state)
+        # Newest first: c, b, a. Release c, and b (the next newest) shows.
+        pointer, state = self.step([pane("a", origin="operator", ttl=60),
+                                    pane("b", origin="operator", ttl=60)], 15, state)
         self.assertEqual(pointer["pane"], "b")
-        pointer, state = self.step([panes[0], panes[2]], 25, state)
-        self.assertEqual(pointer["pane"], "c")
-        self.assertEqual(pointer["rotation"]["of"], 2)
 
-    def test_unchanged_decision_keeps_decided_at(self):
-        panes = self.ops()
-        first, state = self.step(panes, 0, {})
-        again, state = self.step(panes, 5, state)
-        self.assertIs(again, first)
-        self.assertEqual(again["decided_at"], "2026-10-07T12:00:00Z")
-        moved, _ = self.step(panes, 20, state)
-        self.assertEqual(moved["decided_at"], "2026-10-07T12:00:20Z")
+    def test_a_pane_missing_briefly_keeps_its_place(self):
+        # A TTL that lapsed just before its renewal drops "b" for a tick.
+        _, state = self.step([pane("a", origin="operator", ttl=60)], 0, {})
+        both = [pane("a", origin="operator", ttl=60), pane("b", origin="operator", ttl=60)]
+        pointer, state = self.step(both, 5, state)
+        self.assertEqual(pointer["pane"], "b")
+        pointer, state = self.step([pane("a", origin="operator", ttl=60)], 10, state)
+        self.assertEqual(pointer["pane"], "a")
+        self.assertEqual(state["arrivals"]["b"], {"at": "2026-10-07T12:00:05Z",
+                                                  "gone": "2026-10-07T12:00:10Z"})
+        pointer, state = self.step(both, 15, state)
+        self.assertEqual(pointer["pane"], "b")
+        self.assertEqual(state["arrivals"]["b"], {"at": "2026-10-07T12:00:05Z"})
+
+    def test_a_pane_gone_for_the_grace_window_arrives_again(self):
+        grace = int(rubric.ARRIVAL_GRACE.total_seconds())
+        a = [pane("a", origin="operator", ttl=60)]
+        _, state = self.step(a + [pane("b", origin="operator", ttl=60)], 0, {})
+        _, state = self.step(a, 5, state)
+        _, state = self.step(a, 5 + grace - 1, state)
+        self.assertIn("b", state["arrivals"])
+        _, state = self.step(a, 5 + grace, state)
+        self.assertNotIn("b", state["arrivals"])
+        later = T0 + timedelta(seconds=10 + grace)
+        pointer, state = decide(a + [pane("b", origin="operator", created=later, ttl=60)], later, state)
+        self.assertEqual(state["arrivals"]["b"], {"at": rubric.iso(later)})
+        self.assertEqual(pointer["pane"], "b")   # it arrived again, so it is now the newest
+
+    def test_a_damaged_or_old_state_loads(self):
+        old = {"rotation": {"pane": "b", "index": 1, "since": T0.isoformat(), "group": ["a", "b"]},
+               "arrivals": {"a": {"at": "garbage"}, "b": "not a record", "c": {"gone": "x"}}}
+        pointer, state = self.step(self.ops(), 0, old)
+        self.assertEqual(pointer["pane"], "a")
+        self.assertEqual(set(state), {"pointer", "arrivals", "skipped"})
+        self.assertEqual(state["arrivals"], {"a": {"at": "2026-10-07T12:00:00Z"},
+                                             "b": {"at": "2026-10-07T12:00:00Z"}})
+        json.dumps(state)
+
+    def test_no_two_live_panes_ever_rank_equal(self):
+        # Property test: for any set of live panes (any classes, origins, default
+        # and arrival times, including shared ones), the rank keys are distinct,
+        # so the order is strict, and the pointer shows the first.
+        rng = random.Random(121)
+        classes = [c for c in rubric.PRIORITY if c != "briefing"]
+        for trial in range(300):
+            ids = rng.sample(["p%02d" % i for i in range(40)], rng.randint(1, 12))
+            panes = [pane(pid, rng.choice(classes), origin=rng.choice(rubric.ORIGINS),
+                          created=T0 - timedelta(seconds=rng.randint(0, 3)), ttl=600)
+                     for pid in ids]
+            arrivals = {pid: {"at": rubric.iso(T0 - timedelta(seconds=rng.randint(0, 3)))}
+                        for pid in ids}
+            default = rng.choice(ids + [None])
+            priority = dict(rubric.PRIORITY, **{c: rng.choice([40, 50, 60]) for c in classes})
+            pointer, state = decide(panes, T0, {"arrivals": arrivals},
+                                    default_pane=default, priority=priority)
+            live = [rubric.parse_manifest(p["id"], p["manifest"], priority) for p in panes]
+            keys = [rubric._rank_key(default, state["arrivals"])(p) for p in live]
+            self.assertEqual(len(set(keys)), len(keys), trial)
+            first = min(live, key=rubric._rank_key(default, state["arrivals"]))
+            self.assertEqual(pointer["pane"], first["id"], trial)
 
 
 class Liveness(unittest.TestCase):
@@ -241,7 +303,6 @@ class Malformed(unittest.TestCase):
             "string ttl": self.bad(ttl_minutes="10"),
             "boolean ttl": self.bad(ttl_minutes=True),
             "unknown origin": self.bad(origin="laptop"),
-            "bad dwell": self.bad(dwell_s=-1),
         }
         for name, p in cases.items():
             with self.subTest(name):
@@ -326,7 +387,7 @@ class Explain(unittest.TestCase):
         pointer, _ = run(panes, now=now, **kw)
         return pointer, {r["id"]: r for r in rubric.explain(panes, now, pointer)}
 
-    def test_showing_rotating_and_outranked(self):
+    def test_showing_and_outranked(self):
         panes = [pane("a", "focus", origin="operator"),
                  pane("b", "focus", origin="operator", created=T0 - timedelta(minutes=1)),
                  pane("c", "focus", origin="fleet"),
@@ -334,12 +395,35 @@ class Explain(unittest.TestCase):
         pointer, rows = self.explain(panes)
         self.assertEqual(pointer["pane"], "a")
         self.assertEqual(rows["a"]["status"], "showing")
-        self.assertEqual(rows["b"]["status"], "rotating")
-        self.assertIn("takes turns with a", rows["b"]["reason"])
+        self.assertEqual(rows["b"]["status"], "outranked")
+        self.assertIn("arrived with a, which comes first by id", rows["b"]["reason"])
+        self.assertNotIn("rotating", rubric.STATUSES)
         self.assertEqual(rows["c"]["status"], "outranked")
         self.assertIn("operator panes go first", rows["c"]["reason"])
         self.assertEqual(rows["d"]["status"], "outranked")
         self.assertIn("lower priority than a (focus 50)", rows["d"]["reason"])
+
+    def test_a_later_arrival_says_so(self):
+        _, state = run([pane("a", origin="operator")])
+        panes = [pane("a", origin="operator"), pane("b", origin="operator")]
+        later = T0 + timedelta(seconds=5)
+        pointer, state = run(panes, now=later, state=state)
+        rows = {r["id"]: r for r in rubric.explain(panes, later, pointer,
+                                                   arrivals=state["arrivals"])}
+        self.assertEqual(rows["b"]["status"], "showing")
+        self.assertEqual(rows["a"]["reason"], "b arrived more recently")
+
+    def test_a_shared_rung_puts_resting_panes_last(self):
+        # A household priority can put another class on the resting rung: its
+        # panes come first, and the resting panes follow in id order.
+        prio = dict(rubric.PRIORITY, focus=40)
+        panes = [pane("a-rest", "ambient"), pane("z-pr", "focus")]
+        pointer, state = run(panes, priority=prio)
+        self.assertEqual(pointer["pane"], "z-pr")
+        rows = {r["id"]: r for r in rubric.explain(panes, T0, pointer, prio,
+                                                   arrivals=state["arrivals"])}
+        self.assertEqual(rows["a-rest"]["reason"],
+                         "same rung as z-pr; resting panes come after the rung's other panes")
 
     def test_dead_panes_say_why(self):
         panes = [pane("old", ttl=1, created=T0 - timedelta(minutes=5)),
@@ -371,7 +455,7 @@ class DefaultPane(unittest.TestCase):
         panes = [pane("today", "ambient", dwell=60), pane("week", "ambient", dwell=60,
                                                           created=T0 - timedelta(minutes=1))]
         pointer, _ = run(panes)
-        self.assertEqual((pointer["pane"], pointer["rotation"]["of"]), ("today", 2))
+        self.assertEqual((pointer["pane"], pointer["rotation"]), ("today", None))
         pointer, state = run(panes, default_pane="week")
         self.assertEqual(pointer["pane"], "week")
         self.assertIsNone(pointer["rotation"])
@@ -387,7 +471,7 @@ class DefaultPane(unittest.TestCase):
     def test_only_an_ambient_pane_can_be_the_default(self):
         panes = [pane("a", "focus"), pane("b", "focus", created=T0 - timedelta(minutes=1))]
         pointer, _ = run(panes, default_pane="b")
-        self.assertEqual(pointer["rotation"]["of"], 2)   # still taking turns
+        self.assertEqual(pointer["pane"], "a")   # b is not ambient, so the order stands
 
     def test_an_absent_default_changes_nothing(self):
         panes = [pane("today", "ambient")]
@@ -410,15 +494,15 @@ class RestingOrder(unittest.TestCase):
             ids = [r["id"] for r in rubric.explain(panes, T0, pointer)]
             self.assertEqual(ids, ["fleet", "home", "weather"])
 
-    def test_rotation_order_survives_rewrites(self):
-        state, shown = {}, []
-        for t in range(0, 240, 30):
-            # each cycle, a different producer was the last to rewrite
+    def test_a_resting_wall_is_still(self):
+        # ADR-0020: with no default, the first resting pane by id shows and
+        # stays, however the producers' rewrites interleave.
+        state, shown = {}, set()
+        for t in range(0, 600, 30):
             order = [("fleet", t % 7), ("home", (t + 3) % 7), ("weather", (t + 5) % 7)]
             pointer, state = decide(self.resting(order), T0 + timedelta(seconds=t), state)
-            shown.append(pointer["pane"])
-        self.assertEqual(shown, ["fleet", "fleet", "home", "home",
-                                 "weather", "weather", "fleet", "fleet"])
+            shown.add(pointer["pane"])
+        self.assertEqual(shown, {"fleet"})
 
     def test_the_default_still_comes_first(self):
         panes = self.resting([("fleet", 0), ("home", 0), ("weather", 0)])
@@ -426,11 +510,12 @@ class RestingOrder(unittest.TestCase):
         ids = [r["id"] for r in rubric.explain(panes, T0, pointer, default_pane="weather")]
         self.assertEqual(ids, ["weather", "fleet", "home"])
 
-    def test_other_classes_still_rank_newest_first(self):
-        panes = [pane("a-older", "attention", created=T0 - timedelta(minutes=2), ttl=240),
-                 pane("b-newer", "attention", created=T0 - timedelta(minutes=1), ttl=240)]
-        pointer, _ = run(panes)
-        self.assertEqual(pointer["pane"], "b-newer")
+    def test_other_classes_rank_by_arrival_not_created(self):
+        a = pane("a-first", "attention", created=T0 - timedelta(minutes=1), ttl=240)
+        b = pane("b-second", "attention", created=T0 - timedelta(minutes=2), ttl=240)
+        _, state = run([a])
+        pointer, _ = run([a, b], now=T0 + timedelta(seconds=5), state=state)
+        self.assertEqual(pointer["pane"], "b-second")   # arrived last, though created first
 
 
 class Revision(unittest.TestCase):
@@ -531,10 +616,13 @@ class LinkPanes(unittest.TestCase):
                 self.assertEqual(pointer["fallback"], "briefing")
                 self.assertIn(reason, state["skipped"]["pr-93"])
 
-    def test_an_infinite_dwell_is_malformed(self):
-        pointer, state = run([pane("a", dwell=float("inf")), pane("b")])
-        self.assertIn("dwell_s", state["skipped"]["a"])
-        self.assertEqual(pointer["pane"], "b")
+    def test_dwell_s_is_accepted_and_ignored(self):
+        # Rotation is retired (ADR-0020): no dwell_s value can skip a pane.
+        for dwell in (30, -1, float("inf"), "slow", True):
+            with self.subTest(dwell=dwell):
+                pointer, state = run([pane("a", dwell=dwell)])
+                self.assertEqual((pointer["pane"], state["skipped"]), ("a", {}))
+                self.assertNotIn("dwell_s", rubric.parse_manifest("a", pane("a", dwell=dwell)["manifest"]))
 
     def test_an_old_style_pane_is_unchanged(self):
         pointer, _ = run([pane("focus-x")], link_panes=True)
