@@ -90,7 +90,9 @@ jobs:
           still count against the rate limit).
         - **Ownership split with kalmia**: services, units, mediamtx config and
           container shape belong in kalmia (roles/brasenia/, terraform/), not
-          here. Flag runtime scripts forked into this repo.
+          here. Flag runtime scripts forked into this repo. Historical
+          references to the old `lunaria` name (ADRs, changelogs, rename
+          notes such as "named lunaria until kalmia#63") are not findings.
         - **Python, shell and docs quality**: Python is stdlib-only, 3.11+, with
           tests in the unittest suites (compositor/, bin/tests, and each
           producer). Scripts use `set -euo pipefail` and pass shellcheck.
