@@ -67,6 +67,14 @@ class Settings(unittest.TestCase):
         self.assertEqual([h["error"] for h in history][::-1][:2], ["unknown setting", "unknown action"])
         self.assertTrue(all(h["error"] for h in history))
 
+    def test_a_live_priority_is_an_unknown_setting(self):
+        # The live class is retired (#122); an old override changes nothing.
+        self.write({"id": "priority.live", "action": "set", "label": "70"})
+        overrides, history = settings.load(self.log)
+        self.assertEqual(overrides, {})
+        self.assertEqual(history[0]["error"], "unknown setting")
+        self.assertNotIn("priority.live", settings.SPEC)
+
     def test_history_is_capped_newest_first(self):
         self.write(*[{"id": "rotation.dwell_s", "action": "set", "label": str(10 + i)} for i in range(20)])
         overrides, history = settings.load(self.log)
