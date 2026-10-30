@@ -1,12 +1,11 @@
-"""Render the family week: panes/family-week/{pane.html, detail.html}.
+"""Render the family week: panes/family-week/pane.html.
 
 The Family Brief's seven days from today, one row per day: the day, any
 coverage flag the brief raised for it (a gap, a crunch), how many decisions
-and to-dos land on it, and its items. ``render_week`` is the wall's 1280×720
-cut (each day's items on two lines at most); ``render_week_detail`` is the
-1920×1080 desk edition (times, and up to six items a day), which zooms to its
-viewport like ``detail.html``. Both are resting panes (``ambient``) the
-household can make the default from the Roku remote (#83).
+and to-dos land on it, and its items. ``render_week`` is one 1920×1080 band
+(the pane contract's canvas, ADR-0019), with each day's items on two lines at
+most. It is a resting pane (``ambient``) the household can make the default
+from the Roku remote (#83).
 """
 
 import html
@@ -18,26 +17,25 @@ from .render import (AMBER, BAND, BAND_TEXT, BG, CARD, FAINT, LINE, MUTED, NEUTR
 
 DAYS = 7
 FLAGS = {"gap": "coverage gap", "crunch": "crunch day"}
-DETAIL_ITEMS = 6
 
 BASE_CSS = """
 html, body { margin: 0; padding: 0; }
 body { overflow: hidden; position: relative; background: %(bg)s; color: %(text)s;
   font-family: "DejaVu Sans", sans-serif; }
-header { display: flex; align-items: center; gap: 20px; background: %(band)s;
+header { display: flex; align-items: center; gap: 30px; background: %(band)s;
   box-sizing: border-box; }
 h1 { margin: 0; color: #ffffff; white-space: nowrap; }
 h1 span { color: %(band_text)s; font-weight: normal; }
 .edition { margin-left: auto; color: %(band_text)s; white-space: nowrap; }
 .edition.stale { color: %(amber)s; font-weight: bold; }
-.day { box-sizing: border-box; display: flex; border-left: 6px solid %(line)s;
-  border-bottom: 1px solid %(line)s; background: %(card)s; overflow: hidden; }
+.day { box-sizing: border-box; display: flex; border-left: 9px solid %(line)s;
+  border-bottom: 1.5px solid %(line)s; background: %(card)s; overflow: hidden; }
 .day.flagged { border-left-color: %(amber)s; }
 .day.today { background: #1d2a30; }
 .dlabel { flex: 0 0 auto; }
 .dlabel b { display: block; }
 .dlabel .md { color: %(muted)s; }
-.chip { display: inline-block; margin-right: 10px; color: %(amber)s; font-weight: bold; white-space: nowrap; }
+.chip { display: inline-block; margin-right: 15px; color: %(amber)s; font-weight: bold; white-space: nowrap; }
 .chip.quiet { color: %(muted)s; font-weight: normal; }
 .who { font-weight: bold; color: var(--pc); }
 .time { color: %(muted)s; }
@@ -46,51 +44,23 @@ h1 span { color: %(band_text)s; font-weight: normal; }
 """ % {"bg": BG, "text": TEXT, "band": BAND, "band_text": BAND_TEXT, "amber": AMBER,
        "line": LINE, "card": CARD, "muted": MUTED, "faint": FAINT}
 
-# The wall cut, 1280×720 CSS: a 60 px header and seven 78 px day rows fill the
-# 622 px main area, which ends at y=646 above the clock corner.
+# The wall cut, 1920×1080 CSS: a 90 px header and seven 117 px day rows fill the
+# 933 px main area, which ends at y=969 above the clock corner.
 PANE_CSS = BASE_CSS + """
-@media (min-width: 1900px) and (min-height: 1060px) { html { zoom: 1.5; } }
-body { width: 1280px; height: 720px; font-size: 21px; line-height: 26px; }
-.main { position: absolute; top: 24px; left: 24px; right: 24px; height: 622px; overflow: hidden; }
-header { height: 60px; border-radius: 10px; padding: 0 18px; margin-bottom: 12px; }
-h1 { font-size: 32px; line-height: 40px; }
-h1 span { font-size: 22px; }
-.edition { font-size: 20px; }
-.day { height: 78px; padding: 6px 12px; gap: 14px; }
-.dlabel { width: 112px; font-size: 22px; line-height: 30px; }
-.dlabel .md { font-size: 20px; }
+body { width: 1920px; height: 1080px; font-size: 31.5px; line-height: 39px; }
+.main { position: absolute; top: 36px; left: 36px; right: 36px; height: 933px; overflow: hidden; }
+header { height: 90px; border-radius: 15px; padding: 0 27px; margin-bottom: 18px; }
+h1 { font-size: 48px; line-height: 60px; }
+h1 span { font-size: 33px; }
+.edition { font-size: 30px; }
+.day { height: 117px; padding: 9px 18px; gap: 21px; }
+.dlabel { width: 168px; font-size: 33px; line-height: 45px; }
+.dlabel .md { font-size: 30px; }
 .dbody { flex: 1 1 auto; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2;
   -webkit-box-orient: vertical; overflow: hidden; }
 .dbody .sep { color: %(faint)s; }
-.foot { left: 24px; bottom: 24px; width: 900px; height: 26px; font-size: 20px; line-height: 26px; }
+.foot { left: 36px; bottom: 36px; width: 1350px; height: 39px; font-size: 30px; line-height: 39px; }
 """ % {"faint": FAINT}
-
-# The desk edition, 1920×1080 CSS inside 36 px margins: a 64 px header, a
-# 14 px gap and seven 120 px rows end at y=974, clear of the clock corner
-# (~330×75 at the bottom right) on the right, where rows leave room.
-DETAIL_CSS = BASE_CSS + """
-@media (max-width: 1400px) { html { zoom: 0.666667; } }
-@media (min-width: 3800px) { html { zoom: 2; } }
-body { width: 1920px; height: 1080px; font-size: 20px; line-height: 26px; }
-.main { position: absolute; top: 36px; left: 36px; right: 36px; height: 938px; overflow: hidden; }
-header { height: 64px; border-radius: 12px; padding: 0 22px; margin-bottom: 14px; }
-h1 { font-size: 38px; line-height: 44px; }
-h1 span { font-size: 24px; }
-.edition { font-size: 22px; }
-.day { height: 120px; padding: 10px 16px; gap: 20px; }
-.dlabel { width: 210px; font-size: 26px; line-height: 32px; }
-.dlabel .md { font-size: 20px; line-height: 26px; }
-.dlabel .chip { display: block; font-size: 18px; line-height: 24px; }
-.items { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(3, 1fr);
-  grid-auto-rows: 50px; column-gap: 18px; overflow: hidden; }
-.item { min-width: 0; padding-left: 10px; border-left: 4px solid var(--pc); font-size: 19px;
-  line-height: 24px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden; }
-.item.cancelled { text-decoration: line-through; color: %(muted)s; }
-.more { color: %(muted)s; font-size: 19px; line-height: 50px; }
-.foot { left: 36px; bottom: 30px; width: 1400px; height: 26px; font-size: 19px; line-height: 26px; }
-""" % {"muted": MUTED}
-
 
 def week_days(doc, today):
     """``[(day, items, flag, decisions, todos)]`` for today and the six days after.
@@ -120,7 +90,7 @@ def week_days(doc, today):
 
 
 def render_week(doc, today, now, tz):
-    """pane.html: the week at 1280×720, for the wall."""
+    """pane.html: the week at 1920×1080, for the wall."""
     e = html.escape
     days = week_days(doc, today)
     colours = _colours(doc, [i for d in days for i in d[1]])
@@ -142,40 +112,13 @@ def render_week(doc, today, now, tz):
     return _page("Family: this week", PANE_CSS, doc, today, now, tz, rows)
 
 
-def render_week_detail(doc, today, now, tz):
-    """detail.html: the week at 1920×1080, the desk edition."""
-    e = html.escape
-    days = week_days(doc, today)
-    colours = _colours(doc, [i for d in days for i in d[1]])
-    rows = []
-    for day, items, flag, decisions, due in days:
-        shown, extra = (items[:DETAIL_ITEMS - 1], len(items) - (DETAIL_ITEMS - 1)) \
-            if len(items) > DETAIL_ITEMS else (items, 0)
-        cells = []
-        for item in shown:
-            time = _text(item.get("time")) or "All day"
-            cells.append('<div class="item%s" style="--pc: %s"><span class="time">%s</span> '
-                         '<span class="who">%s:</span> %s</div>'
-                         % (" cancelled" if item.get("cancelled") is True else "", _colour(item, colours),
-                            e(time), e(_text(item.get("who")) or "Family"), e(_text(item.get("what")))))
-        if extra:
-            cells.append('<div class="more">+%d more on the board</div>' % extra)
-        if not items:
-            cells.append('<div class="none">Nothing on the calendar.</div>')
-        rows.append('<div class="day%s%s"><div class="dlabel"><b>%s</b><span class="md">%s</span>%s</div>'
-                    '<div class="items">%s</div></div>'
-                    % (" flagged" if flag else "", " today" if day == today else "",
-                       e("Today" if day == today else day.strftime("%A")), e(day.strftime("%-m/%-d")),
-                       _chips(flag, decisions, due), "".join(cells)))
-    return _page("Family: this week", DETAIL_CSS, doc, today, now, tz, rows)
-
-
 def _page(title, css, doc, today, now, tz, rows):
     e = html.escape
     brief_day = parse_day(doc["date"])
     last = today + timedelta(days=DAYS - 1)
     return """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
+<meta name="brasenia-canvas" content="1920x1080">
 <title>%(title)s</title>
 <style>%(css)s</style></head>
 <body>

@@ -4,11 +4,13 @@ Contracts (docs/concept.md, Contracts v1): the pane lives at
 ``viewport/panes/family-today/``, every file is written ``x.partial`` → ``x``
 with ``manifest.json`` last, and the directory is removed when the brief is
 no longer fresh (older than yesterday), so the wall falls back on its own.
-Beside ``pane.html`` sits ``detail.html``, the desk edition a client pins to
-by URL (the office Roku); the compositor never reads it.
+Each pane is one ``pane.html`` on the 1920×1080 canvas (brasenia ADR-0019),
+one band (ADR-0020). The ``detail.html`` desk editions are retired, because
+they were below the canvas's 30 px floor; one left by an older producer is
+removed.
 
 The producer also keeps the **briefing slot**, ``viewport/briefing/``
-(``pane.html``, ``detail.html``, ``manifest.json``): the latest brief rendered
+(``pane.html``, ``manifest.json``): the latest brief rendered
 whatever its age, which the compositor falls back to when nothing on the bus
 is live. The pane goes when the brief is older than yesterday; the slot stays,
 saying how old it is, and the compositor's ``briefing.max_age_hours`` setting
@@ -23,9 +25,8 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from .document import DocumentError, is_fresh, load, parse_ts, urllib_fetch
-from .detail import render_detail
 from .render import render
-from .week import render_week, render_week_detail
+from .week import render_week
 
 PANE_ID = "family-today"
 PANE_CLASS = "ambient"
@@ -57,10 +58,10 @@ def write_atomic(path, text):
 UNKNOWN = object()
 
 
-# (pane id, title, wall renderer, desk renderer)
+# (pane id, title, renderer)
 PANES = (
-    (PANE_ID, TITLE, render, render_detail),
-    (WEEK_ID, WEEK_TITLE, render_week, render_week_detail),
+    (PANE_ID, TITLE, render),
+    (WEEK_ID, WEEK_TITLE, render_week),
 )
 
 
@@ -84,10 +85,10 @@ class Producer:
             return
         self._briefing(doc, today, now)
         fresh = is_fresh(doc, today)
-        for pane_id, title, page, detail in PANES:
-            self._pane(pane_id, title, page, detail, doc, today, now, fresh)
+        for pane_id, title, page in PANES:
+            self._pane(pane_id, title, page, doc, today, now, fresh)
 
-    def _pane(self, pane_id, title, page, detail, doc, today, now, fresh):
+    def _pane(self, pane_id, title, page, doc, today, now, fresh):
         """Write (or, once the brief is stale, remove) one of this producer's panes."""
         pane_dir = os.path.join(self.panes_dir, pane_id)
         manifest_path = os.path.join(pane_dir, "manifest.json")
@@ -102,7 +103,7 @@ class Producer:
             return
         os.makedirs(pane_dir, exist_ok=True)
         write_atomic(os.path.join(pane_dir, "pane.html"), page(doc, today, now, self.tz))
-        write_atomic(os.path.join(pane_dir, "detail.html"), detail(doc, today, now, self.tz))
+        _drop_desk_edition(pane_dir)
         write_atomic(manifest_path, json.dumps({
             "schema": 1,
             "class": PANE_CLASS,
@@ -126,8 +127,7 @@ class Producer:
             return
         os.makedirs(self.briefing_dir, exist_ok=True)
         write_atomic(os.path.join(self.briefing_dir, "pane.html"), render(doc, today, now, self.tz))
-        write_atomic(os.path.join(self.briefing_dir, "detail.html"),
-                     render_detail(doc, today, now, self.tz))
+        _drop_desk_edition(self.briefing_dir)
         write_atomic(path, json.dumps({
             "schema": 1,
             "title": BRIEFING_TITLE,
@@ -142,6 +142,14 @@ class Producer:
         if os.path.isdir(pane_dir):
             log.info("removing panes/%s (%s)", pane_id, why)
             shutil.rmtree(pane_dir, ignore_errors=True)
+
+def _drop_desk_edition(directory):
+    """Remove a detail.html left by an older producer (the desk editions are retired)."""
+    try:
+        os.remove(os.path.join(directory, "detail.html"))
+    except FileNotFoundError:
+        pass
+
 
 def _read_manifest(path, name):
     """A manifest dict; None when absent; UNKNOWN when it cannot be read or parsed."""

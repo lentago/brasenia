@@ -77,9 +77,8 @@ Three nouns:
  client adapters — one per screen; adding one must not touch the others
       │
       ├─ Roku/HLS adapter (the office — ADR-0009; the viewport's screen)
-      │    3. shoot the pointer's pane at 3× scale, its detail.html desk
-      │       edition when it has one (headless chromium, throwaway
-      │       profile) → 3840×2160 bands → frame.png
+      │    3. render the pointer's pane, one band (headless chromium,
+      │       throwaway profile) → 3840×2160 → frame.png
       │    4. ffmpeg (image2pipe → HEVC 5 fps + AAC) → HLS on tmpfs → :8080
       │    ▼
       │  Roku dev channel (roku-app/ in this repo — auto-retry Video node;
@@ -114,8 +113,7 @@ retired. The Roku/HLS adapter now serves a 4K Roku in the office instead,
 streaming HEVC at 3840×2160 from ffmpeg-written HLS
 ([ADR-0009](adr/0009-office-roku-4k-hevc-over-ffmpeg-hls.md)). With the
 Chromecast offline the same day, that Roku is the viewport's only screen. It
-follows the pointer and shows a pane's desk edition when the pane offers one
-(#59). It is LAN-self-contained.
+follows the pointer (#59). It is LAN-self-contained.
 
 ### Degraded mode: internet outage
 
@@ -161,14 +159,13 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
 - Sizes are CSS pixels. A client may render a pane at an integer scale (the
   office Roku renders at 3×, 3840×2160 device pixels), and the clock and its
   clear corner scale with it, so design for 1280×720 CSS pixels only.
-- A pane directory may also hold other renditions beside `pane.html`, such as
-  `family-today/detail.html`, the 1920×1080 desk edition. The compositor
-  reads only `pane.html` and `manifest.json`. A client reaches a rendition by
-  pinning to its URL, or by preferring it whenever the pointer names that
-  pane, as the stream does today for both screens. That preference ends
-  when the family brief moves to the 1920×1080 canvas, because its desk
-  editions are below the 30 px floor (ADR-0019). A rendition goes when its
-  pane does.
+- A pane directory may also hold other renditions beside `pane.html`. The
+  compositor reads only `pane.html` and `manifest.json`, and a client reaches
+  a rendition only by pinning to its URL. The shared stream shows
+  `pane.html` and never prefers a rendition (lentago/kalmia#217), because
+  everything it shows is held to the 30 px floor (ADR-0019). The family
+  brief's `detail.html` desk editions were retired for being below it (#115).
+  A rendition goes when its pane does.
 - `manifest.json`: the fields and liveness rule are in
   [Contracts v1](#manifestjson).
 - Writers use write-then-rename (`pane.html.partial` → `pane.html`), create
@@ -232,7 +229,7 @@ Standing slots section.
 
 Ranking: priority descending, then `origin` (`operator` before `fleet`), then `created` descending, except among `ambient` panes, which keep a fixed order by id because each producer rewrites `created` on its own cadence (#86). Panes tied on priority and origin rotate; each shows for its `dwell_s` (default 20 s) before the next. Only the top group rotates; lower groups wait. Fallback ladder: no live pane → the briefing slot (below), skipped when it is absent or older than the household's `briefing.max_age_hours` → `status.html`, which the compositor writes with the reason.
 
-**The briefing slot** (`viewport/briefing/`, #76) holds what the fallback shows: `pane.html` (the 1280×720 pane contract), optionally `detail.html` (a desk edition, as for panes), and `manifest.json` (`schema` 1, `title`, `published`: when the brief itself was generated, RFC 3339, and `author`). The family-brief producer keeps it filled with the latest Family Brief whatever its age. The `family-today` pane leaves the bus once the brief is older than yesterday; the slot stays, saying how old it is. The compositor names `pane.html` in the pointer, titled from the manifest, and judges the age by `published` rather than the file time, because the producer rewrites the page every minute. Writers follow the bus rules: write-then-rename, and leave a slot another author owns alone. It replaced `http://pub.lan/brief/`, the morning brief, which stopped publishing on 2026-08-31.
+**The briefing slot** (`viewport/briefing/`, #76) holds what the fallback shows: `pane.html` (the pane contract) and `manifest.json` (`schema` 1, `title`, `published`: when the brief itself was generated, RFC 3339, and `author`). The family-brief producer keeps it filled with the latest Family Brief whatever its age. The `family-today` pane leaves the bus once the brief is older than yesterday; the slot stays, saying how old it is. The compositor names `pane.html` in the pointer, titled from the manifest, and judges the age by `published` rather than the file time, because the producer rewrites the page every minute. Writers follow the bus rules: write-then-rename, and leave a slot another author owns alone. It replaced `http://pub.lan/brief/`, the morning brief, which stopped publishing on 2026-08-31.
 
 ## Contracts v1
 

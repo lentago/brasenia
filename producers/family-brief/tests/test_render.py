@@ -28,19 +28,20 @@ class RenderTests(unittest.TestCase):
         for pattern in EXTERNAL:
             self.assertIsNone(pattern.search(page), pattern.pattern)
         self.assertNotIn("<script", page)
-        self.assertIn("width: 1280px; height: 720px;", page)
-        sizes = [int(px) for px in re.findall(r"font-size: (\d+)px", page)]
-        self.assertGreaterEqual(min(sizes), 20)
-        # Fixed layout: header + gap + columns + gap + strip fill the 622 px main
-        # area, which ends at 646 px, above the clock corner.
-        self.assertIn("top: 24px; left: 24px; right: 24px; height: 622px;", page)
-        self.assertEqual(60 + 12 + 452 + 12 + 86, 622)
+        self.assertIn("width: 1920px; height: 1080px;", page)
+        self.assertIn('<meta name="brasenia-canvas" content="1920x1080">', page)
+        self.assertNotIn("zoom", page)
+        sizes = [float(px) for px in re.findall(r"font-size: ([\d.]+)px", page)]
+        self.assertGreaterEqual(min(sizes), 30)
+        # Fixed layout: header + gap + columns + gap + strip fill the 933 px main
+        # area, which ends at 969 px, above the clock corner.
+        self.assertIn("top: 36px; left: 36px; right: 36px; height: 933px;", page)
+        self.assertEqual(90 + 18 + 678 + 18 + 129, 933)
         # A column's slots fit inside it: padding, heading, rows (and the callout).
-        self.assertLessEqual(28 + 34 + 8 + ROWS * 62, 452)
-        self.assertLessEqual(28 + 34 + 8 + (ROWS - 1) * 62 + 8 + 64, 452)
-        self.assertIn("left: 24px; bottom: 24px; width: 900px;", page)
-        self.assertLessEqual(24 + 900, 1280 - 220 - 24)
-        self.assertIn("zoom: 1.5", page)
+        self.assertLessEqual(42 + 51 + 12 + ROWS * 93, 678)
+        self.assertLessEqual(42 + 51 + 12 + (ROWS - 1) * 93 + 12 + 96, 678)
+        self.assertIn("left: 36px; bottom: 36px; width: 1350px;", page)
+        self.assertLessEqual(36 + 1350, 1920 - 330 - 36)
 
     def test_brief_day(self):
         page = render(fixture(), SUN, NOW, TZ)

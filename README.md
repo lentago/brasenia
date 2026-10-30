@@ -112,8 +112,8 @@ the compositor.
       → http://pub.lan/viewport/current.json (the pointer; the Family Brief
         pane, family-today, is the resting surface)
       ▼
- viewport LXC (118, pve4): headless Chromium shoots the pointer's pane at 3×
-      (its detail.html desk edition when it has one) → 3840×2160 frame.png
+ viewport LXC (118, pve4): headless Chromium renders the pointer's pane, one
+      band (ADR-0020) → 3840×2160 frame.png
       → ffmpeg (image2pipe, HEVC 5 fps + AAC) → HLS on tmpfs → :8080
       ▼
  Roku dev channel (this repo's roku-app/) → office Roku, 4K display
