@@ -136,8 +136,9 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
 
 > **One band ([ADR-0020](adr/0020-only-the-rubric-and-the-remote-change-the-wall.md)).**
 > A pane is exactly one band, and multi-band panes are not allowed. The
-> renderer shows that band and never pages through a taller one. Content that
-> does not fit one band leaves the wall.
+> renderer shows a pane's first band only: a taller `pane.html` is clipped to
+> its top 720 px (1080 px on the 1920×1080 canvas), and the rest is never
+> shown or paged to. The pane stays on the wall; its overflow doesn't.
 
 > **Moving to a 1920×1080 canvas ([ADR-0019](adr/0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md)).**
 > A pane that declares `<meta name="brasenia-canvas" content="1920x1080">` is

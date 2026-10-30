@@ -57,9 +57,10 @@ The full contract is in [concept.md](concept.md#the-pane-contract).
 
 1. One self-contained HTML file: inline CSS and JS, no external assets
    (`pane claim` refuses `<script src=`, `<link href=` and `src="http`).
-2. One band: 1280×720 px. Nothing below 720 px is shown.
-3. Content that doesn't fit one band leaves the wall; nothing pages through
-   a taller pane ([ADR-0020](adr/0020-only-the-rubric-and-the-remote-change-the-wall.md)).
+2. One band: 1280×720 px.
+3. A taller page is clipped to its first band: nothing below 720 px is ever
+   shown, and nothing pages to it
+   ([ADR-0020](adr/0020-only-the-rubric-and-the-remote-change-the-wall.md)).
 4. Dark background, body text at least 20 px, 24 px safe margins.
 5. Keep the bottom-right 220×50 px clear (the clock overlay).
 
