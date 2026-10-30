@@ -437,7 +437,9 @@ def _outranked_by(pane, win, default_pane, arrivals):
         if _arrived(arrivals, win["id"]) != _arrived(arrivals, pane["id"]):
             return "%s arrived more recently" % win["id"]
         return "arrived with %s, which comes first by id" % win["id"]
-    return "same priority as %s, which ranks first in the rung" % win["id"]
+    if pane["class"] == "ambient":
+        return "same rung as %s; resting panes come after the rung's other panes" % win["id"]
+    return "same rung as %s, which ranks first" % win["id"]
 
 
 def pane_url(pane, url_base):

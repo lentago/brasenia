@@ -413,6 +413,18 @@ class Explain(unittest.TestCase):
         self.assertEqual(rows["b"]["status"], "showing")
         self.assertEqual(rows["a"]["reason"], "b arrived more recently")
 
+    def test_a_shared_rung_puts_resting_panes_last(self):
+        # A household priority can put another class on the resting rung: its
+        # panes come first, and the resting panes follow in id order.
+        prio = dict(rubric.PRIORITY, focus=40)
+        panes = [pane("a-rest", "ambient"), pane("z-pr", "focus")]
+        pointer, state = run(panes, priority=prio)
+        self.assertEqual(pointer["pane"], "z-pr")
+        rows = {r["id"]: r for r in rubric.explain(panes, T0, pointer, prio,
+                                                   arrivals=state["arrivals"])}
+        self.assertEqual(rows["a-rest"]["reason"],
+                         "same rung as z-pr; resting panes come after the rung's other panes")
+
     def test_dead_panes_say_why(self):
         panes = [pane("old", ttl=1, created=T0 - timedelta(minutes=5)),
                  pane("half", files=("pane.html",)),

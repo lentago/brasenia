@@ -103,7 +103,8 @@ the rung you want.
 
 `--origin` is `operator` by default (use `fleet` for unattended runs), and
 `--author` overrides the default `<user>@<hostname>`. There is no `--dwell`:
-panes on a rung never take turns, and the newest arrival shows
+panes on a rung never take turns, and the one that arrived most recently shows. A
+pane released and claimed again within 10 minutes keeps its earlier arrival
 ([ADR-0020](adr/0020-only-the-rubric-and-the-remote-change-the-wall.md)). Renew and release identify you the same way, so
 pass the same `--author` you claimed with if you set one. Exit codes: 0 ok,
 1 refused (the reason is on stderr), 2 usage.
