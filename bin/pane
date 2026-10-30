@@ -26,7 +26,6 @@ URL_BASE = "http://pub.lan/viewport"
 CLASS_TTL = {
     "alert": 60,
     "attention": 240,
-    "live": None,
     "activity": 60,
     "focus": 10,
     "ambient": None,

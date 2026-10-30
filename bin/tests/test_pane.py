@@ -112,10 +112,18 @@ class ClaimTests(PaneCase):
             self.assertEqual(self.manifest(cls)["ttl_minutes"], ttl)
 
     def test_class_without_default_ttl_needs_one(self):
-        code, _, err = self.run_cli("claim", "d", "--class", "live",
+        code, _, err = self.run_cli("claim", "d", "--class", "ambient",
                                     "--title", "t", self.page)
         self.assertEqual(code, 1)
         self.assertIn("--ttl", err)
+        self.assertFalse(os.path.exists(self.pane_dir("d")))
+
+    def test_the_retired_live_class_is_a_usage_error(self):
+        # RTMP live ingest and its class are retired (#122).
+        with self.assertRaises(SystemExit) as ctx:
+            self.run_cli("claim", "d", "--class", "live", "--title", "t",
+                         "--ttl", "5", self.page)
+        self.assertEqual(ctx.exception.code, 2)
         self.assertFalse(os.path.exists(self.pane_dir("d")))
 
     def test_nonfinite_ttl_and_dwell_are_usage_errors(self):

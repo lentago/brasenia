@@ -24,7 +24,7 @@ something only you care about: no. When in doubt, don't claim; the focus
 producer ([`producers/focus/`](../producers/focus/)) already puts open pull
 requests up for any repo you are working in.
 
-## The seven classes
+## The six classes
 
 Priority order, with the default TTL from
 [rubric v1](concept.md#rubric-v1) and one example each.
@@ -33,16 +33,14 @@ Priority order, with the default TTL from
 |---|---|---|
 | `alert` | 60 min | Production deploy failing |
 | `attention` | 240 min | A decision is waiting on a person |
-| `live` | none, pass `--ttl` | A drone feed is publishing |
 | `activity` | 60 min | A fleet run is working through a backlog |
 | `focus` | 10 min | Open pull requests for the repo in use |
 | `ambient` | none, pass `--ttl` | Weather, while fresh |
 | `briefing` | none, pass `--ttl` | A daily brief (the compositor's own fallback is the Family Brief in `viewport/briefing/`) |
 
-Rubric v1 describes the TTL of `live`, `ambient` and `briefing` as "while the
-publisher is present", "while fresh" and "never". A hand claim has no
-publisher to watch, so `pane claim` asks for an explicit `--ttl` for those
-three.
+Rubric v1 describes the TTL of `ambient` and `briefing` as "while fresh" and
+"never". A hand claim can't follow either, so `pane claim` asks for an
+explicit `--ttl` for those two.
 
 ## Two rules
 

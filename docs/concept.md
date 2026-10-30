@@ -197,7 +197,7 @@ resting rung and take turns in a fixed order (by id), each for its
 `dwell_s`. The household can name one as the
 default, from the configurator's dropdown or with Left/Right on the Roku
 remote: when it is live it ranks first in its rung and holds, and the others
-wait. It only orders the resting panes, so `focus`, `activity`, `live`,
+wait. It only orders the resting panes, so `focus`, `activity`,
 `attention` and `alert` panes still take over when they appear, and the
 default returns after them.
 
@@ -220,13 +220,10 @@ Standing slots section.
 |---|---|---|
 | 100 | `alert` | 60 min |
 | 80 | `attention` | 240 min |
-| 70 | `live` | while the publisher is present |
 | 60 | `activity` | 60 min |
 | 50 | `focus` | 10 min |
 | 40 | `ambient` | while fresh |
 | 0 | `briefing` | never |
-
-`live` has had no source since RTMP live ingest was retired on 2026-10-29 (see [Live-ingest source type](#live-ingest-source-type)). The class is still defined.
 
 Ranking: priority descending, then `origin` (`operator` before `fleet`), then `created` descending, except among `ambient` panes, which keep a fixed order by id because each producer rewrites `created` on its own cadence (#86). Panes tied on priority and origin rotate; each shows for its `dwell_s` (default 20 s) before the next. Only the top group rotates; lower groups wait. Fallback ladder: no live pane → the briefing slot (below), skipped when it is absent or older than the household's `briefing.max_age_hours` → `status.html`, which the compositor writes with the reason.
 
@@ -278,7 +275,7 @@ Writers use write-then-rename for every file (`x.partial` → `x`) and write `ma
 }
 ```
 
-- `class` is one of `alert`, `attention`, `live`, `activity`, `focus`, `ambient`, `briefing`. `title`, `created` (RFC 3339, UTC), `ttl_minutes`, `author` are required.
+- `class` is one of `alert`, `attention`, `activity`, `focus`, `ambient`, `briefing`. `title`, `created` (RFC 3339, UTC), `ttl_minutes`, `author` are required.
 - `origin` is `operator` or `fleet` (default `fleet`); it is the tie-break within a class.
 - `repo` (`owner/name`), `dwell_s` and `done_when` are optional. v1 ignores `done_when`.
 - `source` is optional and makes the pane a **link pane** ([ADR-0016](adr/0016-panes-carry-a-revision-and-may-link-a-web-page.md)): the screen shows a web page instead of `pane.html`. It is `{"url": "https://…", "theme": "dark", "screens": 1, "viewport": [1280, 720], "refresh_s": 60}`.
@@ -342,44 +339,18 @@ One pane per distinct `repo` with a fresh beacon and something to show, at `pane
 
 ## Live-ingest source type
 
-*Added 2026-08-16 (kalmia#102 + [ADR-0007](adr/0007-live-rtmp-ingest-generic-path.md)).*
+*Added 2026-08-16 (kalmia#102); retired 2026-10-29
+([kalmia#213](https://github.com/lentago/kalmia/issues/213)).*
 
-> **Retired 2026-10-29** ([kalmia#213](https://github.com/lentago/kalmia/issues/213)):
-> Roku is the focus, and [kalmia#224](https://github.com/lentago/kalmia/pull/224)
-> removes RTMP live ingest and mediamtx from the runtime, so this section no
-> longer describes a way onto the screen. Bringing it back needs a new
-> decision that supersedes ADR-0007.
-
-A generic `live` RTMP path on mediamtx is the first event-driven source type:
-publisher presence on `live` is a binary, machine-readable signal that
-something worth watching is happening — the rubric decides by observing
-publish state, no remote involved. Any LAN RTMP producer (DJI Fly, OBS,
-Larix, a GoPro) publishes to `rtmp://pub.lan:1935/live` and appears on the
-TV; when the publisher drops, mediamtx's fallback wiring returns the display
-to `board` automatically. Adding a second producer touches nothing
-DJI-specific in the product or the runtime.
-
-In v0 (before the Phase 2 compositor), the `live`→`board` fallback chain in
-mediamtx acts as the rubric surrogate for this one decision. The ADR-0002
-retry handler doubles as the source switcher — when the publisher drops and
-mediamtx returns an error on the `live` playlist, the Roku's retry loop
-rejoins and mediamtx transparently serves `board`. When Phase 2 lands,
-publisher presence (via the mediamtx HTTP API) becomes a rubric *input* — a
-virtual pane of class `live` — and the compositor gates the live path rather
-than being silently overruled by the transport-layer fallback chain.
-
-**Latency disclaimer — spectator use only.** DJI Fly's encode adds ~2–3 s;
-the measured Roku HLS join latency (7–17 s, ADR-0001) applies equally on the
-`live` path. Glass-to-glass is approximately **10–20 s**. This is appropriate
-for a wall display showing what the drone is seeing. It is **never a
-piloting aid** — do not use it as a substitute for the controller's real-time
-video feed.
-
-**Phone-side networking.** RC-N-series DJI controllers use the phone's own
-Wi-Fi connection (the controller handles the RF link to the drone
-independently). Streaming works as long as the pilot stands within home Wi-Fi
-range. The `live` path is LAN-only by construction — mediamtx is not
-reachable from the internet.
+RTMP live ingest put a feed on the wall, such as a drone flight, through
+mediamtx's `live` path on LXC 118. The rubric kept a `live` class at priority
+70 for it. Roku is the focus, so the ingest is retired. mediamtx is gone from
+the runtime ([kalmia#224](https://github.com/lentago/kalmia/pull/224)), and the
+class went with it (#122): a manifest with `class: live` is now skipped as an
+unknown class, and `pane claim --class live` is a usage error. The design, its
+latency and its networking notes stay in
+[ADR-0007](adr/0007-live-rtmp-ingest-generic-path.md). Bringing it back needs a
+new decision that supersedes it.
 
 ## Governance
 
@@ -404,7 +375,9 @@ usable by every session. The canonical text is
   `live`→`board` fallback wiring as v0 rubric surrogate; first event-driven
   source type (`live` class at priority 70). Roku repoint from `board` to
   `live` pending bench validation against a live DJI Fly publisher
-  ([live-ingest-spec.md](live-ingest-spec.md)).
+  ([live-ingest-spec.md](live-ingest-spec.md)). Retired 2026-10-29: RTMP
+  ingest left the runtime (kalmia#224), and the `live` class left Rubric v1
+  (#122).
 - **Phase 2 (in progress, 2026-10-07):** pane bus + manifest + compositor
   rubric, the compositor on pub (LXC 114) publishing the pointer;
   `web/viewport/` exists on the share, and compositor v1 (`compositor/`,

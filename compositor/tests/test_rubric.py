@@ -46,8 +46,14 @@ class Ranking(unittest.TestCase):
 
     def test_every_class_has_its_v1_priority(self):
         self.assertEqual(rubric.PRIORITY, {
-            "alert": 100, "attention": 80, "live": 70, "activity": 60,
+            "alert": 100, "attention": 80, "activity": 60,
             "focus": 50, "ambient": 40, "briefing": 0})
+
+    def test_a_live_pane_is_an_unknown_class(self):
+        # RTMP live ingest and its class are retired (#122).
+        pointer, state = run([pane("drone", "live"), pane("calm", "ambient")])
+        self.assertEqual(pointer["pane"], "calm")
+        self.assertEqual(state["skipped"], {"drone": "unknown class 'live'"})
 
     def test_operator_breaks_the_tie_within_a_class(self):
         # Created later, so recency alone would pick the fleet pane.

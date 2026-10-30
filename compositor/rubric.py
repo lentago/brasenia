@@ -18,7 +18,6 @@ SCHEMA = 1
 PRIORITY = {
     "alert": 100,
     "attention": 80,
-    "live": 70,
     "activity": 60,
     "focus": 50,
     "ambient": 40,
