@@ -26,9 +26,10 @@ change what is shown without the rubric having made a new decision:
 - **Band rotation.** The renderer flips a multi-band pane's bands into the
   stream every `BRASENIA_BAND_DWELL` seconds (12). The renderer decides which
   band shows, not the rubric. One live pane uses it today, `search-map`
-  (2 bands), published from outside this repo. The family brief's move to the
-  1920×1080 canvas (#115) was decided as one band per pane, with no
-  alternating bands.
+  (2 bands), published from outside this repo. ADR-0019 allows a pane 1–4
+  bands. Separately, Chris decided on 2026-10-29 that the family brief's move
+  to the 1920×1080 canvas (#115) uses one band per pane, with no alternating
+  bands. That decision is recorded on #115; it is not yet part of any ADR.
 - **The rubric's own rotation.** When several panes share the top rung, the
   compositor shows each for its `dwell_s` (the producers set 60 s; the
   household default `rotation.dwell_s` is 20 s), unless the household's
@@ -50,6 +51,11 @@ change what is shown without the rubric having made a new decision:
     and the lag guard's rejoin.
   - **The burned-in clock**, which is part of the frame. The pane contract
     reserves its corner.
+  - **A stand-in giving way to the decided pane.** When the renderer cannot
+    show the pane the rubric chose, it shows a stand-in: the previous image
+    after a failed render, or a "this page isn't shown here" notice while
+    Chromium's sandbox is down. When the stand-in is replaced by that pane,
+    the decision is finally being shown; nothing new was decided.
 - **Band rotation goes.** The renderer stops flipping bands on a timer. What
   replaces it is open question 1.
 - **The inventory**, every place time changes the wall today:
@@ -62,7 +68,7 @@ change what is shown without the rubric having made a new decision:
 | 4 | Panes put on the bus or taken off by automation: session beacons (focus panes), `pane claim` by sessions, the pipeline pane, standing slots, `family-today` leaving once the brief is stale | producers, sessions | automation, decided by the rubric | Allowed as rubric inputs. **Chris to confirm**, question 4 |
 | 5 | Household settings: `default.pane`, priorities, `rotation.dwell_s`, standing slots | remote Left/Right, configurator (ADR-0011, ADR-0013, ADR-0018) | a person | Allowed: the remote and the settings |
 | 6 | The shown pane's content refreshes: producers rewrite on their cadence (the family brief every minute, Grafana every `refresh_s`), a new `rev` re-renders, a pane without one re-renders every 60 s, and a link pane every `refresh_s` | producers; renderer `BRASENIA_REGEN_INTERVAL` | timer, same pane | Allowed: content, not a change of what is shown |
-| 7 | A failed render is retried after 30 s; a "this page isn't shown here" notice gives way to the page when Chromium's sandbox is back (600 s) | renderer | fault recovery | Allowed: the rubric's decision, shown once it can be |
+| 7 | A failed render is retried after 30 s; a "this page isn't shown here" notice gives way to the page when Chromium's sandbox is back (600 s) | renderer | fault recovery | Allowed: a stand-in giving way to the decided pane |
 | 8 | Pointer poll (1 s), line-up poll (10 s) | renderer | follows the decision | Allowed: no change unless the decision changed |
 | 9 | The burned-in clock ticks every second | `brasenia-stream` | timer | Allowed: part of the frame. **Chris to confirm**, question 4 |
 | 10 | Retry after a player error (3 s), rejoin when more than 8 s behind live on two checks 15 s apart | Roku app | playback faults | Allowed: same picture |
@@ -77,8 +83,8 @@ change what is shown without the rubric having made a new decision:
    second band?
    - **A. Panes are one band.** The contract drops multi-band panes. The
      renderer shows band 1, link panes' `screens` is fixed at 1, and
-     `pane claim --screens` goes. This is the simplest, and it matches the
-     family brief decision. `search-map` has to fit one band.
+     `pane claim --screens` goes. This is the simplest, and it is the choice
+     Chris already made for the family brief. `search-map` has to fit one band.
    - **B. The remote pages bands for everyone.** A key (Fast-forward or
      Rewind, say) moves the shown pane to its next band. This writes a
      household setting through pub-signals the way Left/Right does, and it
