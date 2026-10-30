@@ -97,7 +97,7 @@ Brasenia follows the fleet's separation of product from provisioning:
 | Piece | Where it lives |
 |---|---|
 | LXC 118 guest definition | [`kalmia`](https://github.com/lentago/kalmia) `terraform/containers.tf` (CI-applied) |
-| Runtime stack (the renderer, encoder and HLS server, mediamtx, systemd units) | [`kalmia`](https://github.com/lentago/kalmia) `roles/brasenia/` + `docs/brasenia.md` |
+| Runtime stack (the renderer, encoder and HLS server, systemd units) | [`kalmia`](https://github.com/lentago/kalmia) `roles/brasenia/` + `docs/brasenia.md` |
 | Brief publishing (Google Drive → `pub.lan`) and the home producer's Home Assistant token: pub holds the credentials ([ADR-0014](docs/adr/0014-home-and-fleet-feed-resting-panes.md)) | [`kalmia`](https://github.com/lentago/kalmia) `roles/pub/` |
 | The Grafana Cloud service account the grafana producer's token belongs to ([ADR-0017](docs/adr/0017-grafana-panes-rendered-on-pub.md)); the token itself is placed on pub, with kalmia's unit | [`drosera`](https://github.com/lentago/drosera) `terraform/` |
 

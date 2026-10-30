@@ -1,7 +1,10 @@
 # ADR-0007: Generic RTMP ingest path; fallback-chain switching; `live` as rubric source type
 
-**Status:** Accepted (2026-08-16); fallback-switching validation pending (see
-[live-ingest-spec.md](../live-ingest-spec.md))
+**Status:** Retired (2026-10-29; [kalmia#213](https://github.com/lentago/kalmia/issues/213)):
+Roku is the focus, and [kalmia#224](https://github.com/lentago/kalmia/pull/224)
+removes RTMP live ingest and mediamtx from the runtime. Bringing it back needs
+a new decision. Accepted 2026-08-16, with the fallback-switching
+validation in [live-ingest-spec.md](../live-ingest-spec.md) still pending.
 
 ## Context
 
