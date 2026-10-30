@@ -31,8 +31,8 @@ decision was made, not reconstructed.
 | [0013](0013-the-remote-sets-the-default-resting-pane.md) | The remote sets the household's default resting pane | 2026-10-28 |
 | [0014](0014-home-and-fleet-feed-resting-panes.md) | Home Assistant and the job queue feed resting panes; pub holds the token (amends 0008; amended by 0017) | 2026-10-28 |
 | [0015](0015-cap-the-roku-lag-by-rejoining.md) | Cap the Roku's lag by rejoining the stream; the playlist is 3 segments (amends 0009) | 2026-10-29 |
-| [0016](0016-panes-carry-a-revision-and-may-link-a-web-page.md) | Panes carry a content revision; a pane may link a web page (off until the renderer is ready) | 2026-10-29 |
+| [0016](0016-panes-carry-a-revision-and-may-link-a-web-page.md) | Panes carry a content revision; a pane may link a web page (off until the renderer is ready; amended by 0020) | 2026-10-29 |
 | [0017](0017-grafana-panes-rendered-on-pub.md) | Grafana dashboards are rendered on pub into ordinary panes with a Viewer token (amends 0014) | 2026-10-29 |
 | [0018](0018-standing-slots-are-household-settings.md) | Standing slots are household settings, kept on the bus by a producer | 2026-10-29 |
-| [0019](0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md) | Panes are laid out on a 1920×1080 canvas at 2×, with a 30 px text floor; "band" names the screenful (amends 0009) | 2026-10-29 |
-| [0020](0020-only-the-rubric-and-the-remote-change-the-wall.md) | Only the rubric and the remote change what the wall shows (**proposed**, awaiting Chris's decision) | 2026-10-29 |
+| [0019](0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md) | Panes are laid out on a 1920×1080 canvas at 2×, with a 30 px text floor; "band" names the screenful (amends 0009; amended by 0020) | 2026-10-29 |
+| [0020](0020-only-the-rubric-and-the-remote-change-the-wall.md) | Only the rubric and the remote change what the wall shows: a pane is one band, and the rubric ranks strictly with no rotation (amends 0016, 0019) | 2026-10-29 |
