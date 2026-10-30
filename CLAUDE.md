@@ -40,8 +40,8 @@ change goes.
   sideloads each one. The screens, both 4K:
   - **Office:** Streaming Stick Plus 3830R on a 4K display, `192.168.139.21`
     (Firewalla reservation).
-  - **Basement:** TCL 75R7D Roku TV, `192.168.139.190`. This is a DHCP lease
-    until its Firewalla reservation is made, so confirm the address first.
+  - **Basement:** TCL 75R7D Roku TV, `192.168.139.190` (Firewalla
+    reservation).
 
   They share one dev password, which Chris keeps in
   `~/.config/brasenia/roku-dev.env` (mode 600). Source it with
