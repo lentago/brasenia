@@ -1,3 +1,4 @@
+import http.client
 import unittest
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -64,6 +65,10 @@ class SnapshotTest(unittest.TestCase):
             github.snapshot(MIDNIGHT, transport=fake)
         fake = FakeSearch()
         fake.error = OSError("no route")
+        with self.assertRaisesRegex(github.GitHubError, "unreachable"):
+            github.snapshot(MIDNIGHT, transport=fake)
+        fake = FakeSearch()
+        fake.error = http.client.IncompleteRead(b"{")
         with self.assertRaisesRegex(github.GitHubError, "unreachable"):
             github.snapshot(MIDNIGHT, transport=fake)
         fake = FakeSearch()

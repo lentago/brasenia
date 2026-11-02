@@ -85,9 +85,9 @@ before that ("Oct 24"), all in `--tz`.
 
 | Case | What happens |
 |---|---|
-| A search fails: network error, rate limit (403/429), 5xx or an unexpected body | The whole refresh is dropped and the last good data kept. The pane is still rewritten each cycle, with "GitHub unavailable, last tried HH:MM" in the header, and the footer keeps the data's own time. Logged; the next refresh retries in 2 minutes. |
+| A search fails: network error or truncated response, rate limit (403/429), 5xx or an unexpected body | The whole refresh is dropped and the last good data kept. The pane is still rewritten each cycle, with "GitHub unavailable, last tried HH:MM" in the header, and the footer keeps the data's own time. Logged; the next refresh retries in 2 minutes. |
 | No good refresh yet | Nothing is written. |
-| The last good data is more than 15 minutes old | The pane is no longer renewed, so it leaves the bus at its 10-minute TTL rather than showing an old list ([ADR-0014](../../docs/adr/0014-home-and-fleet-feed-resting-panes.md)'s rule for resting panes). It returns on the next good refresh. |
+| The last good data is more than 15 minutes old | The pane is no longer renewed, so it leaves the bus at its 10-minute TTL rather than showing an old list. That follows [ADR-0014](../../docs/adr/0014-home-and-fleet-feed-resting-panes.md)'s rule that a resting pane whose source goes quiet leaves the bus; the 15 minutes is this producer's own threshold (`STALE_S`), seven missed refreshes. It returns on the next good refresh. |
 | `panes/prs/` holds another author's manifest | Left alone; logged. |
 
 ## The pane

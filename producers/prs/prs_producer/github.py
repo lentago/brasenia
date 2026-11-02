@@ -17,6 +17,7 @@ Search results carry no check state, auto-merge or review decision; those
 are core-API reads this producer does not make (brasenia#134).
 """
 
+import http.client
 import json
 import urllib.error
 import urllib.parse
@@ -63,7 +64,7 @@ def _search(transport, query, per_page, sort=None):
     """``(total_count, items)`` for one search, or GitHubError."""
     try:
         status, body = transport(search_url(query, per_page, sort), HEADERS)
-    except OSError as err:
+    except (OSError, http.client.HTTPException) as err:     # a truncated body is not an OSError
         raise GitHubError("unreachable (%s)" % err) from None
     if status != 200:
         raise GitHubError("search answered HTTP %s" % status)
