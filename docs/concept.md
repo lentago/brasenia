@@ -193,7 +193,8 @@ and applies within seconds, and the effective values are in
 ([ADR-0011](adr/0011-rubric-settings-on-the-share.md)).
 
 **The default resting pane** (`default.pane`, #83). Several `ambient` panes
-(the Family Brief's today and week, Home, Weather and Fleet, #86) share the
+(the Family Brief's today and week, Home, Weather and Fleet, #86; the Grafana
+panes, ADR-0017; and Pull requests, #134) share the
 resting rung in a fixed order by id, and the first of them is shown. The
 household can name one as the default, from the configurator's dropdown or
 with Left/Right on the Roku remote: when it is live it ranks first in its rung,
