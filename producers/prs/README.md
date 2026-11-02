@@ -1,0 +1,120 @@
+# PRs producer (GitHub search → the PRs pane)
+
+**What you're about to do:** run a small stdlib-only Python process (3.11+)
+that reads GitHub's search API without a token and keeps one resting pane on
+the viewport bus: `<webroot>/viewport/panes/prs/`. It shows the fleet's pull
+requests as a running list, newest event first, with each one's merge status:
+open, draft, merged, or closed without merging.
+
+**Why bother:** the other panes each show a slice of the PR traffic. `focus-*`
+shows the open PRs of a repo a session is working in, `fleet` shows the
+bullpen's agent PRs awaiting review, and `change-pipeline` shows a change only
+while it travels to live. This pane shows the whole org at a glance: what just
+merged, what was just opened, and what was closed without merging
+([#134](https://github.com/lentago/brasenia/issues/134)). It is a resting pane
+(`class: ambient`), so the Roku remote's Left/Right can make it the default
+([ADR-0013](../../docs/adr/0013-the-remote-sets-the-default-resting-pane.md)),
+and anything urgent still takes the screen.
+
+**Time:** a minute to try it against a scratch directory (below). Running it
+for real on pub is a kalmia unit (`brasenia-prs.service`, beside
+`brasenia-fleet.service`), not something this repo deploys.
+
+## Try it
+
+From `producers/prs/`:
+
+```sh
+W=$(mktemp -d)
+python3 -m prs_producer --once --webroot "$W"
+ls "$W/viewport/panes/prs/"
+```
+
+Options: `--scope` (the search qualifier naming the repos, default
+`org:lentago`), `--tz` (default `America/New_York`, for clock times and where
+"today" starts; pub itself runs in UTC), `--interval` (default 60 s), `--once`
+(one cycle, then exit), `--now` (pretend the clock reads this RFC 3339 time).
+Logs go to stdout, which is the journal under systemd.
+
+## How you know it worked
+
+- `panes/prs/` holds `pane.html` and `manifest.json`, and no `.partial`
+  files. The manifest reads `class: ambient`, `ttl_minutes: 10`,
+  `author: prs-producer@pub`, `origin: operator`, `title: Pull requests`.
+- At 1920×1080 the page shows three counts (open now, opened today, merged
+  today) over the running list: ten rows, each with a status chip, the repo,
+  the number, the title, who opened it and when. "GitHub search · as of
+  HH:MM" sits bottom-left; the bottom-right corner is empty, kept clear for
+  the clock.
+- `../../bin/pane --bus "$(mktemp -d)" claim t --class ambient --ttl 5 --title t "$W/viewport/panes/prs/pane.html"`
+  accepts the page (no `<script src=`, `<link href=` or `src="http`).
+- The tests pass: `python3 -m unittest discover -s tests`.
+
+## How it works
+
+Each cycle (every 60 s) rewrites the pane, so the times on it stay current.
+Every 2 minutes a refresh makes four searches:
+
+1. **The running list:** `org:lentago is:pr`, the 50 most recently updated,
+   sorted by each PR's event time, newest first. The event is the merge for
+   a merged PR, the close for one closed without merging, and the opening
+   for an open PR or a draft. An event is never later than the PR's
+   `updated_at`, so the newest events are among those 50 unless more than 50
+   PRs were touched since without an event (a comment, a push).
+2. **Three counts,** each the `total_count` of a one-item search:
+   `is:open`, `created:>=` local midnight, and `merged:>=` local midnight.
+
+Every `lentago` repository is public, so search without a token sees the
+whole org. Search has its own rate limit (10 requests a minute without a
+token), apart from the 60-an-hour core budget the focus producer paces itself
+against. Two searches a minute here and the fleet producer's one every five
+minutes stay well inside it.
+
+Search results carry no check state, auto-merge or review decision. Those
+come from GitHub's core API, a request or two per open PR, which the
+unauthenticated core budget can't carry. This producer doesn't read them.
+
+**Times** in the list read "now" or "N min" within the hour, then the clock
+time today ("5:01 PM"), the weekday within the week ("Sun"), and the date
+before that ("Oct 24"), all in `--tz`.
+
+**Names:** the bullpen's GitHub App (`lentago-claude-runner[bot]`) shows as
+`bullpen`; any other `[bot]` suffix is dropped (`dependabot`).
+
+### Failure behaviour
+
+| Case | What happens |
+|---|---|
+| A search fails: network error, rate limit (403/429), 5xx or an unexpected body | The whole refresh is dropped and the last good data kept. The pane is still rewritten each cycle, with "GitHub unavailable, last tried HH:MM" in the header, and the footer keeps the data's own time. Logged; the next refresh retries in 2 minutes. |
+| No good refresh yet | Nothing is written. |
+| The last good data is more than 15 minutes old | The pane is no longer renewed, so it leaves the bus at its 10-minute TTL rather than showing an old list ([ADR-0014](../../docs/adr/0014-home-and-fleet-feed-resting-panes.md)'s rule for resting panes). It returns on the next good refresh. |
+| `panes/prs/` holds another author's manifest | Left alone; logged. |
+
+## The pane
+
+One 1920×1080 band, self-contained: inline CSS, no scripts, no external
+assets. Dark background `#0f1518` and cards `#172025`, as on the fleet pane,
+with a green header band `#1d3a33`. The status chips use GitHub's colours:
+green `#3fb950` open, grey `#8b949e` draft, purple `#a371f7` merged and red
+`#f85149` closed. Text is 30 px or larger, inside 36 px margins. The layout
+is fixed height: a 90 px header, 144 px counts and a 663 px list of ten
+57 px rows fill the 933 px main area, which ends 111 px above the bottom
+edge. The footer ends 534 px short of the right edge, so the bottom-right
+330×75 px clock corner stays clear.
+
+The pane contract and manifest shape are the v1 contracts in
+[`docs/concept.md`](../../docs/concept.md).
+
+## Tests
+
+```sh
+python3 -m unittest discover -s tests
+```
+
+They run against a fake GitHub search and temp directories, with no network:
+parsing each status and its event time, the four queries and local
+midnight, the failure cases, refresh pacing, a failed refresh keeping the
+last list, stale data left to its TTL, someone else's pane left alone, and
+the render (the contract checks, the rows, the ten-row cap, escaping). CI
+runs them on 3.11 and 3.12 (`.github/workflows/prs-producer-tests.yml`,
+informational, never a required check).

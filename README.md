@@ -76,8 +76,10 @@ is governed, not in a pipeline. Each row links to the evidence in this checkout.
   [`producers/home/`](producers/home/), which turns Home Assistant's states
   into a home pane and a weather pane; and
   [`producers/fleet/`](producers/fleet/), which shows the claytonia bullpen's
-  workers, queue, runs and agent PRs. These five are the resting panes the
-  Roku remote's Left/Right chooses the default from (ADR-0013, ADR-0014).
+  workers, queue, runs and agent PRs; and
+  [`producers/prs/`](producers/prs/), which shows the org's pull requests as a
+  running list with each one's merge status. These six are the resting panes
+  the Roku remote's Left/Right chooses the default from (ADR-0013, ADR-0014).
   [`producers/grafana/`](producers/grafana/) renders Grafana Cloud
   dashboards into more resting panes, with a Viewer token pub holds
   (ADR-0017).
