@@ -1,6 +1,6 @@
 # ADR-0022: A new pane is renamed into the bus whole, and leaves it the same way
 
-**Status:** Proposed (2026-11-04; #51), for Chris's review. Amends
+**Status:** Accepted (2026-11-04, Chris; #51). Amends
 [ADR-0004](0004-nas-file-pane-bus-write-then-rename.md) and the bus rules in
 [`concept.md`](../concept.md#paths) (write-then-rename, manifest last), and
 rule 1 of [`claiming-the-display.md`](../claiming-the-display.md#two-rules).
