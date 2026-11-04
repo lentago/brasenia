@@ -74,8 +74,9 @@ had first left out of scope.
 - **The wall takes at most a fifth of the hour's budget.** A personal
   token's requests count against the owner's one personal limit, which his
   other tokens and the apps acting for him share [1]. On this workstation
-  that is the `gh` CLI that every local session uses: at about 16:15Z on
-  2026-11-04, 559 of that hour's 5,000 were already spent. So:
+  that is the `gh` CLI that every local session uses. At about 16:07Z on
+  2026-11-04, 559 of the 5,000 in the window from 15:28Z to 16:28Z were
+  already spent. So:
   - the focus producer spends at most 800 core requests an hour and counts
     only the requests GitHub charges, since authorized 304s are free;
   - the PRs pane spends at most 200 an hour, core requests and GraphQL
