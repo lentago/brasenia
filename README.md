@@ -14,8 +14,11 @@ shared viewport: one always-on wall display whose content is chosen by a
 **rubric, not a remote**. Panes surface when there's something worth showing —
 a PR awaiting review, a failing backup, a deploy in flight — and sink back
 when they resolve; the daily Family Brief is the resting surface underneath.
-Today it drives a 4K Roku in the office via a live HLS stream; the pane bus and
-compositor are the roadmap.
+The pane bus and the compositor run on pub, the house web server. Producers
+there and the `pane` command post panes, and the compositor picks one
+([ADR-0008](docs/adr/0008-compositor-and-producers-on-pub.md)). The display
+guest renders that pick into a live 4K HLS stream, and a Roku in the office
+plays it.
 
 *(Renamed from `lunaria` on 2026-07-20, hours after creation — Lunaria annua
 is a European garden escape, and the Lentago codename roster is New England
