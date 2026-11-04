@@ -190,14 +190,14 @@ class ProducerTest(unittest.TestCase):
     def test_a_write_error_backs_the_slot_off_and_spares_the_others(self):
         self.seed_token()
         p = self.make()
-        real = producer.write_atomic
+        real = producer.create_pane
 
-        def flaky(path, data):
-            if "grafana-infra" in path:
+        def flaky(bus, pane_dir, files):
+            if "grafana-infra" in pane_dir:
                 raise PermissionError("denied")
-            real(path, data)
+            return real(bus, pane_dir, files)
 
-        with mock.patch.object(producer, "write_atomic", flaky), \
+        with mock.patch.object(producer, "create_pane", flaky), \
                 self.assertLogs(producer.log, "INFO") as logs:
             self.assertEqual(p.cycle(), 1)
         self.assertIn("could not write", logs.output[0])
@@ -219,6 +219,76 @@ class ProducerTest(unittest.TestCase):
         self.assertEqual(p.cycle(), 0)                              # both due and fine again
         self.assertEqual(len(self.fake.calls), 3)
         self.assertIsNotNone(self.pane("grafana-network"))
+
+    def bus(self, *parts):
+        return os.path.join(self.webroot, "viewport", *parts)
+
+    def test_a_new_pane_appears_in_one_rename_with_its_image(self):
+        self.seed_token()
+        renames = []
+        real = os.rename
+
+        def spy(src, dst):
+            renames.append((os.path.relpath(os.path.dirname(src), self.bus()), os.path.relpath(dst, self.bus())))
+            self.assertEqual(sorted(os.listdir(src)), ["dashboard.png", "manifest.json", "pane.html"])
+            return real(src, dst)
+
+        with mock.patch.object(producer.os, "rename", spy):
+            self.make().cycle()
+        self.assertEqual(sorted(renames), [("staging", os.path.join("panes", "grafana-infra")),
+                                           ("staging", os.path.join("panes", "grafana-network"))])
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+        self.assertEqual(png_size(self.pane("grafana-infra", "dashboard.png")), (1232, 650))   # bytes intact
+
+    def appears_first(self, author):
+        """Patch the create rename so that ``author``'s infra pane lands at
+        the target just before it: the race of #51."""
+        real = os.rename
+
+        def racer(src, dst):
+            if dst == self.bus("panes", "grafana-infra"):
+                os.makedirs(dst)
+                with open(os.path.join(dst, "pane.html"), "w") as fh:
+                    fh.write("<p>first</p>")
+                with open(os.path.join(dst, "manifest.json"), "w") as fh:
+                    json.dump({"author": author, "title": "first"}, fh)
+            return real(src, dst)
+
+        return mock.patch.object(producer.os, "rename", racer)
+
+    def test_a_slot_that_loses_the_race_leaves_the_winner_alone(self):
+        self.seed_token()
+        with self.appears_first("chris@desk"), self.assertLogs(producer.log, "WARNING"):
+            self.assertEqual(self.make().cycle(), 0)
+        self.assertEqual(self.pane("grafana-infra"), {"author": "chris@desk", "title": "first"})
+        self.assertEqual(self.pane("grafana-infra", "pane.html"), "<p>first</p>")
+        self.assertIsNone(self.pane("grafana-infra", "dashboard.png"))
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+        self.assertIsNotNone(self.pane("grafana-network"))
+
+    def test_losing_the_race_to_itself_updates_in_place(self):
+        self.seed_token()
+        with self.appears_first("grafana-producer@pub"):
+            self.make().cycle()
+        self.assertEqual(self.pane("grafana-infra")["title"], "Infrastructure health")
+        self.assertEqual(png_size(self.pane("grafana-infra", "dashboard.png")), (1232, 650))
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+
+    def test_an_existing_pane_is_rewritten_file_by_file_manifest_last(self):
+        self.seed_token()
+        p = self.make(self.slots[:1])
+        p.cycle()
+        order = []
+        real = os.replace
+
+        def spy(src, dst):
+            order.append(os.path.basename(dst))
+            return real(src, dst)
+
+        self.clock.advance(300)
+        with mock.patch.object(producer.os, "replace", spy):
+            p.cycle()
+        self.assertEqual(order, ["dashboard.png", "pane.html", "manifest.json"])
 
 
 if __name__ == "__main__":

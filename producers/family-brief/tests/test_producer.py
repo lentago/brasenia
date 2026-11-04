@@ -1,10 +1,13 @@
+import errno
 import json
 import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 from helpers import Clock, fixture, with_date
+from family_brief_producer import producer as producer_module
 from family_brief_producer.producer import AUTHOR, DWELL_S, PANE_ID, WEEK_ID, Producer
 
 
@@ -129,3 +132,118 @@ class ProducerTests(unittest.TestCase):
         self.producer.cycle()
         self.assertFalse(os.path.exists(os.path.join(self.webroot, "viewport", "panes", WEEK_ID)))
         self.assertFalse(os.path.exists(self.pane_dir))
+
+    def bus(self, *parts):
+        return os.path.join(self.webroot, "viewport", *parts)
+
+    def test_every_new_pane_appears_in_one_rename(self):
+        renames = []
+        real = os.rename
+
+        def spy(src, dst):
+            renames.append((os.path.relpath(os.path.dirname(src), self.bus()), os.path.relpath(dst, self.bus())))
+            self.assertEqual(sorted(os.listdir(src)), ["manifest.json", "pane.html"])
+            return real(src, dst)
+
+        with mock.patch.object(producer_module.os, "rename", spy):
+            self.producer.cycle()
+        self.assertEqual(sorted(renames), [("staging", "briefing"),
+                                           ("staging", os.path.join("panes", "family-today")),
+                                           ("staging", os.path.join("panes", "family-week"))])
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+
+    def appears_first(self, target, author):
+        """Patch the create rename so that ``author``'s pane lands at
+        ``target`` just before it: the race of #51."""
+        real = os.rename
+
+        def racer(src, dst):
+            if dst == self.bus(*target):
+                os.makedirs(dst)
+                with open(os.path.join(dst, "pane.html"), "w") as fh:
+                    fh.write("<p>first</p>")
+                with open(os.path.join(dst, "manifest.json"), "w") as fh:
+                    json.dump({"author": author, "title": "first"}, fh)
+            return real(src, dst)
+
+        return mock.patch.object(producer_module.os, "rename", racer)
+
+    def test_a_pane_that_loses_the_race_is_left_alone(self):
+        with self.appears_first(("panes", PANE_ID), "someone@else"):
+            self.producer.cycle()
+        self.assertEqual(self.manifest(), {"author": "someone@else", "title": "first"})
+        with open(os.path.join(self.pane_dir, "pane.html"), encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), "<p>first</p>")
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+        self.assertTrue(os.path.exists(self.bus("panes", WEEK_ID, "pane.html")))   # the others go on
+
+    def test_the_briefing_slot_that_loses_the_race_is_left_alone(self):
+        with self.appears_first(("briefing",), "someone@else"):
+            self.producer.cycle()
+        self.assertEqual(json.loads(self.briefing("manifest.json")),
+                         {"author": "someone@else", "title": "first"})
+        self.assertEqual(self.briefing("pane.html"), "<p>first</p>")
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+
+    def test_losing_the_race_to_itself_updates_in_place(self):
+        for target in (("panes", PANE_ID), ("briefing",)):
+            with self.subTest(target=target[-1]), self.appears_first(target, AUTHOR):
+                self.producer.cycle()
+                with open(self.bus(*target, "pane.html"), encoding="utf-8") as fh:
+                    self.assertIn("<h1>", fh.read())   # ours, not the racer's "first"
+                with open(self.bus(*target, "manifest.json"), encoding="utf-8") as fh:
+                    self.assertEqual(json.load(fh)["author"], AUTHOR)
+                self.assertEqual(os.listdir(self.bus("staging")), [])
+            shutil.rmtree(self.bus("panes"))
+            shutil.rmtree(self.bus("briefing"))
+
+    def test_an_existing_pane_is_rewritten_file_by_file_manifest_last(self):
+        self.producer.cycle()
+        order = []
+        real = os.replace
+
+        def spy(src, dst):
+            order.append(os.path.relpath(dst, self.bus()))
+            return real(src, dst)
+
+        self.clock.advance(1)
+        with mock.patch.object(producer_module.os, "replace", spy):
+            self.producer.cycle()
+        self.assertEqual(order, [
+            os.path.join("briefing", "pane.html"), os.path.join("briefing", "manifest.json"),
+            os.path.join("panes", "family-today", "pane.html"), os.path.join("panes", "family-today", "manifest.json"),
+            os.path.join("panes", "family-week", "pane.html"), os.path.join("panes", "family-week", "manifest.json")])
+
+    def stale_after_fresh(self):
+        self.producer.cycle()
+        self.doc = with_date(self.doc, "2026-10-23")
+
+    def test_stale_panes_come_off_in_one_rename_into_staging(self):
+        self.stale_after_fresh()
+        renames = []
+        real = os.rename
+
+        def spy(src, dst):
+            renames.append((os.path.relpath(src, self.bus()), os.path.relpath(os.path.dirname(dst), self.bus())))
+            return real(src, dst)
+
+        with mock.patch.object(producer_module.os, "rename", spy):
+            self.producer.cycle()
+        self.assertEqual(renames, [(os.path.join("panes", "family-today"), "staging"),
+                                   (os.path.join("panes", "family-week"), "staging")])
+        self.assertEqual(os.listdir(self.bus("panes")), [])
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+        self.assertTrue(os.path.exists(self.bus("briefing", "pane.html")))   # the slot stays
+
+    def test_a_removal_across_filesystems_falls_back_to_deleting_in_place(self):
+        self.stale_after_fresh()
+        with mock.patch.object(producer_module.os, "rename", side_effect=OSError(errno.EXDEV, "cross-device")):
+            self.producer.cycle()
+        self.assertEqual(os.listdir(self.bus("panes")), [])
+
+    def test_a_removal_that_fails_is_logged_not_raised(self):
+        self.stale_after_fresh()
+        with mock.patch.object(producer_module, "remove_pane", side_effect=PermissionError("denied")), \
+                self.assertLogs(producer_module.log, "WARNING") as logs:
+            self.producer.cycle()
+        self.assertIn("could not remove panes/family-today", logs.output[0])

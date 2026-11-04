@@ -46,7 +46,11 @@ explicit `--ttl` for those two.
 
 1. **Write only your own pane directory.** Never edit or delete another
    writer's pane. `pane renew` and `pane release` refuse a pane whose author
-   is not you, and there is no force flag.
+   is not you, and there is no force flag. When two writers claim the same
+   new id at once, `pane claim` lets exactly one win, and the other is
+   refused. A writer that doesn't use `pane` follows the same rules
+   ([ADR-0022](adr/0022-a-new-pane-is-renamed-into-the-bus-whole.md)): build a
+   new pane in `staging/` and rename it into `panes/`.
 2. **The compositor alone decides what shows.** A claim is a request. Rank
    and fallback are the compositor's; do not try to force the pointer.
 

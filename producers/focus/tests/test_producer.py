@@ -1,11 +1,14 @@
+import errno
 import json
 import logging
 import os
 import tempfile
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta, timezone
 
 from fakes import FakeTransport, serve_repo
+from focus_producer import producer as producer_module
 from focus_producer.github import GitHub
 from focus_producer.producer import Producer
 
@@ -80,6 +83,9 @@ class ProducerTests(unittest.TestCase):
                          ["manifest.json", "pane.html"])  # no .partial left behind
 
     def test_manifest_written_last(self):
+        self.beacon("thinkpad-19ca7047")
+        self.producer.cycle()   # the pane exists; a later cycle rewrites it file by file
+        self.clock.advance(30)
         self.beacon("thinkpad-19ca7047")
         order = []
         real_replace = os.replace
@@ -237,6 +243,126 @@ class ProducerTests(unittest.TestCase):
             json.dump({"author": "chris@thinkpad", "repo": "lentago/osmunda"}, fh)
         self.producer.cycle()
         self.assertTrue(os.path.isdir(mine))
+
+    def bus(self, *parts):
+        return os.path.join(self.webroot, "viewport", *parts)
+
+    def test_a_new_pane_appears_in_one_rename(self):
+        self.beacon("thinkpad-19ca7047")
+        renames = []
+        real = os.rename
+
+        def spy(src, dst):
+            renames.append((os.path.relpath(os.path.dirname(src), self.bus()), os.path.relpath(dst, self.bus())))
+            self.assertEqual(sorted(os.listdir(src)), ["manifest.json", "pane.html"])
+            return real(src, dst)
+
+        with mock.patch.object(producer_module.os, "rename", spy):
+            self.producer.cycle()
+        self.assertEqual(renames, [("staging", os.path.join("panes", "focus-lentago-brasenia"))])
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+
+    def appears_first(self, author):
+        """Patch the create rename so that ``author``'s pane lands at the
+        target just before it: the race of #51."""
+        real = os.rename
+
+        def racer(src, dst):
+            if dst == self.bus("panes", "focus-lentago-brasenia"):
+                os.makedirs(dst)
+                with open(os.path.join(dst, "pane.html"), "w") as fh:
+                    fh.write("<p>first</p>")
+                with open(os.path.join(dst, "manifest.json"), "w") as fh:
+                    json.dump({"author": author, "class": "focus", "repo": "lentago/brasenia"}, fh)
+            return real(src, dst)
+
+        return mock.patch.object(producer_module.os, "rename", racer)
+
+    def test_a_pane_that_loses_the_race_is_left_alone(self):
+        self.beacon("thinkpad-19ca7047")
+        with self.appears_first("chris@thinkpad"):
+            self.producer.cycle()
+        self.assertEqual(self.read("focus-lentago-brasenia", "pane.html"), "<p>first</p>")
+        self.assertEqual(json.loads(self.read("focus-lentago-brasenia", "manifest.json"))["author"],
+                         "chris@thinkpad")
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+
+    def test_an_existing_pane_another_author_owns_is_not_rewritten(self):
+        # Rule 1 on the write path too, not only on removal (#51).
+        pane = self.bus("panes", "focus-lentago-brasenia")
+        os.makedirs(pane)
+        with open(os.path.join(pane, "pane.html"), "w") as fh:
+            fh.write("<p>by hand</p>")
+        with open(os.path.join(pane, "manifest.json"), "w") as fh:
+            json.dump({"author": "chris@thinkpad", "class": "focus", "repo": "lentago/brasenia"}, fh)
+        self.beacon("thinkpad-19ca7047")
+        self.producer.cycle()
+        self.assertEqual(self.read("focus-lentago-brasenia", "pane.html"), "<p>by hand</p>")
+        self.assertEqual(json.loads(self.read("focus-lentago-brasenia", "manifest.json"))["author"],
+                         "chris@thinkpad")
+
+    def test_an_existing_pane_with_no_manifest_is_rewritten(self):
+        # Debris from a write cut off before this change carries no claim.
+        os.makedirs(self.bus("panes", "focus-lentago-brasenia"))
+        self.beacon("thinkpad-19ca7047")
+        self.producer.cycle()
+        self.assertEqual(json.loads(self.read("focus-lentago-brasenia", "manifest.json"))["author"],
+                         "focus-producer@pub")
+
+    def test_losing_the_race_to_itself_updates_in_place(self):
+        self.beacon("thinkpad-19ca7047")
+        with self.appears_first("focus-producer@pub"):
+            self.producer.cycle()
+        self.assertIn("Focus producer", self.read("focus-lentago-brasenia", "pane.html"))
+        self.assertEqual(json.loads(self.read("focus-lentago-brasenia", "manifest.json"))["title"],
+                         "brasenia — open pull requests")
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+
+    def test_a_pane_without_its_beacon_comes_off_in_one_rename_into_staging(self):
+        self.beacon("thinkpad-19ca7047")
+        self.producer.cycle()
+        os.unlink(os.path.join(self.focus, "thinkpad-19ca7047.json"))
+        renames = []
+        real = os.rename
+
+        def spy(src, dst):
+            renames.append((os.path.relpath(src, self.bus()), os.path.relpath(os.path.dirname(dst), self.bus())))
+            return real(src, dst)
+
+        with mock.patch.object(producer_module.os, "rename", spy):
+            self.producer.cycle()
+        self.assertEqual(renames, [(os.path.join("panes", "focus-lentago-brasenia"), "staging")])
+        self.assertEqual(os.listdir(self.panes), [])
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+
+    def test_a_quiet_repos_pane_comes_off_in_one_rename_into_staging(self):
+        mine = os.path.join(self.panes, "focus-lentago-osmunda")
+        os.makedirs(mine)
+        with open(os.path.join(mine, "manifest.json"), "w") as fh:
+            json.dump({"author": "focus-producer@pub", "repo": "lentago/osmunda"}, fh)
+        self.quiet_repo()
+        with mock.patch.object(producer_module.os, "rename", wraps=os.rename) as spy:
+            self.producer.cycle()
+        self.assertEqual(spy.call_count, 1)
+        self.assertFalse(os.path.exists(mine))
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+
+    def test_a_removal_across_filesystems_falls_back_to_deleting_in_place(self):
+        self.beacon("thinkpad-19ca7047")
+        self.producer.cycle()
+        os.unlink(os.path.join(self.focus, "thinkpad-19ca7047.json"))
+        with mock.patch.object(producer_module.os, "rename", side_effect=OSError(errno.EXDEV, "cross-device")):
+            self.producer.cycle()
+        self.assertEqual(os.listdir(self.panes), [])
+
+    def test_a_removal_that_fails_is_logged_and_cleanup_goes_on(self):
+        self.beacon("thinkpad-19ca7047")
+        self.producer.cycle()
+        os.unlink(os.path.join(self.focus, "thinkpad-19ca7047.json"))
+        with mock.patch.object(producer_module, "remove_pane", side_effect=PermissionError("denied")), \
+                mock.patch.object(producer_module.log, "warning") as warning:   # logging is disabled here
+            self.producer.cycle()
+        self.assertIn("could not remove pane", warning.call_args.args[0])
 
     def test_cli_rejects_an_unknown_zone(self):
         from focus_producer.__main__ import main

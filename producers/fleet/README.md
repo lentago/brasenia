@@ -75,8 +75,10 @@ budget. A failed search keeps the last list, and the header says how old it
 is. Unauthenticated search sees public repositories only.
 
 If the queue isn't there (no mount), the cycle changes nothing and the pane
-leaves the bus at its 10-minute TTL. Files are written `x.partial` then
-renamed, `manifest.json` last. A pane directory with another author's
+leaves the bus at its 10-minute TTL. A new pane is built in
+`viewport/staging/` and renamed into `panes/` whole
+([ADR-0022](../../docs/adr/0022-a-new-pane-is-renamed-into-the-bus-whole.md));
+an existing one is rewritten `x.partial` then renamed, `manifest.json` last. A pane directory with another author's
 manifest is left alone.
 
 ## Tests

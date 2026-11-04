@@ -1,11 +1,14 @@
+import errno
 import json
 import logging
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 from helpers import Clock, fixture, landed
 from pipeline_producer import __main__ as cli
+from pipeline_producer import producer as producer_module
 from pipeline_producer.producer import Producer
 
 
@@ -160,6 +163,109 @@ class ProducerTests(unittest.TestCase):
         self.serve(doc)
         self.producer.cycle()
         self.assertTrue(os.path.exists(os.path.join(self.pane_dir, "pane.html")))
+
+    def bus(self, *parts):
+        return os.path.join(self.webroot, "viewport", *parts)
+
+    def test_a_new_pane_appears_in_one_rename(self):
+        self.serve(fixture("in-flight"))
+        renames = []
+        real = os.rename
+
+        def spy(src, dst):
+            renames.append((os.path.relpath(os.path.dirname(src), self.bus()), os.path.relpath(dst, self.bus())))
+            self.assertEqual(sorted(os.listdir(src)), ["manifest.json", "pane.html"])
+            return real(src, dst)
+
+        with mock.patch.object(producer_module.os, "rename", spy):
+            self.producer.cycle()
+        self.assertEqual(renames, [("staging", os.path.join("panes", "change-pipeline"))])
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+        self.assertEqual(self.manifest()["author"], "pipeline-producer@pub")
+
+    def appears_first(self, author):
+        """Patch the create rename so that ``author``'s pane lands at the
+        target just before it: the race of #51."""
+        real = os.rename
+
+        def racer(src, dst):
+            if dst == self.pane_dir:
+                os.makedirs(dst)
+                with open(os.path.join(dst, "pane.html"), "w") as fh:
+                    fh.write("<p>first</p>")
+                with open(os.path.join(dst, "manifest.json"), "w") as fh:
+                    json.dump({"author": author, "title": "first"}, fh)
+            return real(src, dst)
+
+        return mock.patch.object(producer_module.os, "rename", racer)
+
+    def test_a_cycle_that_loses_the_race_leaves_the_winner_alone(self):
+        self.serve(fixture("in-flight"))
+        with self.appears_first("chris@thinkpad"):
+            self.producer.cycle()
+        self.assertEqual(self.manifest(), {"author": "chris@thinkpad", "title": "first"})
+        self.assertEqual(self.read("pane.html"), "<p>first</p>")
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+
+    def test_losing_the_race_to_itself_updates_in_place(self):
+        self.serve(fixture("in-flight"))
+        with self.appears_first("pipeline-producer@pub"):
+            self.producer.cycle()
+        self.assertEqual(self.manifest()["title"], "2 changes in flight")
+        self.assertIn("<b>drosera</b>", self.read("pane.html"))
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+
+    def test_an_existing_pane_is_rewritten_file_by_file_manifest_last(self):
+        doc = fixture("in-flight")
+        self.serve(doc)
+        self.producer.cycle()
+        order = []
+        real = os.replace
+
+        def spy(src, dst):
+            order.append((os.path.basename(src), os.path.basename(dst)))
+            return real(src, dst)
+
+        self.clock.advance(1)
+        doc["generated_at"] = "2026-10-07T22:11:30Z"
+        self.serve(doc)
+        with mock.patch.object(producer_module.os, "replace", spy):
+            self.producer.cycle()
+        self.assertEqual(order, [("pane.html.partial", "pane.html"),
+                                 ("manifest.json.partial", "manifest.json")])
+
+    def land_everything(self):
+        doc = fixture("in-flight")
+        self.serve(doc)
+        self.producer.cycle()
+        self.serve(landed(landed(doc, "lentago/kalmia"), "lentago/drosera"))
+
+    def test_a_resolved_pane_comes_off_in_one_rename_into_staging(self):
+        self.land_everything()
+        renames = []
+        real = os.rename
+
+        def spy(src, dst):
+            renames.append((os.path.relpath(src, self.bus()), os.path.relpath(os.path.dirname(dst), self.bus())))
+            return real(src, dst)
+
+        with mock.patch.object(producer_module.os, "rename", spy):
+            self.producer.cycle()
+        self.assertEqual(renames, [(os.path.join("panes", "change-pipeline"), "staging")])
+        self.assertFalse(os.path.exists(self.pane_dir))
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+
+    def test_a_removal_across_filesystems_falls_back_to_deleting_in_place(self):
+        self.land_everything()
+        with mock.patch.object(producer_module.os, "rename", side_effect=OSError(errno.EXDEV, "cross-device")):
+            self.producer.cycle()
+        self.assertFalse(os.path.exists(self.pane_dir))
+
+    def test_a_removal_that_fails_is_logged_not_raised(self):
+        self.land_everything()
+        with mock.patch.object(producer_module, "remove_pane", side_effect=PermissionError("denied")):
+            self.producer.cycle()
+        self.assertTrue(os.path.isdir(self.pane_dir))
 
     def test_cli_once_renders_fixture(self):
         fixtures = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "in-flight")

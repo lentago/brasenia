@@ -27,7 +27,10 @@ kalmia's `brasenia-links.service`
    `{"title", "source"}`, already validated by the compositor. If the file
    can't be read, it changes nothing and its panes leave the bus at their TTL.
 2. **Keeps a pane per slot.** For each slot it writes
-   `panes/<pane-id>/manifest.json` (`x.partial` then `x`):
+   `panes/<pane-id>/manifest.json`. A new pane is built in
+   `viewport/staging/` and renamed into `panes/` whole
+   ([ADR-0022](../../docs/adr/0022-a-new-pane-is-renamed-into-the-bus-whole.md));
+   an existing one is rewritten `x.partial` then `x`:
    - `class: ambient`, `origin: operator`, `dwell_s: 60`
    - `author: links-producer@pub`
    - `ttl_minutes: 10`, with `created` renewed every cycle

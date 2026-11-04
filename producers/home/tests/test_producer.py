@@ -1,8 +1,10 @@
+import errno
 import json
 import os
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 from helpers import TOKEN, Clock, FakeHA
 
@@ -128,6 +130,111 @@ class ProducerTest(unittest.TestCase):
         self.seed_token()
         self.make(hide=["person.alex"]).cycle()
         self.assertNotIn("Alex", self.pane("home", "pane.html"))
+
+    def bus(self, *parts):
+        return os.path.join(self.webroot, "viewport", *parts)
+
+    def test_a_new_pane_appears_in_one_rename(self):
+        self.seed_token()
+        renames = []
+        real = os.rename
+
+        def spy(src, dst):
+            renames.append((os.path.relpath(os.path.dirname(src), self.bus()),
+                            os.path.relpath(dst, self.bus())))
+            self.assertEqual(sorted(os.listdir(src)), ["manifest.json", "pane.html"])
+            return real(src, dst)
+
+        with mock.patch.object(producer.os, "rename", spy):
+            self.make().cycle()
+        self.assertEqual(renames, [("staging", os.path.join("panes", "home")),
+                                   ("staging", os.path.join("panes", "weather"))])
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+
+    def appears_first(self, author):
+        """Patch the create rename so that ``author``'s weather pane lands at
+        the target just before it: the race of #51."""
+        real = os.rename
+
+        def racer(src, dst):
+            if dst == self.bus("panes", "weather"):
+                os.makedirs(dst)
+                with open(os.path.join(dst, "pane.html"), "w") as fh:
+                    fh.write("<p>first</p>")
+                with open(os.path.join(dst, "manifest.json"), "w") as fh:
+                    json.dump({"author": author, "title": "first"}, fh)
+            return real(src, dst)
+
+        return mock.patch.object(producer.os, "rename", racer)
+
+    def test_a_cycle_that_loses_the_race_leaves_the_winner_alone(self):
+        self.seed_token()
+        with self.appears_first("someone@else"), self.assertLogs(producer.log, "WARNING"):
+            self.make().cycle()
+        self.assertEqual(self.pane("weather"), {"author": "someone@else", "title": "first"})
+        self.assertEqual(self.pane("weather", "pane.html"), "<p>first</p>")
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+        self.assertEqual(self.pane("home")["author"], "home-producer@pub")
+
+    def test_losing_the_race_to_itself_updates_in_place(self):
+        self.seed_token()
+        with self.appears_first("home-producer@pub"):
+            self.make().cycle()
+        self.assertEqual(self.pane("weather")["title"], "Weather")
+        self.assertIn("<!DOCTYPE html>", self.pane("weather", "pane.html"))
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+
+    def test_an_existing_pane_is_rewritten_file_by_file_manifest_last(self):
+        self.seed_token()
+        p = self.make()
+        p.cycle()
+        order = []
+        real = os.replace
+
+        def spy(src, dst):
+            order.append(os.path.relpath(dst, self.bus("panes")))
+            return real(src, dst)
+
+        self.clock.advance(60)
+        with mock.patch.object(producer.os, "replace", spy):
+            p.cycle()
+        self.assertEqual(order, [os.path.join("home", "pane.html"), os.path.join("home", "manifest.json"),
+                                 os.path.join("weather", "pane.html"), os.path.join("weather", "manifest.json")])
+
+    def test_a_pane_comes_off_in_one_rename_into_staging(self):
+        self.seed_token()
+        self.make().cycle()
+        self.fake.states = [s for s in self.fake.states if not s["entity_id"].startswith("weather.")]
+        renames = []
+        real = os.rename
+
+        def spy(src, dst):
+            renames.append((os.path.relpath(src, self.bus()), os.path.relpath(os.path.dirname(dst), self.bus())))
+            return real(src, dst)
+
+        with mock.patch.object(producer.os, "rename", spy):
+            self.make().cycle()
+        self.assertEqual(renames, [(os.path.join("panes", "weather"), "staging")])
+        self.assertFalse(os.path.exists(self.bus("panes", "weather")))
+        self.assertEqual(os.listdir(self.bus("staging")), [])
+
+    def test_a_removal_across_filesystems_falls_back_to_deleting_in_place(self):
+        self.seed_token()
+        self.make().cycle()
+        self.fake.states = [s for s in self.fake.states if not s["entity_id"].startswith("weather.")]
+        with mock.patch.object(producer.os, "rename", side_effect=OSError(errno.EXDEV, "cross-device")):
+            self.make().cycle()
+        self.assertFalse(os.path.exists(self.bus("panes", "weather")))
+
+    def test_a_removal_that_fails_is_logged_not_raised(self):
+        self.seed_token()
+        self.make().cycle()
+        self.fake.states = [s for s in self.fake.states if not s["entity_id"].startswith("weather.")]
+        with mock.patch.object(producer, "remove_pane", side_effect=PermissionError("denied")), \
+                self.assertLogs(producer.log, "WARNING") as logs:
+            self.make().cycle()
+        self.assertIn("could not remove panes/weather", logs.output[0])
+        self.assertIsNotNone(self.pane("home"))
 
 
 if __name__ == "__main__":

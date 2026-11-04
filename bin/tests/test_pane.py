@@ -77,6 +77,7 @@ class ClaimTests(PaneCase):
         self.assertNotIn("repo", m)
 
     def test_manifest_is_written_last_via_rename(self):
+        self.claim()   # the pane exists; a re-claim rewrites it file by file
         order = []
         real = pane.os.replace
 
@@ -88,6 +89,59 @@ class ClaimTests(PaneCase):
             self.claim()
         self.assertEqual(order, [("pane.html.partial", "pane.html"),
                                  ("manifest.json.partial", "manifest.json")])
+
+    def test_a_new_pane_appears_in_one_rename(self):
+        renames = []
+        real = pane.os.rename
+
+        def spy(src, dst):
+            renames.append((os.path.relpath(os.path.dirname(src), self.bus),
+                            os.path.relpath(dst, self.bus)))
+            self.assertEqual(sorted(os.listdir(src)), ["manifest.json", "pane.html"])
+            return real(src, dst)
+
+        with mock.patch.object(pane.os, "rename", spy):
+            code, _, _ = self.claim()
+        self.assertEqual(code, 0)
+        self.assertEqual(renames, [("staging", os.path.join("panes", "demo"))])
+        self.assertEqual(os.listdir(os.path.join(self.bus, "staging")), [])
+        self.assertEqual(self.manifest()["author"], "ann@a")
+
+    def appears_first(self, author):
+        """Patch the create rename so that ``author``'s pane lands at the
+        target just before it: the race #51 describes."""
+        real = pane.os.rename
+
+        def racer(src, dst):
+            if os.path.dirname(dst) == os.path.join(self.bus, "panes"):
+                os.makedirs(dst)
+                with open(os.path.join(dst, "pane.html"), "w") as f:
+                    f.write("<p>first</p>")
+                with open(os.path.join(dst, "manifest.json"), "w") as f:
+                    json.dump({"schema": 1, "class": "attention", "title": "first",
+                               "created": "2026-10-07T12:00:00Z", "ttl_minutes": 240,
+                               "author": author, "origin": "operator"}, f)
+            return real(src, dst)
+
+        return mock.patch.object(pane.os, "rename", racer)
+
+    def test_a_claim_that_loses_the_race_leaves_the_winner_alone(self):
+        with self.appears_first("bob@b"):
+            code, _, err = self.claim()
+        self.assertEqual(code, 1)
+        self.assertIn("belongs to bob@b", err)
+        self.assertEqual(self.manifest()["title"], "first")
+        with open(os.path.join(self.pane_dir(), "pane.html")) as f:
+            self.assertEqual(f.read(), "<p>first</p>")
+        self.assertEqual(os.listdir(os.path.join(self.bus, "staging")), [])
+
+    def test_losing_the_race_to_your_own_claim_rewrites_it(self):
+        with self.appears_first("ann@a"):
+            code, _, _ = self.claim()
+        self.assertEqual(code, 0)
+        self.assertEqual(self.manifest()["title"], "look here")
+        with open(os.path.join(self.pane_dir(), "pane.html")) as f:
+            self.assertEqual(f.read(), PAGE)
 
     def test_options_and_stdin(self):
         code, _, _ = self.run_cli(
@@ -245,6 +299,23 @@ class RenewReleaseTests(PaneCase):
         self.assertEqual(code, 1)
         self.assertIn("ann@a", err)
         self.assertEqual(self.manifest()["created"], "2026-10-07T12:00:00Z")
+
+    def test_release_takes_the_pane_off_in_one_rename(self):
+        self.claim()
+        renames = []
+        real = pane.os.rename
+
+        def spy(src, dst):
+            renames.append((os.path.relpath(src, self.bus),
+                            os.path.relpath(os.path.dirname(dst), self.bus)))
+            return real(src, dst)
+
+        with mock.patch.object(pane.os, "rename", spy):
+            code, _, _ = self.run_cli("release", "demo", "--author", "ann@a")
+        self.assertEqual(code, 0)
+        self.assertEqual(renames, [(os.path.join("panes", "demo"), "staging")])
+        self.assertFalse(os.path.exists(self.pane_dir()))
+        self.assertEqual(os.listdir(os.path.join(self.bus, "staging")), [])
 
     def test_release_removes_only_own(self):
         self.claim("mine", "ann@a")

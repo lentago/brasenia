@@ -75,8 +75,12 @@ Each cycle:
 3. Otherwise, the repos with `in_flight: true` are taken oldest
    `in_flight_since` first. With none, the pane directory is removed (the
    activity sank). With some, `pane.html` and then `manifest.json` are
-   written, each as `x.partial` renamed to `x`, with `created` set to the
-   cycle time, so the 15-minute TTL slides while anything is in flight.
+   written, with `created` set to the cycle time, so the 15-minute TTL
+   slides while anything is in flight. A new pane is built in
+   `viewport/staging/` and renamed into `panes/` whole
+   ([ADR-0022](../../docs/adr/0022-a-new-pane-is-renamed-into-the-bus-whole.md));
+   an existing one is rewritten file by file, each as `x.partial` renamed to
+   `x`.
 
 The producer writes only `panes/change-pipeline/`. If that directory holds
 a manifest with another `author`, it is left alone and the cycle logs a

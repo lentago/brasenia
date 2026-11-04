@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import unittest
 from datetime import timedelta
+from unittest import mock
 
 from helpers import NOW, Queue, pr
 
@@ -87,6 +88,71 @@ class ProducerTest(unittest.TestCase):
         with self.assertLogs(producer.log, "WARNING"):
             self.p.cycle()
         self.assertEqual(os.listdir(self.pane_dir), ["manifest.json"])
+
+    def staging(self):
+        return os.path.join(self.webroot, "viewport", "staging")
+
+    def test_a_new_pane_appears_in_one_rename(self):
+        renames = []
+        real = os.rename
+
+        def spy(src, dst):
+            bus = os.path.join(self.webroot, "viewport")
+            renames.append((os.path.relpath(os.path.dirname(src), bus), os.path.relpath(dst, bus)))
+            self.assertEqual(sorted(os.listdir(src)), ["manifest.json", "pane.html"])
+            return real(src, dst)
+
+        with mock.patch.object(producer.os, "rename", spy):
+            self.p.cycle()
+        self.assertEqual(renames, [("staging", os.path.join("panes", "fleet"))])
+        self.assertEqual(os.listdir(self.staging()), [])
+        self.assertEqual(self.read("manifest.json")["author"], "fleet-producer@pub")
+
+    def appears_first(self, author):
+        """Patch the create rename so that ``author``'s pane lands at the
+        target just before it: the race of #51."""
+        real = os.rename
+
+        def racer(src, dst):
+            if dst == self.pane_dir:
+                os.makedirs(dst)
+                with open(os.path.join(dst, "pane.html"), "w") as fh:
+                    fh.write("<p>first</p>")
+                with open(os.path.join(dst, "manifest.json"), "w") as fh:
+                    json.dump({"author": author, "title": "first"}, fh)
+            return real(src, dst)
+
+        return mock.patch.object(producer.os, "rename", racer)
+
+    def test_a_cycle_that_loses_the_race_leaves_the_winner_alone(self):
+        with self.appears_first("someone@else"), self.assertLogs(producer.log, "WARNING"):
+            self.p.cycle()
+        self.assertEqual(self.read("manifest.json"), {"author": "someone@else", "title": "first"})
+        self.assertEqual(self.read("pane.html"), "<p>first</p>")
+        self.assertEqual(os.listdir(self.staging()), [])
+
+    def test_losing_the_race_to_itself_updates_in_place(self):
+        with self.appears_first("fleet-producer@pub"):
+            self.p.cycle()
+        self.assertEqual(self.read("manifest.json")["title"], "Fleet")
+        self.assertIn("<b>brasenia</b> #87", self.read("pane.html"))
+        self.assertEqual(sorted(os.listdir(self.pane_dir)), ["manifest.json", "pane.html"])
+        self.assertEqual(os.listdir(self.staging()), [])
+
+    def test_an_existing_pane_is_rewritten_file_by_file_manifest_last(self):
+        self.p.cycle()
+        order = []
+        real = os.replace
+
+        def spy(src, dst):
+            order.append((os.path.basename(src), os.path.basename(dst)))
+            return real(src, dst)
+
+        self.clock.now += timedelta(seconds=60)
+        with mock.patch.object(producer.os, "replace", spy):
+            self.p.cycle()
+        self.assertEqual(order, [("pane.html.partial", "pane.html"),
+                                 ("manifest.json.partial", "manifest.json")])
 
 
 if __name__ == "__main__":

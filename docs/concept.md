@@ -170,8 +170,10 @@ client. The runtime half (unit, schedule, checkout) is kalmia's
   being below the floor (#115). A rendition goes when its pane does.
 - `manifest.json`: the fields and liveness rule are in
   [Contracts v1](#manifestjson).
-- Writers use write-then-rename (`pane.html.partial` → `pane.html`), create
-  the manifest last, and delete their own pane dir when the activity resolves.
+- Writers build a new pane whole in `staging/` and rename it into `panes/`,
+  rewrite a pane they own with write-then-rename (`pane.html.partial` →
+  `pane.html`), manifest last, and take their own pane dir off the bus when
+  the activity resolves ([ADR-0022](adr/0022-a-new-pane-is-renamed-into-the-bus-whole.md)).
   TTL is the backstop for writers that die without cleaning up.
 
 ## Rubric v1
@@ -263,8 +265,9 @@ Inside it:
 - `rubric.html`, `configure.html` and `rubric.json`, the rubric board, its configurator and the effective settings (ADR-0011).
 - `status.html`, the status card the compositor writes as the fallback of last resort.
 - `state/`, the compositor's state (`compositor.json`): its last decision, and each live pane's arrival for the rank order.
+- `staging/`, scratch space where writers build a pane before it appears and take it apart after it leaves. Nothing reads it (ADR-0022).
 
-Writers use write-then-rename for every file (`x.partial` → `x`) and write `manifest.json` last. A writer relinquishes by deleting its own pane directory. The compositor is the only writer of `current.json`, `lineup.json`, `status.html`, the board files and `state/`.
+A new pane appears whole. The writer builds it in `staging/<id>.new.<random>/`, all its files with `manifest.json` last, and renames that directory to `panes/<id>`. The rename fails when `panes/<id>` already holds files, so of two writers creating the same pane only one succeeds. The other writes nothing and treats the pane as existing. Only the author named in an existing pane's manifest rewrites it, with write-then-rename for every file (`x.partial` → `x`) and `manifest.json` last. A writer relinquishes by renaming its own pane directory into `staging/` and deleting it there, so no one sees it half-deleted ([ADR-0022](adr/0022-a-new-pane-is-renamed-into-the-bus-whole.md), #51). The compositor is the only writer of `current.json`, `lineup.json`, `status.html`, the board files and `state/`.
 
 ### manifest.json
 
