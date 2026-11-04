@@ -52,7 +52,8 @@ def node(node_id, checks="SUCCESS", armed=False, comments=(), labels=()):
         "autoMergeRequest": {"enabledAt": iso(NOW)} if armed else None,
         "labels": {"nodes": [{"name": name} for name in labels]},
         "commits": {"nodes": [{"commit": {"statusCheckRollup": {"state": checks} if checks else None}}]},
-        "comments": {"nodes": list(comments)},
+        "early": {"nodes": list(comments)[:50]},
+        "late": {"nodes": list(comments)[-50:]},
     }
 
 

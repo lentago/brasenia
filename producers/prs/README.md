@@ -1,5 +1,8 @@
 # PRs producer (GitHub → the PRs pane)
 
+*Written with Claude Code (Anthropic), like the rest of this repository: see
+the [README](../../README.md).*
+
 **What you're about to do:** run a small stdlib-only Python process (3.11+)
 that reads GitHub's search API and keeps one resting pane on the viewport bus:
 `<webroot>/viewport/panes/prs/`. It shows the fleet's pull requests as a
@@ -97,10 +100,11 @@ the pane, in one GraphQL query by node id (search items carry each PR's
   `FAILURE` or `ERROR` failing, `PENDING` or `EXPECTED` running, none when
   the commit has no checks;
 - **armed:** `autoMergeRequest` is set;
-- **reviewed:** among the first 50 comments, one that opens with a "Review ("
-  heading, posted by `github-actions` (claude-review.yml's "## Review (haiku,
-  claude-review.yml)") or by the repo's owner, a member or a collaborator ("Review
-  (Haiku, local)" where a repo has no caller, .github ADR-0013). The
+- **reviewed:** among the first 50 and the last 50 comments, one that opens
+  with a "Review (" heading, posted by `github-actions` (claude-review.yml's
+  "## Review (haiku, claude-review.yml)") or by the repo's owner, a member or
+  a collaborator ("Review (Haiku, local)" where a repo has no caller, .github
+  ADR-0013). The
   soft-fail notice ("could not complete") is not a review. A `re-review` or
   `review:sonnet` label means a fresh review is still to come, since the
   caller removes the label after its run, so the row reads "awaiting

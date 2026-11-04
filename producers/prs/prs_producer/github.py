@@ -45,9 +45,12 @@ ALIASES = {
     "lentago-claude-runner[bot]": "bullpen",
 }
 
-# One query for up to ten open PRs. GitHub prices it at one point: three
-# connections under each of ten nodes is 30 requests, under the 100 that make
+# One query for up to ten open PRs. GitHub prices it at one point: four
+# connections under each of ten nodes is 40 requests, under the 100 that make
 # a point. ``rateLimit`` costs nothing and reports what this query cost.
+# Comments are read from both ends, the first 50 and the last 50, so a review
+# posted at opening and one posted after a re-review are both seen on a busy
+# PR; only a review with more than 50 comments on either side of it is missed.
 STATES_QUERY = """
 query($ids: [ID!]!) {
   rateLimit { cost remaining resetAt }
@@ -57,7 +60,8 @@ query($ids: [ID!]!) {
       autoMergeRequest { enabledAt }
       labels(first: 20) { nodes { name } }
       commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
-      comments(first: 50) { nodes { author { login } authorAssociation body } }
+      early: comments(first: 50) { nodes { author { login } authorAssociation body } }
+      late: comments(last: 50) { nodes { author { login } authorAssociation body } }
     }
   }
 }
@@ -160,7 +164,8 @@ def reviewed(node):
     labels = {(lb or {}).get("name") for lb in (node.get("labels") or {}).get("nodes") or []}
     if labels & REVIEW_LABELS:
         return False
-    for comment in (node.get("comments") or {}).get("nodes") or []:
+    comments = [c for part in ("early", "late") for c in (node.get(part) or {}).get("nodes") or []]
+    for comment in comments:
         comment = comment or {}
         login = (comment.get("author") or {}).get("login")
         if login not in REVIEWERS and comment.get("authorAssociation") not in TRUSTED:

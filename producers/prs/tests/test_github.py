@@ -163,6 +163,14 @@ class StatesTest(unittest.TestCase):
         )
         self.assertEqual(sorted(k for k, v in states.items() if v["reviewed"]), ["bold", "ci", "local"])
 
+    def test_a_review_in_the_middle_of_a_busy_pr_is_found_from_either_end(self):
+        chatter = [comment("### terraform plan")] * 60
+        states, _, _ = self.states(node("early", comments=[comment(CI_REVIEW)] + chatter),
+                                   node("late", comments=chatter + [comment(CI_REVIEW)]),
+                                   node("buried", comments=chatter + [comment(CI_REVIEW)] + chatter))
+        self.assertEqual({k: v["reviewed"] for k, v in states.items()},
+                         {"early": True, "late": True, "buried": False})
+
     def test_unresolved_nodes_are_left_out(self):
         fake = FakeGitHub(nodes=[node("PR_a_1")])
         states, _ = github.Client("good", transport=fake).states(["PR_a_1", "PR_gone_9"])
