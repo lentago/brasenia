@@ -81,7 +81,8 @@ is governed, not in a pipeline. Each row links to the evidence in this checkout.
   [`producers/fleet/`](producers/fleet/), which shows the claytonia bullpen's
   workers, queue, runs and agent PRs; and
   [`producers/prs/`](producers/prs/), which shows the org's pull requests as a
-  running list with each one's merge status. These six panes are resting
+  running list with each one's merge status and, with pub's GitHub token
+  (ADR-0021), what each open one waits on. These six panes are resting
   panes, which the Roku remote's Left/Right chooses the default from
   (ADR-0013, ADR-0014).
   [`producers/grafana/`](producers/grafana/) renders Grafana Cloud

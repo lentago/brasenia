@@ -9,6 +9,12 @@ The list is ten 57 px rows, newest event first. Each row is a status chip
 (open, draft, merged, closed), the repo, the number, the title, who opened it
 and when the event was. The colours follow GitHub's own: green open,
 grey draft, purple merged, red closed.
+
+With pub's GitHub token, an open row whose state is known shows what it waits
+on in place of its author (#137): "checks failing", "armed", "awaiting
+review", "checks running" or "reviewed", in that order of precedence. Without
+the token the rows show authors and the footer says "no GitHub token"
+(ADR-0021).
 """
 
 import html
@@ -17,6 +23,7 @@ BG, CARD, LINE = "#0f1518", "#172025", "#2a373e"
 TEXT, MUTED, FAINT = "#e4ebee", "#9fb0b8", "#73858e"
 BAND, BAND_TEXT = "#1d3a33", "#cdeee3"
 OPEN, DRAFT, MERGED, CLOSED, AMBER = "#3fb950", "#8b949e", "#a371f7", "#f85149", "#f0a53a"
+RUNNING = "#58a6ff"
 ROWS = 10
 
 STATUS = {
@@ -54,7 +61,8 @@ h2 { margin: 0; height: 48px; font-size: 31.5px; line-height: 48px; color: %(mut
 .repo { flex: 0 0 360px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; }
 .num { flex: 0 0 105px; color: %(muted)s; }
 .title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.who { flex: 0 0 200px; color: %(muted)s; overflow: hidden; text-overflow: ellipsis; }
+.who { flex: 0 0 245px; color: %(muted)s; overflow: hidden; text-overflow: ellipsis; }
+.who.state { font-size: 30px; }
 .when { flex: 0 0 168px; color: %(muted)s; text-align: right; }
 .n.open { color: %(open)s; }
 .n.merged { color: %(merged)s; }
@@ -68,9 +76,12 @@ h2 { margin: 0; height: 48px; font-size: 31.5px; line-height: 48px; color: %(mut
 def render(data, status, scope, now, tz):
     """pane.html.
 
-    ``data`` is a ``github.snapshot`` result; ``status`` is ``{"as_of",
-    "error", "tried"}``: when ``data`` was fetched, the last refresh's
-    failure (or None) and when that refresh ran.
+    ``data`` is a ``Client.snapshot`` result; ``status`` is ``{"as_of",
+    "error", "tried", "token", "paused", "states"}``: when ``data`` was
+    fetched, the last refresh's failure (or None), when that refresh ran,
+    whether the producer holds a token GitHub accepts, whether the state
+    query is paused for GitHub's budget, and the open rows' known states by
+    node id.
     """
     e = html.escape
     tiles = "".join('<div class="tile"><div class="n%s">%d</div><div class="l">%s</div></div>'
@@ -78,9 +89,14 @@ def render(data, status, scope, now, tz):
                         (data["open"], "open now", " open"),
                         (data["opened_today"], "opened today", ""),
                         (data["merged_today"], "merged today", " merged")))
-    rows = "".join(_row(ev, now, tz) for ev in data["events"][:ROWS])
+    states = status.get("states") or {}
+    rows = "".join(_row(ev, states.get(ev.get("id")), now, tz) for ev in data["events"][:ROWS])
     rows = rows or '<div class="none">No pull requests yet.</div>'
     foot = "GitHub search · as of %s" % _clock(status["as_of"], tz)
+    if not status.get("token"):
+        foot += " · no GitHub token"
+    elif status.get("paused"):
+        foot += " · PR state paused, rate limit low"
     summary = ("GitHub unavailable, last tried %s" % _clock(status["tried"], tz)
                if status["error"] else "")
     where = scope[len("org:"):] if scope.startswith("org:") else scope
@@ -101,14 +117,35 @@ def render(data, status, scope, now, tz):
        "foot": e(foot)}
 
 
-def _row(ev, now, tz):
+def waits_on(state):
+    """What an open PR waits on, as ``(word, colour)``: failing checks first,
+    then auto-merge armed, then the review gate (.github ADR-0013), then
+    running checks. A reviewed PR with nothing else pending reads "reviewed":
+    the next step is a person's, to triage the findings and arm it."""
+    if state["checks"] == "failing":
+        return "checks failing", CLOSED
+    if state["armed"]:
+        return "armed", OPEN
+    if not state["reviewed"]:
+        return "awaiting review", AMBER
+    if state["checks"] == "pending":
+        return "checks running", RUNNING
+    return "reviewed", TEXT
+
+
+def _row(ev, state, now, tz):
     e = html.escape
     label, colour = STATUS[ev["status"]]
+    if ev["status"] == "open" and state:
+        word, tint = waits_on(state)
+        who = '<span class="who state" style="color: %s">%s</span>' % (tint, word)
+    else:
+        who = '<span class="who">%s</span>' % e(ev["who"])
     return ('<div class="row"><span class="chip" style="color: %s; border-color: %s">%s</span>'
             '<span class="repo">%s</span><span class="num">#%d</span><span class="title">%s</span>'
-            '<span class="who">%s</span><span class="when">%s</span></div>'
+            '%s<span class="when">%s</span></div>'
             % (colour, colour, label, e(ev["repo"].split("/", 1)[-1]), ev["number"], e(ev["title"]),
-               e(ev["who"]), _when(now, ev["when"], tz)))
+               who, _when(now, ev["when"], tz)))
 
 
 def _when(now, then, tz):

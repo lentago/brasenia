@@ -5,10 +5,10 @@ from zoneinfo import ZoneInfo
 
 from helpers import NOW, event
 
-from prs_producer.render import render
+from prs_producer.render import render, waits_on
 
 TZ = ZoneInfo("America/New_York")
-OK = {"as_of": NOW, "error": None, "tried": NOW}
+OK = {"as_of": NOW, "error": None, "tried": NOW, "token": True, "paused": False, "states": {}}
 
 
 def data(events):
@@ -42,7 +42,7 @@ class RenderTest(unittest.TestCase):
         self.assertIn("<h1>Pull requests <span>lentago</span></h1>", page)
         tiles = re.findall(r'<div class="n[^"]*">(\d+)</div><div class="l">([^<]+)</div>', page)
         self.assertEqual(tiles, [("23", "open now"), ("92", "opened today"), ("69", "merged today")])
-        self.assertIn("GitHub search · as of 6:40 PM", page)
+        self.assertIn('<div class="foot">GitHub search · as of 6:40 PM</div>', page)
         self.assertIn('<div class="summary"></div>', page)
 
     def test_rows(self):
@@ -66,10 +66,49 @@ class RenderTest(unittest.TestCase):
         self.assertNotIn(">#11<", page)
 
     def test_github_unavailable(self):
-        status = {"as_of": NOW - timedelta(minutes=6), "error": "search answered HTTP 403", "tried": NOW}
+        status = dict(OK, as_of=NOW - timedelta(minutes=6), error="search answered HTTP 403")
         page = render(data(self.events), status, "org:lentago", NOW, TZ)
         self.assertIn('<div class="summary">GitHub unavailable, last tried 6:40 PM</div>', page)
         self.assertIn("GitHub search · as of 6:34 PM", page)
+
+    def test_open_rows_show_their_state_in_place_of_the_author(self):
+        states = {
+            "PR_claytonia_197": {"checks": "failing", "armed": True, "reviewed": True},
+            "PR_shared-workflows_101": {"checks": "failing", "armed": False, "reviewed": False},
+            "PR_kalmia_276": {"checks": "passing", "armed": True, "reviewed": True},
+        }
+        page = render(data(self.events), dict(OK, states=states), "org:lentago", NOW, TZ)
+        whos = re.findall(r'<span class="(who[^"]*)"(?: style="color: (#\w+)")?>([^<]+)</span>', page)
+        self.assertEqual(whos, [
+            ("who", "", "bullpen"),                       # merged: the author, whatever the state
+            ("who state", "#f85149", "checks failing"),   # open
+            ("who", "", "dependabot"),                    # draft: the author
+            ("who", "", "cpitzi"),
+            ("who", "", "cpitzi"),
+        ])
+
+    def test_an_open_row_without_a_known_state_shows_its_author(self):
+        page = render(data(self.events), dict(OK, states={"PR_other_1": {}}), "org:lentago", NOW, TZ)
+        self.assertNotIn("who state", page)
+        self.assertIn('<span class="who">cpitzi</span>', page)
+
+    def test_waits_on(self):
+        def word(checks, armed, reviewed):
+            return waits_on({"checks": checks, "armed": armed, "reviewed": reviewed})
+
+        self.assertEqual(word("failing", True, True), ("checks failing", "#f85149"))
+        self.assertEqual(word("pending", True, False), ("armed", "#3fb950"))
+        self.assertEqual(word("passing", False, False), ("awaiting review", "#f0a53a"))
+        self.assertEqual(word("pending", False, True), ("checks running", "#58a6ff"))
+        self.assertEqual(word("passing", False, True), ("reviewed", "#e4ebee"))
+        self.assertEqual(word(None, False, True), ("reviewed", "#e4ebee"))
+
+    def test_the_footer_says_when_there_is_no_token_or_state_is_paused(self):
+        page = render(data(self.events), dict(OK, token=False), "org:lentago", NOW, TZ)
+        self.assertIn('<div class="foot">GitHub search · as of 6:40 PM · no GitHub token</div>', page)
+        page = render(data(self.events), dict(OK, paused=True), "org:lentago", NOW, TZ)
+        self.assertIn('<div class="foot">GitHub search · as of 6:40 PM · PR state paused, rate limit low</div>',
+                      page)
 
     def test_no_events_and_other_scopes(self):
         page = render(data([]), OK, "user:cpitzi", NOW, TZ)
