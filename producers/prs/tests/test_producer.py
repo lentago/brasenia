@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import unittest
 from datetime import timedelta
+from unittest import mock
 
 from helpers import NOW, event
 
@@ -115,6 +116,71 @@ class ProducerTest(unittest.TestCase):
         self.producer.cycle()
         self.assertEqual(self.manifest(), {"author": "someone@else"})
         self.assertFalse(os.path.exists(os.path.join(self.pane, "pane.html")))
+
+    def staging(self):
+        return os.path.join(self.root, "viewport", "staging")
+
+    def test_a_new_pane_appears_in_one_rename(self):
+        renames = []
+        real = os.rename
+
+        def spy(src, dst):
+            bus = os.path.join(self.root, "viewport")
+            renames.append((os.path.relpath(os.path.dirname(src), bus), os.path.relpath(dst, bus)))
+            self.assertEqual(sorted(os.listdir(src)), ["manifest.json", "pane.html"])
+            return real(src, dst)
+
+        with mock.patch.object(producer.os, "rename", spy):
+            self.producer.cycle()
+        self.assertEqual(renames, [("staging", os.path.join("panes", "prs"))])
+        self.assertEqual(os.listdir(self.staging()), [])
+        self.assertEqual(self.manifest()["author"], "prs-producer@pub")
+
+    def appears_first(self, author):
+        """Patch the create rename so that ``author``'s pane lands at the
+        target just before it: the race of #51."""
+        real = os.rename
+
+        def racer(src, dst):
+            if dst == self.pane:
+                os.makedirs(dst)
+                with open(os.path.join(dst, "pane.html"), "w") as fh:
+                    fh.write("<p>first</p>")
+                with open(os.path.join(dst, "manifest.json"), "w") as fh:
+                    json.dump({"author": author, "title": "first"}, fh)
+            return real(src, dst)
+
+        return mock.patch.object(producer.os, "rename", racer)
+
+    def test_a_cycle_that_loses_the_race_leaves_the_winner_alone(self):
+        with self.appears_first("someone@else"):
+            self.producer.cycle()
+        self.assertEqual(self.manifest(), {"author": "someone@else", "title": "first"})
+        self.assertEqual(self.page(), "<p>first</p>")
+        self.assertEqual(os.listdir(self.staging()), [])
+
+    def test_losing_the_race_to_itself_updates_in_place(self):
+        with self.appears_first("prs-producer@pub"):
+            self.producer.cycle()
+        self.assertEqual(self.manifest()["title"], "Pull requests")
+        self.assertIn("Start with Remote Control", self.page())
+        self.assertEqual(sorted(os.listdir(self.pane)), ["manifest.json", "pane.html"])
+        self.assertEqual(os.listdir(self.staging()), [])
+
+    def test_an_existing_pane_is_rewritten_file_by_file_manifest_last(self):
+        self.producer.cycle()
+        order = []
+        real = os.replace
+
+        def spy(src, dst):
+            order.append((os.path.basename(src), os.path.basename(dst)))
+            return real(src, dst)
+
+        self.clock.now = NOW + timedelta(seconds=30)
+        with mock.patch.object(producer.os, "replace", spy):
+            self.producer.cycle()
+        self.assertEqual(order, [("pane.html.partial", "pane.html"),
+                                 ("manifest.json.partial", "manifest.json")])
 
 
 if __name__ == "__main__":

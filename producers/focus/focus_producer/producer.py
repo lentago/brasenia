@@ -2,14 +2,17 @@
 
 Contracts (brasenia#26/#27; recorded in docs/concept.md by the compositor
 issue): beacons at ``viewport/focus/<host>-<session8>.json``, panes at
-``viewport/panes/focus-<owner>-<name>/``, every file written
-``x.partial`` → ``x`` and ``manifest.json`` last.
+``viewport/panes/focus-<owner>-<name>/``. A new pane is built in
+``viewport/staging/`` and renamed in whole (ADR-0022); an existing one is
+rewritten ``x.partial`` → ``x``, ``manifest.json`` last.
 """
 
+import errno
 import json
 import logging
 import os
 import re
+import secrets
 import shutil
 from datetime import datetime, timedelta, timezone
 
@@ -77,6 +80,75 @@ def write_atomic(path, text):
     os.replace(partial, path)
 
 
+def staging_path(bus, pane_id, tag):
+    """A fresh name in ``staging/``, the bus's scratch directory beside
+    ``panes/``, where a pane is built before it appears and taken apart after
+    it leaves (ADR-0022)."""
+    staging = os.path.join(bus, "staging")
+    os.makedirs(staging, exist_ok=True)
+    return os.path.join(staging, "%s.%s.%s" % (pane_id, tag, secrets.token_hex(6)))
+
+
+def create_pane(bus, pane_dir, files):
+    """Create ``pane_dir`` holding ``files`` ((name, text or bytes) pairs,
+    manifest last), in one step. Return False, writing nothing, when it
+    already exists.
+
+    The pane is built in ``staging/`` and renamed into place. A rename onto a
+    directory that holds files fails, so of two writers creating the same pane
+    at once exactly one succeeds, and no reader sees it half-written
+    (ADR-0022)."""
+    os.makedirs(os.path.dirname(pane_dir), exist_ok=True)
+    tmp = staging_path(bus, os.path.basename(pane_dir), "new")
+    os.mkdir(tmp)
+    try:
+        for name, data in files:
+            with open(os.path.join(tmp, name), "wb") as fh:
+                fh.write(data if isinstance(data, bytes) else data.encode("utf-8"))
+                fh.flush()
+                os.fsync(fh.fileno())
+        os.rename(tmp, pane_dir)
+        return True
+    except OSError as exc:
+        if exc.errno in (errno.ENOTEMPTY, errno.EEXIST):
+            return False
+        raise
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)  # gone already after the rename
+
+
+def remove_pane(bus, pane_dir):
+    """Take a pane off the bus in one step: rename it into ``staging/``, then
+    delete it there, so nobody sees it half-deleted (ADR-0022)."""
+    gone = staging_path(bus, os.path.basename(pane_dir), "gone")
+    try:
+        os.rename(pane_dir, gone)
+    except OSError as exc:
+        if exc.errno not in (errno.EXDEV, errno.EBUSY):
+            raise
+        shutil.rmtree(pane_dir)  # panes/ is not on staging/'s filesystem
+        return
+    shutil.rmtree(gone)
+
+
+def _ours(pane_dir):
+    """True when the pane's manifest names this producer, or there is none (a
+    pane this producer started and never finished). Logs why not otherwise."""
+    try:
+        with open(os.path.join(pane_dir, "manifest.json"), encoding="utf-8") as fh:
+            author = json.load(fh).get("author")
+    except FileNotFoundError:
+        return True
+    except (OSError, ValueError, AttributeError) as err:
+        log.warning("panes/%s/manifest.json cannot be read (%s); leaving it alone",
+                    os.path.basename(pane_dir), err)
+        return False
+    if author != AUTHOR:
+        log.warning("panes/%s belongs to %r; leaving it alone", os.path.basename(pane_dir), author)
+        return False
+    return True
+
+
 def _unlink(path):
     try:
         os.unlink(path)
@@ -140,8 +212,6 @@ class Producer:
                 return
             page = render(repo, data, row, as_of, now, self.tz)
 
-        os.makedirs(pane_dir, exist_ok=True)
-        write_atomic(page_path, page)
         manifest = {
             "schema": 1,
             "class": "focus",
@@ -152,8 +222,17 @@ class Producer:
             "origin": origin,
             "repo": repo,
         }
-        write_atomic(os.path.join(pane_dir, "manifest.json"),
-                     json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+        files = [("pane.html", page),
+                 ("manifest.json", json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")]
+        # A new pane appears whole or not at all. A pane that is already
+        # there, or that another writer creates first, is rewritten file by
+        # file only when its manifest names this producer (rule 1).
+        if not os.path.isdir(pane_dir) and create_pane(self.viewport, pane_dir, files):
+            return
+        if not _ours(pane_dir):
+            return
+        for name, text in files:
+            write_atomic(os.path.join(pane_dir, name), text)
 
     def _pipeline(self):
         """This cycle's pipeline.json rows; any failure means no rows."""
@@ -178,7 +257,10 @@ class Producer:
         except (OSError, ValueError, AttributeError):
             pass  # no manifest yet: a pane this producer started and never finished
         log.info("removing pane %s (%s)", os.path.basename(pane_dir), why)
-        shutil.rmtree(pane_dir, ignore_errors=True)
+        try:
+            remove_pane(self.viewport, pane_dir)
+        except OSError as err:
+            log.warning("could not remove pane %s (%s)", os.path.basename(pane_dir), err)
 
     def _cleanup(self, live):
         """Remove focus-* pane dirs with no fresh beacon. Other dirs are never touched."""
@@ -200,6 +282,9 @@ class Producer:
             except (OSError, ValueError, AttributeError):
                 pass  # no manifest yet: a pane this producer started and never finished
             log.info("removing pane %s (no fresh beacon)", name)
-            shutil.rmtree(path, ignore_errors=True)
+            try:
+                remove_pane(self.viewport, path)
+            except OSError as err:
+                log.warning("could not remove pane %s (%s)", name, err)
             if repo:
                 self.github.forget(repo)

@@ -114,7 +114,9 @@ Each cycle (every 60 s):
    forecasts. Forecasts are fetched every 10 minutes, and a failed fetch
    keeps the last good one for up to 3 hours.
 
-Files are written `x.partial` then renamed, `manifest.json` last. A pane
+A new pane is built in `viewport/staging/` and renamed into `panes/` whole
+([ADR-0022](../../docs/adr/0022-a-new-pane-is-renamed-into-the-bus-whole.md));
+an existing one is rewritten `x.partial` then renamed, `manifest.json` last. A pane
 directory with another author's manifest is left alone.
 
 ## Tests

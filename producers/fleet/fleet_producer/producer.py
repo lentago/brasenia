@@ -1,7 +1,8 @@
 """One producer cycle: the job queue and GitHub in, the fleet pane out.
 
 Contracts (docs/concept.md, Contracts v1): the pane lives at
-``viewport/panes/fleet/``, every file is written ``x.partial`` → ``x`` with
+``viewport/panes/fleet/``, a new pane is built in ``staging/`` and renamed in
+whole (ADR-0022), an existing one rewritten ``x.partial`` → ``x`` with
 ``manifest.json`` last, and a pane another author owns is left alone. It is a
 resting pane (``ambient``) the household can make the default from the Roku
 remote (#83, #86).
@@ -11,9 +12,12 @@ nothing and the pane leaves the bus at its TTL. The agent-PR search runs
 every PR_S; a failed search keeps the last good list, marked with its time.
 """
 
+import errno
 import json
 import logging
 import os
+import secrets
+import shutil
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -41,9 +45,61 @@ def write_atomic(path, text):
     os.replace(partial, path)
 
 
+def staging_path(bus, pane_id, tag):
+    """A fresh name in ``staging/``, the bus's scratch directory beside
+    ``panes/``, where a pane is built before it appears and taken apart after
+    it leaves (ADR-0022)."""
+    staging = os.path.join(bus, "staging")
+    os.makedirs(staging, exist_ok=True)
+    return os.path.join(staging, "%s.%s.%s" % (pane_id, tag, secrets.token_hex(6)))
+
+
+def create_pane(bus, pane_dir, files):
+    """Create ``pane_dir`` holding ``files`` ((name, text or bytes) pairs,
+    manifest last), in one step. Return False, writing nothing, when it
+    already exists.
+
+    The pane is built in ``staging/`` and renamed into place. A rename onto a
+    directory that holds files fails, so of two writers creating the same pane
+    at once exactly one succeeds, and no reader sees it half-written
+    (ADR-0022)."""
+    os.makedirs(os.path.dirname(pane_dir), exist_ok=True)
+    tmp = staging_path(bus, os.path.basename(pane_dir), "new")
+    os.mkdir(tmp)
+    try:
+        for name, data in files:
+            with open(os.path.join(tmp, name), "wb") as fh:
+                fh.write(data if isinstance(data, bytes) else data.encode("utf-8"))
+                fh.flush()
+                os.fsync(fh.fileno())
+        os.rename(tmp, pane_dir)
+        return True
+    except OSError as exc:
+        if exc.errno in (errno.ENOTEMPTY, errno.EEXIST):
+            return False
+        raise
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)  # gone already after the rename
+
+
+def remove_pane(bus, pane_dir):
+    """Take a pane off the bus in one step: rename it into ``staging/``, then
+    delete it there, so nobody sees it half-deleted (ADR-0022)."""
+    gone = staging_path(bus, os.path.basename(pane_dir), "gone")
+    try:
+        os.rename(pane_dir, gone)
+    except OSError as exc:
+        if exc.errno not in (errno.EXDEV, errno.EBUSY):
+            raise
+        shutil.rmtree(pane_dir)  # panes/ is not on staging/'s filesystem
+        return
+    shutil.rmtree(gone)
+
+
 class Producer:
     def __init__(self, webroot, jobs=DEFAULT_JOBS, tz=DEFAULT_TZ, search=github.agent_prs, clock=None):
-        self.pane_dir = os.path.join(webroot, "viewport", "panes", PANE_ID)
+        self.bus = os.path.join(webroot, "viewport")
+        self.pane_dir = os.path.join(self.bus, "panes", PANE_ID)
         self.jobs = jobs
         self.tz = ZoneInfo(tz)
         self.search = search
@@ -61,18 +117,25 @@ class Producer:
         self._search(now)
         if not self._ours():
             return
-        os.makedirs(self.pane_dir, exist_ok=True)
-        write_atomic(os.path.join(self.pane_dir, "pane.html"), render(snap, self.prs, now, self.tz))
-        write_atomic(os.path.join(self.pane_dir, "manifest.json"), json.dumps({
-            "schema": 1,
-            "class": PANE_CLASS,
-            "title": TITLE,
-            "created": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "ttl_minutes": TTL_MINUTES,
-            "author": AUTHOR,
-            "origin": ORIGIN,
-            "dwell_s": DWELL_S,
-        }, indent=2, ensure_ascii=False) + "\n")
+        files = [("pane.html", render(snap, self.prs, now, self.tz)),
+                 ("manifest.json", json.dumps({
+                     "schema": 1,
+                     "class": PANE_CLASS,
+                     "title": TITLE,
+                     "created": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                     "ttl_minutes": TTL_MINUTES,
+                     "author": AUTHOR,
+                     "origin": ORIGIN,
+                     "dwell_s": DWELL_S,
+                 }, indent=2, ensure_ascii=False) + "\n")]
+        # A new pane appears whole or not at all; when another writer creates
+        # it first, the ownership check runs again on the pane that won.
+        if not os.path.isdir(self.pane_dir) and create_pane(self.bus, self.pane_dir, files):
+            return
+        if not self._ours():
+            return
+        for name, text in files:
+            write_atomic(os.path.join(self.pane_dir, name), text)
 
     def _search(self, now):
         if self.searched is not None and (now - self.searched).total_seconds() < PR_S:

@@ -14,14 +14,17 @@ its pane with it. A pane another author owns is left alone, so a slot whose id
 is taken shows nothing until the other pane goes.
 
 When ``rubric.json`` can't be read, the cycle changes nothing and the panes
-leave the bus at their TTL. Contracts v1: every file is written ``x.partial``
-then ``x``.
+leave the bus at their TTL. Contracts v1 and ADR-0022: a new pane is built in
+``staging/`` and renamed in whole, an existing one rewritten ``x.partial`` then
+``x``.
 """
 
+import errno
 import json
 import logging
 import os
 import re
+import secrets
 import shutil
 from datetime import datetime, timezone
 
@@ -41,6 +44,57 @@ def write_atomic(path, text):
     with open(partial, "w", encoding="utf-8") as fh:
         fh.write(text)
     os.replace(partial, path)
+
+
+def staging_path(bus, pane_id, tag):
+    """A fresh name in ``staging/``, the bus's scratch directory beside
+    ``panes/``, where a pane is built before it appears and taken apart after
+    it leaves (ADR-0022)."""
+    staging = os.path.join(bus, "staging")
+    os.makedirs(staging, exist_ok=True)
+    return os.path.join(staging, "%s.%s.%s" % (pane_id, tag, secrets.token_hex(6)))
+
+
+def create_pane(bus, pane_dir, files):
+    """Create ``pane_dir`` holding ``files`` ((name, text or bytes) pairs,
+    manifest last), in one step. Return False, writing nothing, when it
+    already exists.
+
+    The pane is built in ``staging/`` and renamed into place. A rename onto a
+    directory that holds files fails, so of two writers creating the same pane
+    at once exactly one succeeds, and no reader sees it half-written
+    (ADR-0022)."""
+    os.makedirs(os.path.dirname(pane_dir), exist_ok=True)
+    tmp = staging_path(bus, os.path.basename(pane_dir), "new")
+    os.mkdir(tmp)
+    try:
+        for name, data in files:
+            with open(os.path.join(tmp, name), "wb") as fh:
+                fh.write(data if isinstance(data, bytes) else data.encode("utf-8"))
+                fh.flush()
+                os.fsync(fh.fileno())
+        os.rename(tmp, pane_dir)
+        return True
+    except OSError as exc:
+        if exc.errno in (errno.ENOTEMPTY, errno.EEXIST):
+            return False
+        raise
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)  # gone already after the rename
+
+
+def remove_pane(bus, pane_dir):
+    """Take a pane off the bus in one step: rename it into ``staging/``, then
+    delete it there, so nobody sees it half-deleted (ADR-0022)."""
+    gone = staging_path(bus, os.path.basename(pane_dir), "gone")
+    try:
+        os.rename(pane_dir, gone)
+    except OSError as exc:
+        if exc.errno not in (errno.EXDEV, errno.EBUSY):
+            raise
+        shutil.rmtree(pane_dir)  # panes/ is not on staging/'s filesystem
+        return
+    shutil.rmtree(gone)
 
 
 def read_json(path):
@@ -74,9 +128,9 @@ def slots_from(doc):
 
 class Producer:
     def __init__(self, webroot, clock=None):
-        viewport = os.path.join(webroot, "viewport")
-        self.settings = os.path.join(viewport, "rubric.json")
-        self.panes = os.path.join(viewport, "panes")
+        self.bus = os.path.join(webroot, "viewport")
+        self.settings = os.path.join(self.bus, "rubric.json")
+        self.panes = os.path.join(self.bus, "panes")
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.unreadable = False
         self.taken = set()   # slot ids whose pane another author owns (logged once)
@@ -105,16 +159,7 @@ class Producer:
 
     def _keep(self, pane_id, slot, now):
         pane_dir = os.path.join(self.panes, pane_id)
-        if os.path.isdir(pane_dir):
-            owner = self._owner(pane_dir)
-            if owner not in (AUTHOR, None) or (owner is None and os.listdir(pane_dir)):
-                if pane_id not in self.taken:
-                    log.info("slot %s: the pane belongs to %s; not replacing it", pane_id, owner)
-                    self.taken.add(pane_id)
-                return
-        self.taken.discard(pane_id)
-        os.makedirs(pane_dir, exist_ok=True)
-        write_atomic(os.path.join(pane_dir, "manifest.json"), json.dumps({
+        manifest = json.dumps({
             "schema": 1,
             "class": PANE_CLASS,
             "title": slot["title"],
@@ -124,7 +169,21 @@ class Producer:
             "origin": ORIGIN,
             "dwell_s": DWELL_S,
             "source": slot["source"],
-        }, indent=2, ensure_ascii=False) + "\n")
+        }, indent=2, ensure_ascii=False) + "\n"
+        # A new pane appears whole or not at all; when another writer creates
+        # it first, the ownership check runs again on the pane that won.
+        if not os.path.isdir(pane_dir) and create_pane(
+                self.bus, pane_dir, [("manifest.json", manifest)]):
+            self.taken.discard(pane_id)
+            return
+        owner = self._owner(pane_dir)
+        if owner not in (AUTHOR, None) or (owner is None and os.listdir(pane_dir)):
+            if pane_id not in self.taken:
+                log.info("slot %s: the pane belongs to %s; not replacing it", pane_id, owner)
+                self.taken.add(pane_id)
+            return
+        self.taken.discard(pane_id)
+        write_atomic(os.path.join(pane_dir, "manifest.json"), manifest)
 
     def _drop_removed(self, slots):
         try:
@@ -137,4 +196,7 @@ class Producer:
                 continue
             if self._owner(pane_dir) == AUTHOR:
                 log.info("slot %s removed; taking its pane down", name)
-                shutil.rmtree(pane_dir, ignore_errors=True)
+                try:
+                    remove_pane(self.bus, pane_dir)
+                except OSError as err:
+                    log.warning("slot %s: could not take its pane down (%s)", name, err)

@@ -1,9 +1,10 @@
 """One producer cycle: render the slots that are due, and write their panes.
 
 Contracts (docs/concept.md, Contracts v1): each slot's pane lives at
-``viewport/panes/<pane>/``, every file is written ``x.partial`` → ``x`` with
-``manifest.json`` last, and a pane another author owns is left alone. Each is
-a resting pane (``ambient``) beside Home, Weather and Fleet.
+``viewport/panes/<pane>/``, a new pane is built in ``staging/`` and renamed in
+whole (ADR-0022), an existing one rewritten ``x.partial`` → ``x`` with
+``manifest.json`` last, and a pane another author owns is left alone. Each is a
+resting pane (``ambient``) beside Home, Weather and Fleet.
 
 Renders are one at a time, each slot every ``refresh_s`` (ADR-0017). A failed
 render changes nothing and backs off: the next try waits ``refresh_s``, then
@@ -13,11 +14,14 @@ three refreshes, so one or two failures keep the last image (stamped with its
 time) and a dead token or stack takes the pane off the bus.
 """
 
+import errno
 import json
 import logging
 import math
 import os
 import re
+import secrets
+import shutil
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -43,6 +47,57 @@ def write_atomic(path, data):
     os.replace(partial, path)
 
 
+def staging_path(bus, pane_id, tag):
+    """A fresh name in ``staging/``, the bus's scratch directory beside
+    ``panes/``, where a pane is built before it appears and taken apart after
+    it leaves (ADR-0022)."""
+    staging = os.path.join(bus, "staging")
+    os.makedirs(staging, exist_ok=True)
+    return os.path.join(staging, "%s.%s.%s" % (pane_id, tag, secrets.token_hex(6)))
+
+
+def create_pane(bus, pane_dir, files):
+    """Create ``pane_dir`` holding ``files`` ((name, text or bytes) pairs,
+    manifest last), in one step. Return False, writing nothing, when it
+    already exists.
+
+    The pane is built in ``staging/`` and renamed into place. A rename onto a
+    directory that holds files fails, so of two writers creating the same pane
+    at once exactly one succeeds, and no reader sees it half-written
+    (ADR-0022)."""
+    os.makedirs(os.path.dirname(pane_dir), exist_ok=True)
+    tmp = staging_path(bus, os.path.basename(pane_dir), "new")
+    os.mkdir(tmp)
+    try:
+        for name, data in files:
+            with open(os.path.join(tmp, name), "wb") as fh:
+                fh.write(data if isinstance(data, bytes) else data.encode("utf-8"))
+                fh.flush()
+                os.fsync(fh.fileno())
+        os.rename(tmp, pane_dir)
+        return True
+    except OSError as exc:
+        if exc.errno in (errno.ENOTEMPTY, errno.EEXIST):
+            return False
+        raise
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)  # gone already after the rename
+
+
+def remove_pane(bus, pane_dir):
+    """Take a pane off the bus in one step: rename it into ``staging/``, then
+    delete it there, so nobody sees it half-deleted (ADR-0022)."""
+    gone = staging_path(bus, os.path.basename(pane_dir), "gone")
+    try:
+        os.rename(pane_dir, gone)
+    except OSError as exc:
+        if exc.errno not in (errno.EXDEV, errno.EBUSY):
+            raise
+        shutil.rmtree(pane_dir)  # panes/ is not on staging/'s filesystem
+        return
+    shutil.rmtree(gone)
+
+
 def ttl_minutes(refresh_s):
     return max(TTL_MIN_MINUTES, math.ceil(3 * refresh_s / 60))
 
@@ -50,7 +105,8 @@ def ttl_minutes(refresh_s):
 class Producer:
     def __init__(self, webroot, token_file, grafana_url, slots, tz=DEFAULT_TZ,
                  transport=urllib_transport, clock=None):
-        self.panes_dir = os.path.join(webroot, "viewport", "panes")
+        self.bus = os.path.join(webroot, "viewport")
+        self.panes_dir = os.path.join(self.bus, "panes")
         self.token_file = token_file
         self.grafana_url = grafana_url
         self.slots = list(slots)
@@ -139,19 +195,26 @@ class Producer:
         manifest_path = os.path.join(pane_dir, "manifest.json")
         if not self._ours(manifest_path, slot.pane):
             return
-        os.makedirs(pane_dir, exist_ok=True)
-        write_atomic(os.path.join(pane_dir, "dashboard.png"), png)
-        write_atomic(os.path.join(pane_dir, "pane.html"), render.page(slot, png, now, self.tz))
-        write_atomic(manifest_path, json.dumps({
-            "schema": 1,
-            "class": PANE_CLASS,
-            "title": slot.title,
-            "created": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "ttl_minutes": ttl_minutes(slot.refresh_s),
-            "author": AUTHOR,
-            "origin": ORIGIN,
-            "dwell_s": slot.dwell_s,
-        }, indent=2, ensure_ascii=False) + "\n")
+        files = [("dashboard.png", png),
+                 ("pane.html", render.page(slot, png, now, self.tz)),
+                 ("manifest.json", json.dumps({
+                     "schema": 1,
+                     "class": PANE_CLASS,
+                     "title": slot.title,
+                     "created": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                     "ttl_minutes": ttl_minutes(slot.refresh_s),
+                     "author": AUTHOR,
+                     "origin": ORIGIN,
+                     "dwell_s": slot.dwell_s,
+                 }, indent=2, ensure_ascii=False) + "\n")]
+        # A new pane appears whole or not at all; when another writer creates
+        # it first, the ownership check runs again on the pane that won.
+        if not os.path.isdir(pane_dir) and create_pane(self.bus, pane_dir, files):
+            return
+        if not self._ours(manifest_path, slot.pane):
+            return
+        for name, data in files:
+            write_atomic(os.path.join(pane_dir, name), data)
 
     def _ours(self, manifest_path, pane_id):
         """True when the pane is absent or this producer's; logs why not otherwise."""

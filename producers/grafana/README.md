@@ -139,7 +139,9 @@ a time:
    leaves it off the bus for about five minutes until the retry at 1200 s. A
    dead token or stack takes it off the bus.
 
-Files are written `x.partial` then renamed, `manifest.json` last. A pane
+A new pane is built in `viewport/staging/` and renamed into `panes/` whole
+([ADR-0022](../../docs/adr/0022-a-new-pane-is-renamed-into-the-bus-whole.md));
+an existing one is rewritten `x.partial` then renamed, `manifest.json` last. A pane
 directory with another author's manifest is left alone. A slot removed from
 the file leaves its pane to expire.
 
