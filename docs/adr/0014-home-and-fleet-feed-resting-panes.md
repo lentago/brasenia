@@ -7,7 +7,9 @@ first resting pane by id shows. Amends
 [ADR-0008](0008-compositor-and-producers-on-pub.md): one producer, the home
 producer, holds a credential. Amended by
 [ADR-0017](0017-grafana-panes-rendered-on-pub.md): the grafana producer holds
-a second, a Viewer token for Grafana Cloud.
+a second, a Viewer token for Grafana Cloud. Amended by
+[ADR-0021](0021-a-public-read-only-github-token-on-pub.md): the prs and focus
+producers share a third, a public-read-only GitHub token.
 
 ## Context
 

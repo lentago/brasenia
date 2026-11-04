@@ -101,7 +101,7 @@ Brasenia follows the fleet's separation of product from provisioning:
 |---|---|
 | LXC 118 guest definition | [`kalmia`](https://github.com/lentago/kalmia) `terraform/containers.tf` (CI-applied) |
 | Runtime stack (the renderer, encoder and HLS server, systemd units) | [`kalmia`](https://github.com/lentago/kalmia) `roles/brasenia/` + `docs/brasenia.md` |
-| Brief publishing (Google Drive → `pub.lan`) and the home producer's Home Assistant token: pub holds the credentials ([ADR-0014](docs/adr/0014-home-and-fleet-feed-resting-panes.md)) | [`kalmia`](https://github.com/lentago/kalmia) `roles/pub/` |
+| Brief publishing (Google Drive → `pub.lan`), the home producer's Home Assistant token ([ADR-0014](docs/adr/0014-home-and-fleet-feed-resting-panes.md)) and the prs and focus producers' GitHub token ([ADR-0021](docs/adr/0021-a-public-read-only-github-token-on-pub.md)): pub holds the credentials | [`kalmia`](https://github.com/lentago/kalmia) `roles/pub/` |
 | The Grafana Cloud service account the grafana producer's token belongs to ([ADR-0017](docs/adr/0017-grafana-panes-rendered-on-pub.md)); the token itself is placed on pub, with kalmia's unit | [`drosera`](https://github.com/lentago/drosera) `terraform/` |
 
 The running container is **credential-free by design**: its only input is
