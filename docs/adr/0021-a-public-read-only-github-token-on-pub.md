@@ -35,8 +35,8 @@ had first left out of scope.
 ## Decision
 
 - **One fine-grained personal access token, read-only on public
-  repositories, with no other permissions.** Chris mints it on his own
-  account, with the resource owner set to his user, repository access set to
+  repositories, with no other permissions.** Chris mints it on the `cpitzi`
+  account, with that account as the resource owner, repository access set to
   public repositories, and no repository or account permissions. Every
   fine-grained token can read public repositories [3], so that read access is
   the token's whole grant. Name it `brasenia pub`.
@@ -66,14 +66,16 @@ had first left out of scope.
   "no GitHub token", so a lapsed token shows on the wall and not only in the
   journal. The focus producer goes back to its 50-an-hour pacing. Neither
   pane fails or leaves the bus because the credential is missing. systemd
-  will not start a unit whose `LoadCredential=` path is absent, so
+  will not start a unit whose `LoadCredential=` names an absolute path that
+  is absent, since only a missing credential named without a path is non-fatal
+  [5], so
   lentago/kalmia#280 decides how the units start before the first seed. One
   way: the role creates an empty root-only file once and never overwrites
   it.
 
 - **The wall takes at most a fifth of the hour's budget.** A personal
-  token's requests count against the owner's one personal limit, which his
-  other tokens and the apps acting for him share [1]. On this workstation
+  token's requests count against the owner's one personal limit, which the
+  owner's other tokens and the apps acting for the owner share [1]. On this workstation
   that is the `gh` CLI that every local session uses. At about 16:07Z on
   2026-11-04, 559 of the 5,000 in the window from 15:28Z to 16:28Z were
   already spent. So:
@@ -98,15 +100,21 @@ had first left out of scope.
   (ADR-0017) and this one.
 - **A leaked token can read only what anyone can read.** It cannot reach a
   private repository or write anything. What it can do is spend Chris's rate
-  limit, and its requests appear in GitHub as his. To revoke it, delete it
+  limit, and its requests appear in GitHub as Chris's. To revoke it, delete it
   under GitHub → Settings → Developer settings → Fine-grained tokens. The
   producers then fall back as above.
 - **The token must be rotated four times a year.** A missed rotation costs
   the PRs pane's state column and the focus panes' freshness, and nothing
   else. The "no GitHub token" footer makes the lapse visible.
-- **The focus panes refresh about once a minute** where they took about
-  seven, which closes #31's freshness problem. #31 stays open for the change
-  to the producer.
+- **The focus panes refresh far more often** than every seven minutes,
+  which closes #31's freshness problem. When a repo's reads come back 304,
+  which is the usual case between changes, they cost nothing, and its panes
+  refresh at the producer's 60 s floor. Even if every read were charged,
+  nine repos with two open PRs each (`2 + 2 × 2` = 6 requests a refresh)
+  would refresh every `3600 × 6 × 9 / 800` = 243 s, about every 4 minutes.
+  #31 stays open for the change to the producer and to the focus pane's
+  description in `docs/concept.md`, which still says the reads are
+  unauthenticated.
 - **Check runs need a test at the first seed.** GitHub's page on
   fine-grained tokens lists "Using fine-grained personal access token to call
   the Checks API" among the features they don't support [3], while the
@@ -166,5 +174,10 @@ had first left out of scope.
    users can view check runs and check suites, but they are not able to
    create them."
    <https://docs.github.com/en/rest/checks/runs>
+5. systemd, `systemd.exec(5)`, `LoadCredential=`: "Note that if the path is
+   not specified or a valid credential identifier is given, i.e. in the above
+   two cases, a missing credential is not considered fatal." pub runs
+   systemd 252 (Debian 12).
+   <https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html>
 
 All retrieved 2026-11-04.
