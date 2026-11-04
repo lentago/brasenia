@@ -64,9 +64,12 @@ Each cycle:
    as `skipped`, `neutral` or `cancelled` (one request), from the GitHub REST API,
    unauthenticated. Reads `<url-base>/viewport/pipeline.json` once per cycle;
    a missing or unreadable file means no pipeline row.
-3. Writes `pane.html`, then `manifest.json`, each as `x.partial` renamed to
-   `x`. `created` is set to the cycle time, so the 10-min TTL slides while
-   beacons stay fresh. `origin` is `operator` if any fresh beacon for the
+3. Writes `pane.html`, then `manifest.json`. A new pane is built in
+   `viewport/staging/` and renamed into `panes/` whole
+   ([ADR-0022](../../docs/adr/0022-a-new-pane-is-renamed-into-the-bus-whole.md)).
+   An existing one is rewritten file by file, each as `x.partial` renamed to
+   `x`, and only when its manifest names this producer. `created` is set to
+   the cycle time, so the 10-min TTL slides while beacons stay fresh. `origin` is `operator` if any fresh beacon for the
    repo is `operator`, otherwise `fleet`.
 4. Removes every `focus-*` pane directory that no fresh beacon maps to.
    Directories without the `focus-` prefix, and `focus-*` directories whose

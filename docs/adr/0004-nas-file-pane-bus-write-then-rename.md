@@ -1,6 +1,9 @@
 # ADR-0004: Pane bus is NAS files with write-then-rename, manifest, and a TTL backstop
 
-**Status:** Accepted (2026-07-20; reconstructed 2026-08-13)
+**Status:** Accepted (2026-07-20; reconstructed 2026-08-13). **Amended by
+[ADR-0022](0022-a-new-pane-is-renamed-into-the-bus-whole.md):** a new pane is
+built in `staging/` and renamed into `panes/` whole, and a writer
+relinquishes by renaming its pane dir into `staging/` before deleting it.
 
 ## Context
 

@@ -1,7 +1,8 @@
 # ADR-0022: A new pane is renamed into the bus whole, and leaves it the same way
 
-**Status:** Accepted (2026-11-04; #51). Amends the bus rules in
-[`concept.md`](../concept.md#paths) (write-then-rename, manifest last) and
+**Status:** Proposed (2026-11-04; #51), for Chris's review. Amends
+[ADR-0004](0004-nas-file-pane-bus-write-then-rename.md) and the bus rules in
+[`concept.md`](../concept.md#paths) (write-then-rename, manifest last), and
 rule 1 of [`claiming-the-display.md`](../claiming-the-display.md#two-rules).
 
 ## Context
@@ -51,8 +52,10 @@ contract should not depend on luck.
   writer deletes in place, as before.
 - **`staging/` is scratch space.** Nothing reads it. The compositor, the
   renderer and `pane ls` scan `panes/` only. A writer that dies between
-  building a pane and renaming it leaves one small directory there, which
-  is safe to delete once it is a day old.
+  building a pane and renaming it leaves one small directory there, and so
+  does an `rmtree` that fails partway through a `.gone` directory. Either
+  is safe to delete once it is a day old. Nothing removes them yet; #144
+  tracks whether the compositor should.
 - **No locks.** Every writer reaches the bus through a CIFS mount of the
   NAS share. That includes the producers on pub, through pve4's mount, and
   `pane` on the workstation. Whether `flock` or byte-range locks hold across
@@ -65,7 +68,11 @@ contract should not depend on luck.
   import path. `bin/pane` holds the reference copy.
 
 The rename semantics were checked on the share itself on 2026-11-04, from
-the workstation's CIFS mount (SMB 3.0 to the NAS). A rename onto a missing
+the workstation's CIFS mount (SMB 3.0 to the NAS). They were not measured
+from pub, whose producers reach the share through pve4's CIFS mount and a
+bind mount into the container. That path uses the same Linux CIFS client
+and the same server, which does the rename, so the result is expected to
+hold there, but that is an inference. A rename onto a missing
 directory succeeded. A rename onto a directory holding a file failed with
 ENOTEMPTY and left the target untouched. A rename onto an empty directory
 replaced it. In 60 races of two processes creating the same pane, every race
@@ -90,9 +97,13 @@ manifest was the one left in place.
   nothing worse. A new writer sees a pane an old writer made as an existing
   pane and checks its author. `pane` changes when the workstation clone is
   pulled, and the producers on pub at their next `brasenia-update`.
-- **A pane directory without a manifest can now only be debris** left by a
-  writer from before this change. Producers keep treating such a directory
-  as theirs to rewrite. `pane claim` still refuses one, as it did.
+- **Once every writer runs this change, a pane directory without a
+  manifest can only be debris** left by an earlier write. Producers keep
+  treating such a directory as theirs to rewrite, and `pane claim` still
+  refuses one, as it did. During the rollout it can also be a pane that a
+  writer on the old code is still filling, and a producer on the new code
+  will write into it. That is the old race, as above, and it ends when the
+  last old writer is updated.
 
 ## Alternatives considered
 

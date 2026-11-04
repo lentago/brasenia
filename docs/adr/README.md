@@ -19,7 +19,7 @@ decision was made, not reconstructed.
 | [0001](0001-roku-native-hls-over-decoder-hardware.md) | Consumer Roku TV + LAN HLS over dedicated decoder hardware | 2026-07-20 |
 | [0002](0002-mandatory-client-side-retry-handler.md) | The retry handler is the product | 2026-07-20 |
 | [0003](0003-rubric-driven-selection-compositor-sole-writer.md) | Rubric-driven pane selection; the compositor is the sole screen writer | 2026-07-20 |
-| [0004](0004-nas-file-pane-bus-write-then-rename.md) | Pane bus is NAS files with write-then-rename, manifest, and a TTL backstop | 2026-07-20 |
+| [0004](0004-nas-file-pane-bus-write-then-rename.md) | Pane bus is NAS files with write-then-rename, manifest, and a TTL backstop (amended by 0022) | 2026-07-20 |
 | [0005](0005-product-runtime-split-with-kalmia.md) | Product/runtime split with kalmia, enforced in both directions | 2026-07-20 |
 | [0006](0006-cast-web-receiver-second-client.md) | Chromecast web receiver as a second client; the compositor's output becomes a decision (superseded by 0010) | 2026-08-14 |
 | [0007](0007-live-rtmp-ingest-generic-path.md) | Generic RTMP ingest path; fallback-chain switching; `live` as rubric source type (retired 2026-10-29, kalmia#213) | 2026-08-16 |
@@ -37,4 +37,4 @@ decision was made, not reconstructed.
 | [0019](0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md) | Panes are laid out on a 1920×1080 canvas at 2×, with a 30 px text floor; "band" names the screenful (amends 0009; amended by 0020) | 2026-10-29 |
 | [0020](0020-only-the-rubric-and-the-remote-change-the-wall.md) | Only the rubric and the remote change what the wall shows: a pane is one band, and the rubric ranks strictly with no rotation (amends 0014, 0016, 0018, 0019) | 2026-10-29 |
 | [0021](0021-a-public-read-only-github-token-on-pub.md) | The PRs and focus producers share a public-read-only GitHub token on pub, with a 90-day expiry and a fifth of the hour's budget (amends 0014) | 2026-11-04 |
-| [0022](0022-a-new-pane-is-renamed-into-the-bus-whole.md) | A new pane is built in `staging/` and renamed into `panes/` whole, so only one writer can create it; it leaves the same way | 2026-11-04 |
+| [0022](0022-a-new-pane-is-renamed-into-the-bus-whole.md) | A new pane is built in `staging/` and renamed into `panes/` whole, so only one writer can create it; it leaves the same way (amends 0004) | 2026-11-04 |
