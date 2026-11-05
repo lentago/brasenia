@@ -1,8 +1,8 @@
-# ADR-0023: The family pane fits its text to the band, down to 20 px, and cuts nothing
+# ADR-0023: The family panes fit their text to the band, down to 20 px, and cut nothing
 
 **Status:** Accepted (2026-11-05, Chris). Amends
 [ADR-0019](0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md) for the
-`family-today` pane only.
+`family-today` pane (#147) and the `family-week` pane (#148) only.
 
 ## Context
 
@@ -33,10 +33,22 @@ type is.
   Sans' advance widths (`family_brief_producer/metrics.py`), rounded up 3%,
   with a few pixels to spare, so it errs toward one line too many.
 
+### `family-week`
+
+The week pane had the same fault: each day's items stopped at two lines, so
+a busy day lost its third line under an ellipsis. It follows the same rules,
+from 44 px down to the 20 px floor:
+
+- Each day's items wrap, and the rows share the band, each growing from its
+  own height.
+- The day label is one line ("Fri 11/6") in a column as wide as the widest
+  label, so a quiet day takes one line, not two.
+- Below the floor, the day that takes the most lines gives up its last items
+  to "+N more" until the week fits.
+
 ## Consequences
 
-- Every other pane still holds to the 30 px floor. `family-week` still
-  clamps its day bodies to two lines; it can follow this pane if wanted.
+- Every other pane still holds to the 30 px floor.
 - The estimate ignores kerning and breaks only at spaces, so a column can
   end a line or so short of full; it does not overflow. If the pane's font
   ever changes, `metrics.py` must be regenerated.
