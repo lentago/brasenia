@@ -34,7 +34,8 @@ decision was made, not reconstructed.
 | [0016](0016-panes-carry-a-revision-and-may-link-a-web-page.md) | Panes carry a content revision; a pane may link a web page (off until the renderer is ready; amended by 0020) | 2026-10-29 |
 | [0017](0017-grafana-panes-rendered-on-pub.md) | Grafana dashboards are rendered on pub into ordinary panes with a Viewer token (amends 0014) | 2026-10-29 |
 | [0018](0018-standing-slots-are-household-settings.md) | Standing slots are household settings, kept on the bus by a producer (amended by 0020) | 2026-10-29 |
-| [0019](0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md) | Panes are laid out on a 1920×1080 canvas at 2×, with a 30 px text floor; "band" names the screenful (amends 0009; amended by 0020) | 2026-10-29 |
+| [0019](0019-panes-on-a-1920x1080-canvas-with-a-30px-floor.md) | Panes are laid out on a 1920×1080 canvas at 2×, with a 30 px text floor; "band" names the screenful (amends 0009; amended by 0020, 0023) | 2026-10-29 |
 | [0020](0020-only-the-rubric-and-the-remote-change-the-wall.md) | Only the rubric and the remote change what the wall shows: a pane is one band, and the rubric ranks strictly with no rotation (amends 0014, 0016, 0018, 0019) | 2026-10-29 |
 | [0021](0021-a-public-read-only-github-token-on-pub.md) | The PRs and focus producers share a public-read-only GitHub token on pub, with a 90-day expiry and a fifth of the hour's budget (amends 0014) | 2026-11-04 |
 | [0022](0022-a-new-pane-is-renamed-into-the-bus-whole.md) | A new pane is built in `staging/` and renamed into `panes/` whole, so only one writer can create it; it leaves the same way (amends 0004) | 2026-11-04 |
+| [0023](0023-the-family-pane-fits-its-text-to-the-band.md) | The family pane wraps instead of cutting text and fits its type to the band, down to a 20 px floor (amends 0019 for `family-today`) | 2026-11-05 |
